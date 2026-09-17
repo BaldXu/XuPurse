@@ -95,14 +95,20 @@ final accountsProvider = StreamProvider<List<Account>>((ref) {
   return ref.watch(accountRepoProvider).watchAll();
 });
 
-/// 总资产流（fund + includeInAssets + enabled；外币账户按汇率折算到本位币）
+/// 总资产流（口径对齐 cent-xyx：fund 恒计入；debt/record 仅 includeInAssets
+/// 时计入；外币账户按汇率折算到本位币）
 final totalAssetsProvider = StreamProvider<int>((ref) {
   final base = ref.watch(baseCurrencyProvider).value ?? 'CNY';
   final rates = ref.watch(currencyServiceProvider);
   return ref.watch(accountRepoProvider).watchAll().map((accounts) {
     var total = 0;
     for (final a in accounts) {
-      if (a.category != 'fund' || !a.includeInAssets || !a.enabled) continue;
+      if (!a.enabled) continue;
+      final included =
+          a.category == 'fund' ||
+          ((a.category == 'debt' || a.category == 'record') &&
+              a.includeInAssets);
+      if (!included) continue;
       total += convertAmount(a.currentBalance, a.currency, base, rates);
     }
     return total;

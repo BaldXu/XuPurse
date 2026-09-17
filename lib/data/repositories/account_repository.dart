@@ -25,13 +25,14 @@ class AccountRepository {
     return query.get();
   }
 
-  /// 参与总资产统计的账户（fund 且 includeInAssets）
+  /// 参与总资产统计的账户（fund 恒计入；debt/record 仅 includeInAssets）
   Future<List<Account>> getAssetAccounts() =>
       (_db.select(_db.accounts)..where(
             (t) =>
-                t.category.equals('fund') &
-                t.includeInAssets.equals(true) &
-                t.enabled.equals(true),
+                t.enabled.equals(true) &
+                (t.category.equals('fund') |
+                    ((t.category.isIn(const ['debt', 'record'])) &
+                        t.includeInAssets.equals(true))),
           ))
           .get();
 
@@ -75,12 +76,13 @@ class AccountRepository {
         ),
       );
 
-  /// 总资产 = 全部 fund 账户余额之和（万分之元）
+  /// 总资产 = fund 恒计入 + includeInAssets 的 debt/record 账户余额之和（万分之元）
   Future<int> totalAssets() async {
     final row = await _db
         .customSelect(
           'SELECT COALESCE(SUM(current_balance), 0) AS s FROM accounts '
-          "WHERE category = 'fund' AND include_in_assets = 1 AND enabled = 1",
+          "WHERE enabled = 1 AND (category = 'fund' OR "
+          "(category IN ('debt', 'record') AND include_in_assets = 1))",
         )
         .getSingle();
     return row.data['s'] as int;

@@ -39,11 +39,13 @@ void main() {
     String name, {
     int initial = 0,
     String category = 'fund',
+    bool includeInAssets = true,
   }) => accountService.createAccount(
     name: name,
     category: AccountCategory.values.byName(category),
     type: AccountType.cash,
     initialBalance: initial,
+    includeInAssets: includeInAssets,
   );
 
   Future<Account> acc(String id) async => (await accountService.getById(id))!;
@@ -289,8 +291,24 @@ void main() {
 
     test('watchTotalAssets 只统计资产账户', () async {
       await newAcc('测试现金', initial: yuanToAmount(100));
+      // debt 默认 includeInAssets=true，计入总资产（口径对齐 cent-xyx）
       await newAcc('花呗', initial: yuanToAmount(999), category: 'debt');
-      expect(await accountService.watchTotalAssets().first, yuanToAmount(100));
+      expect(
+        await accountService.watchTotalAssets().first,
+        yuanToAmount(100) + yuanToAmount(999),
+      );
+
+      // 排除资产统计后不计入
+      await newAcc(
+        '白条',
+        initial: yuanToAmount(50),
+        category: 'debt',
+        includeInAssets: false,
+      );
+      expect(
+        await accountService.watchTotalAssets().first,
+        yuanToAmount(100) + yuanToAmount(999),
+      );
     });
   });
 

@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
 
@@ -321,6 +322,67 @@ void main() {
         db.bills,
       )..where((t) => t.accountId.equals('existing-alipay'))).get();
       expect(bills, isNotEmpty);
+      // 空账户合并：继承第三方权威余额（1000.50 元 = 10005000），初始余额 500 元
+      final merged = await (db.select(
+        db.accounts,
+      )..where((t) => t.id.equals('existing-alipay'))).getSingle();
+      expect(merged.currentBalance, 10005000);
+      expect(merged.initialBalance, 5000000);
+    });
+
+    test('同名合并：target 已有流水时叠加导入净变化', () async {
+      final mgr = DatabaseManager.inMemory();
+      await mgr.createBook(name: '测试账本');
+      final db = mgr.current;
+      await db.delete(db.accounts).go();
+      // 现有账户：初始 100 元，一笔 25.5 元支出 → 余额 74.5 元
+      await db
+          .into(db.accounts)
+          .insert(
+            AccountsCompanion.insert(
+              id: 'existing-alipay',
+              name: '支付宝',
+              category: 'fund',
+              type: 'alipay',
+              initialBalance: const Value(1000000),
+              currentBalance: const Value(745000),
+              createdAt: 1,
+              updatedAt: 1,
+            ),
+          );
+      final cats = await db.select(db.categories).get();
+      await db
+          .into(db.bills)
+          .insert(
+            BillsCompanion.insert(
+              id: 'b-local',
+              type: 'expense',
+              categoryId: cats.first.id,
+              amount: 255000,
+              accountId: const Value('existing-alipay'),
+              time: 1700000100000,
+              createdAt: 1700000100000,
+              updatedAt: 1700000100000,
+            ),
+          );
+      final service = ImportService(db);
+      final preview = await service.preview(
+        source: ImportSource.qianji,
+        bytes: _buildQianjiDb(),
+      );
+      final candidate = preview.mergeCandidates.firstWhere(
+        (c) => c.name == '支付宝',
+      );
+      await service.write(
+        preview,
+        mergeMap: {candidate.sourceId: candidate.targetId},
+      );
+      // 74.5 + (1000.50 - 500) = 575 元；初始余额保留本地值
+      final merged = await (db.select(
+        db.accounts,
+      )..where((t) => t.id.equals('existing-alipay'))).getSingle();
+      expect(merged.currentBalance, 5750000);
+      expect(merged.initialBalance, 1000000);
     });
   });
 

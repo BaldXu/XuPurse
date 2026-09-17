@@ -282,7 +282,8 @@ class _ImportPageState extends ConsumerState<ImportPage> {
             const SizedBox(height: 4),
             Text(
               '检测到与现有账户同名的账户。勾选后导入账单将归入现有账户，'
-              '且不会新增重复账户。',
+              '且不会新增重复账户；保留账户将继承导入数据的余额'
+              '（已有流水的账户则叠加导入账户的净变化）。',
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 8),
@@ -296,7 +297,7 @@ class _ImportPageState extends ConsumerState<ImportPage> {
                     _mergeSelections.remove(c.sourceId);
                   }
                 }),
-                title: Text('「${c.name}」合并到现有账户'),
+                title: Text('「${c.name}」合并到「${c.targetName ?? '现有账户'}」'),
                 controlAffinity: ListTileControlAffinity.leading,
                 dense: true,
               ),

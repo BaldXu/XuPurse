@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import '../../core/constants/enums.dart';
+import '../../core/utils/ids.dart';
 import '../database/app_database.dart';
 import 'db_reader.dart';
 import 'id_mapping.dart';
@@ -65,7 +66,9 @@ class ImportService {
     String? r(String? id) => id == null ? null : merge[id] ?? id;
 
     await _db.transaction(() async {
-      // 0. 合并账户：把被合并账户的第三方映射重定向到保留账户（幂等）
+      // 0. 合并账户：把被合并账户的第三方映射重定向到保留账户（幂等），
+      //    并记录 incoming 的第三方权威余额，供下方步骤 1.5 转给保留账户。
+      final inheritBalances = <String, ({int initial, int current})>{};
       for (final c in mapped.accounts) {
         final id = c.id.value;
         if (!mergedIncoming.contains(id)) continue;
@@ -77,12 +80,59 @@ class ImportService {
         if (srcId != null && target != null) {
           idMapper.overrideTargetSync('account', '$srcId', target);
         }
+        if (target != null) {
+          inheritBalances[id] = (
+            initial: c.initialBalance.present ? c.initialBalance.value : 0,
+            current: c.currentBalance.present ? c.currentBalance.value : 0,
+          );
+        }
       }
 
       // 1. 账户
       for (final c in mapped.accounts) {
         if (mergedIncoming.contains(c.id.value)) continue;
         created += await _upsert(_db.accounts, c, idMapper);
+      }
+
+      // 1.5 合并余额继承（必须在账单写入前判断 target 是否已有流水）：
+      //     导入不触发余额自动加减，incoming 的权威余额只存在于账户字段中，
+      //     若不转移，保留账户（如默认支付宝/微信）合并后余额仍为 0。
+      //     - target 无任何账单（空账户）：直接继承第三方权威余额（含初始余额）。
+      //     - target 已有账单：叠加 incoming 的净变化（current - initial），
+      //       初始余额不动；与手动调账配合可进一步校正。
+      for (final e in inheritBalances.entries) {
+        final targetId = merge[e.key]!;
+        final incoming = e.value;
+        final targetRow = await (_db.select(
+          _db.accounts,
+        )..where((t) => t.id.equals(targetId))).getSingleOrNull();
+        if (targetRow == null) continue;
+        final billCount = await _db
+            .customSelect(
+              'SELECT COUNT(*) AS c FROM bills '
+              'WHERE account_id = ? OR income_account_id = ?',
+              variables: [Variable(targetId), Variable(targetId)],
+            )
+            .getSingle();
+        final hasBills = (billCount.data['c'] as int) > 0;
+        await (_db.update(
+          _db.accounts,
+        )..where((t) => t.id.equals(targetId))).write(
+          hasBills
+              ? AccountsCompanion(
+                  currentBalance: Value(
+                    targetRow.currentBalance +
+                        incoming.current -
+                        incoming.initial,
+                  ),
+                  updatedAt: Value(nowMs()),
+                )
+              : AccountsCompanion(
+                  initialBalance: Value(incoming.initial),
+                  currentBalance: Value(incoming.current),
+                  updatedAt: Value(nowMs()),
+                ),
+        );
       }
 
       // 2. 分类
@@ -279,6 +329,7 @@ List<AccountMergeCandidate> _detectMergeCandidates(
         sourceId: c.id.value,
         targetId: target.id,
         name: name,
+        targetName: target.name,
         autoMerge: false,
       ),
     );

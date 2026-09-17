@@ -177,13 +177,16 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
                 ),
               ),
             ],
-            const SizedBox(height: 12),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('计入总资产'),
-              value: _includeInAssets,
-              onChanged: (v) => setState(() => _includeInAssets = v),
-            ),
+            // fund 账户恒计入总资产（口径对齐 cent-xyx），开关仅对 debt/record 有意义
+            if (_category != AccountCategory.fund) ...[
+              const SizedBox(height: 12),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('计入总资产'),
+                value: _includeInAssets,
+                onChanged: (v) => setState(() => _includeInAssets = v),
+              ),
+            ],
             const SizedBox(height: 12),
             TextField(
               controller: _remarkCtrl,
@@ -220,7 +223,9 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
             category: Value(_category.name),
             type: Value(_type.name),
             icon: Value(_icon),
-            includeInAssets: Value(_includeInAssets),
+            includeInAssets: Value(
+              _category == AccountCategory.fund ? true : _includeInAssets,
+            ),
             remark: Value(
               _remarkCtrl.text.trim().isEmpty ? null : _remarkCtrl.text.trim(),
             ),
@@ -234,7 +239,9 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
           type: _type,
           icon: _icon,
           initialBalance: initial,
-          includeInAssets: _includeInAssets,
+          includeInAssets: _category == AccountCategory.fund
+              ? true
+              : _includeInAssets,
           remark: _remarkCtrl.text.trim().isEmpty
               ? null
               : _remarkCtrl.text.trim(),

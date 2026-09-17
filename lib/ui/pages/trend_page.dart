@@ -39,9 +39,16 @@ class _TrendPageState extends ConsumerState<TrendPage> {
     final accounts = ref.watch(accountsProvider).value ?? const <Account>[];
     final total = ref.watch(totalAssetsProvider).value ?? 0;
 
-    // 资产账户口径与 watchTotalAssets 一致（fund；初版暂不折算外币）
+    // 资产账户口径与 watchTotalAssets / totalAssetsProvider 一致
+    // （fund 恒计入；debt/record 仅 includeInAssets；初版暂不折算外币）
     final assetIds = accounts
-        .where((a) => a.category == 'fund' && a.enabled)
+        .where(
+          (a) =>
+              a.enabled &&
+              (a.category == 'fund' ||
+                  ((a.category == 'debt' || a.category == 'record') &&
+                      a.includeInAssets)),
+        )
         .map((a) => a.id)
         .toSet();
 

@@ -35,11 +35,12 @@ class AccountService {
 
   Future<Account?> getById(String id) => _accounts.getById(id);
 
-  /// 总资产流（fund + includeInAssets + enabled；Phase 2 接入汇率折算）
+  /// 总资产流（口径对齐 cent-xyx：fund 恒计入；debt/record 仅 includeInAssets）
   Stream<int> watchTotalAssets() => _db
       .customSelect(
         'SELECT COALESCE(SUM(current_balance), 0) AS s FROM accounts '
-        "WHERE category = 'fund' AND include_in_assets = 1 AND enabled = 1",
+        "WHERE enabled = 1 AND (category = 'fund' OR "
+        "(category IN ('debt', 'record') AND include_in_assets = 1))",
         readsFrom: {_db.accounts},
       )
       .watchSingle()
@@ -156,14 +157,12 @@ class AccountService {
   Future<void> setCurrencies(List<String> ids, String currencyCode) async {
     if (ids.isEmpty) return;
     await _db.transaction(() async {
-      await (_db.update(_db.accounts)
-            ..where((t) => t.id.isIn(ids)))
-          .write(
-            AccountsCompanion(
-              currency: Value(currencyCode),
-              updatedAt: Value(nowMs()),
-            ),
-          );
+      await (_db.update(_db.accounts)..where((t) => t.id.isIn(ids))).write(
+        AccountsCompanion(
+          currency: Value(currencyCode),
+          updatedAt: Value(nowMs()),
+        ),
+      );
     });
   }
 

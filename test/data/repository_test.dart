@@ -36,6 +36,7 @@ void main() {
     String category = 'fund',
     String type = 'cash',
     int initialBalance = 0,
+    bool includeInAssets = true,
   }) async {
     final id = 'acc-${name.hashCode.abs()}';
     await accounts.insert(
@@ -46,6 +47,7 @@ void main() {
         type: type,
         initialBalance: Value(initialBalance),
         currentBalance: Value(initialBalance),
+        includeInAssets: Value(includeInAssets),
         createdAt: now,
         updatedAt: now,
       ),
@@ -122,7 +124,7 @@ void main() {
         type: 'credit',
         initialBalance: 20000,
       );
-      expect(await accounts.totalAssets(), 150000);
+      expect(await accounts.totalAssets(), 170000);
 
       // 排除资产统计的账户
       await accounts.update(
@@ -146,12 +148,17 @@ void main() {
       expect((await accounts.getAll()), hasLength(1));
     });
 
-    test('getAssetAccounts 排除 debt', () async {
+    test('getAssetAccounts 含 fund 与 includeInAssets 的 debt', () async {
       await insertAccount(name: '现金');
       await insertAccount(name: '花呗', category: 'debt', type: 'credit');
+      await insertAccount(
+        name: '白条',
+        category: 'debt',
+        type: 'credit',
+        includeInAssets: false,
+      );
       final assetAccounts = await accounts.getAssetAccounts();
-      expect(assetAccounts, hasLength(1));
-      expect(assetAccounts.single.name, '现金');
+      expect(assetAccounts.map((a) => a.name).toSet(), {'现金', '花呗'});
     });
   });
 

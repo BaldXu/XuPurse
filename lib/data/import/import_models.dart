@@ -77,6 +77,7 @@ class AccountMergeCandidate {
     required this.targetId,
     required this.name,
     required this.autoMerge,
+    this.targetName,
   });
 
   /// 被合并方（本次导入的新账户，写入时其引用替换为 target）
@@ -86,6 +87,9 @@ class AccountMergeCandidate {
   final String targetId;
 
   final String name;
+
+  /// 保留方账户名（用于 UI 展示合并方向）
+  final String? targetName;
 
   /// 时间范围不冲突时可自动合并，否则需用户确认
   final bool autoMerge;
