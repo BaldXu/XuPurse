@@ -10,6 +10,7 @@ import '../../state/providers.dart';
 import '../widgets/adjust_sheet.dart';
 import 'account_detail_page.dart';
 import 'account_form_sheet.dart';
+import 'account_manage_page.dart';
 
 /// 资产页：总资产卡 + 三类账户分组列表。
 class AccountsPage extends ConsumerWidget {
@@ -24,6 +25,14 @@ class AccountsPage extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('资产'),
         actions: [
+          IconButton(
+            tooltip: '账户管理',
+            icon: const Icon(Icons.manage_accounts_outlined),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AccountManagePage()),
+            ),
+          ),
           IconButton(
             tooltip: '新建账户',
             icon: const Icon(Icons.add),

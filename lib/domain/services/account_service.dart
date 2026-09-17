@@ -118,6 +118,133 @@ class AccountService {
     });
   }
 
+  /// 合并账户：把 [sourceIds] 全部并入 [targetId]（docs/algorithms.md 算法八）。
+  ///
+  /// - 所有账单 / 快照 / 转账 / 借贷 / 报销 / 分期中的账户引用替换为 target。
+  /// - 导入映射表（import_mappings）中指向被合并账户的记录重定向到 target，
+  ///   保证再次导入同一第三方文件不产生重复账户（幂等）。
+  /// - 可选 [newName]：合并后重命名 target。
+  /// - 单事务；被合并账户物理删除。
+  Future<void> mergeAccounts({
+    required String targetId,
+    required List<String> sourceIds,
+    String? newName,
+  }) async {
+    final ids = sourceIds.where((id) => id != targetId).toSet();
+    if (ids.isEmpty) return;
+
+    await _db.transaction(() async {
+      for (final sourceId in ids) {
+        await _redirectReferences(sourceId, targetId);
+      }
+      if (newName != null && newName.trim().isNotEmpty) {
+        await _accounts.update(
+          targetId,
+          AccountsCompanion(
+            name: Value(newName.trim()),
+            updatedAt: Value(nowMs()),
+          ),
+        );
+      }
+      for (final sourceId in ids) {
+        await _accounts.delete(sourceId);
+      }
+    });
+  }
+
+  /// 批量设置账户币种。
+  Future<void> setCurrencies(List<String> ids, String currencyCode) async {
+    if (ids.isEmpty) return;
+    await _db.transaction(() async {
+      await (_db.update(_db.accounts)
+            ..where((t) => t.id.isIn(ids)))
+          .write(
+            AccountsCompanion(
+              currency: Value(currencyCode),
+              updatedAt: Value(nowMs()),
+            ),
+          );
+    });
+  }
+
+  /// 把某账户的全部引用重定向到另一账户（合并内部步骤）。
+  Future<void> _redirectReferences(String fromId, String toId) async {
+    // 账单主账户 / 转入账户
+    await _db.customUpdate(
+      'UPDATE bills SET account_id = ? WHERE account_id = ?',
+      variables: [Variable(toId), Variable(fromId)],
+      updates: {_db.bills},
+      updateKind: UpdateKind.update,
+    );
+    await _db.customUpdate(
+      'UPDATE bills SET income_account_id = ? WHERE income_account_id = ?',
+      variables: [Variable(toId), Variable(fromId)],
+      updates: {_db.bills},
+      updateKind: UpdateKind.update,
+    );
+    // 快照
+    await _db.customUpdate(
+      'UPDATE balance_snapshots SET account_id = ? WHERE account_id = ?',
+      variables: [Variable(toId), Variable(fromId)],
+      updates: {_db.balanceSnapshots},
+      updateKind: UpdateKind.update,
+    );
+    // 转账扩展
+    await _db.customUpdate(
+      'UPDATE transfers SET from_account_id = ? WHERE from_account_id = ?',
+      variables: [Variable(toId), Variable(fromId)],
+      updates: {_db.transfers},
+      updateKind: UpdateKind.update,
+    );
+    await _db.customUpdate(
+      'UPDATE transfers SET to_account_id = ? WHERE to_account_id = ?',
+      variables: [Variable(toId), Variable(fromId)],
+      updates: {_db.transfers},
+      updateKind: UpdateKind.update,
+    );
+    // 借贷
+    await _db.customUpdate(
+      'UPDATE lends SET account_id = ? WHERE account_id = ?',
+      variables: [Variable(toId), Variable(fromId)],
+      updates: {_db.lends},
+      updateKind: UpdateKind.update,
+    );
+    await _db.customUpdate(
+      'UPDATE lends SET repayment_account_id = ? WHERE repayment_account_id = ?',
+      variables: [Variable(toId), Variable(fromId)],
+      updates: {_db.lends},
+      updateKind: UpdateKind.update,
+    );
+    // 报销
+    await _db.customUpdate(
+      'UPDATE reimbursements SET account_id = ? WHERE account_id = ?',
+      variables: [Variable(toId), Variable(fromId)],
+      updates: {_db.reimbursements},
+      updateKind: UpdateKind.update,
+    );
+    await _db.customUpdate(
+      'UPDATE reimbursements SET reimbursement_account_id = ? '
+      'WHERE reimbursement_account_id = ?',
+      variables: [Variable(toId), Variable(fromId)],
+      updates: {_db.reimbursements},
+      updateKind: UpdateKind.update,
+    );
+    // 分期
+    await _db.customUpdate(
+      'UPDATE instalments SET account_id = ? WHERE account_id = ?',
+      variables: [Variable(toId), Variable(fromId)],
+      updates: {_db.instalments},
+      updateKind: UpdateKind.update,
+    );
+    // 导入映射重定向（保证再次导入不产生重复账户）
+    await _db.customUpdate(
+      'UPDATE import_mappings SET target_id = ? WHERE target_id = ?',
+      variables: [Variable(toId), Variable(fromId)],
+      updates: {_db.importMappings},
+      updateKind: UpdateKind.update,
+    );
+  }
+
   /// 手动调账：把账户余额直接设为 [newBalance]（算法二）。
   ///
   /// 产生一笔调账账单（extra.isAdjustment=true）+ MANUAL 快照，流水完整可追溯。
