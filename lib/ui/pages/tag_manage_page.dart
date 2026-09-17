@@ -1,0 +1,259 @@
+import 'package:drift/drift.dart' show Value;
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/utils/ids.dart';
+import '../../data/database/app_database.dart';
+import '../../state/providers.dart';
+
+/// 标签管理页（列表 + 新增/编辑/删除）。
+class TagManagePage extends ConsumerWidget {
+  const TagManagePage({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tagsAsync = ref.watch(tagsProvider);
+    return Scaffold(
+      appBar: AppBar(title: const Text('标签管理')),
+      body: tagsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('加载失败：$e')),
+        data: (tags) {
+          if (tags.isEmpty) {
+            return const Center(child: Text('暂无标签，点击右下角新增'));
+          }
+          return ListView.builder(
+            itemCount: tags.length,
+            itemBuilder: (context, i) {
+              final tag = tags[i];
+              final colorHex = tag.color ?? '#4D3C77';
+              return ListTile(
+                leading: CircleAvatar(
+                  radius: 16,
+                  backgroundColor: _parseColor(
+                    colorHex,
+                  ).withValues(alpha: 0.15),
+                  child: Icon(
+                    Icons.label,
+                    size: 16,
+                    color: _parseColor(colorHex),
+                  ),
+                ),
+                title: Text(tag.name),
+                subtitle: Text(
+                  '排序 ${tag.sort}${tag.groupId != null ? ' · 分组' : ''}',
+                ),
+                trailing: const Icon(Icons.edit_outlined, size: 18),
+                onTap: () => _showForm(context, ref, tag),
+                onLongPress: () => _delete(context, ref, tag),
+              );
+            },
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showForm(context, ref, null),
+        icon: const Icon(Icons.add),
+        label: const Text('新增标签'),
+      ),
+    );
+  }
+
+  Future<void> _showForm(BuildContext context, WidgetRef ref, Tag? tag) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _TagFormSheet(tag: tag),
+    );
+  }
+
+  Future<void> _delete(BuildContext context, WidgetRef ref, Tag tag) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除标签'),
+        content: Text('确定删除「${tag.name}」？关联账单上的标签将同步移除。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && context.mounted) {
+      await ref.read(tagRepoProvider).delete(tag.id);
+    }
+  }
+}
+
+Color _parseColor(String color) {
+  final hex = color.replaceFirst('#', '');
+  final value = int.tryParse(hex, radix: 16) ?? 0x4D3C77;
+  return Color(0xFF000000 | value);
+}
+
+class _TagFormSheet extends ConsumerStatefulWidget {
+  const _TagFormSheet({this.tag});
+
+  final Tag? tag;
+
+  @override
+  ConsumerState<_TagFormSheet> createState() => _TagFormSheetState();
+}
+
+class _TagFormSheetState extends ConsumerState<_TagFormSheet> {
+  late final TextEditingController _nameCtrl;
+  String _color = '#4D3C77';
+  int _sort = 0;
+  bool _saving = false;
+
+  static const _palette = [
+    '#5470C6',
+    '#91CC75',
+    '#FAC858',
+    '#EE6666',
+    '#73C0DE',
+    '#3BA272',
+    '#EA7CCC',
+    '#9A60B4',
+    '#FC8452',
+    '#F472B6',
+    '#4D3C77',
+    '#FF0000',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController(text: widget.tag?.name ?? '');
+    _color = widget.tag?.color ?? '#4D3C77';
+    _sort = widget.tag?.sort ?? 0;
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.tag == null ? '新增标签' : '编辑标签',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _nameCtrl,
+              decoration: const InputDecoration(
+                labelText: '标签名称',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: '排序（数字越小越靠前）',
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (v) => _sort = int.tryParse(v) ?? 0,
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final hex in _palette)
+                  GestureDetector(
+                    onTap: () => setState(() => _color = hex),
+                    child: CircleAvatar(
+                      radius: 14,
+                      backgroundColor: _parseColor(hex),
+                      child: _color == hex
+                          ? const Icon(
+                              Icons.check,
+                              size: 16,
+                              color: Colors.white,
+                            )
+                          : null,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _saving ? null : _save,
+                child: Text(_saving ? '保存中…' : '保存'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _save() async {
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('标签名称不能为空')));
+      return;
+    }
+    setState(() => _saving = true);
+    final repo = ref.read(tagRepoProvider);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    try {
+      if (widget.tag == null) {
+        await repo.insert(
+          TagsCompanion.insert(
+            id: genId(),
+            name: name,
+            color: Value(_color),
+            groupId: const Value(null),
+            preferCurrency: const Value(null),
+            sort: Value(_sort),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+      } else {
+        await repo.update(
+          widget.tag!.id,
+          TagsCompanion(
+            name: Value(name),
+            color: Value(_color),
+            sort: Value(_sort),
+            updatedAt: Value(now),
+          ),
+        );
+      }
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('保存失败：$e')));
+    }
+  }
+}

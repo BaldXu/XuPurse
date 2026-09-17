@@ -47,13 +47,13 @@
 **目标**：三端工程跑通，全部数据表 + 迁移机制落地，Repository 可 CRUD。
 
 任务：
-- [ ] `flutter create` 三端工程（android / ios / web），配置 lint / format / pre-commit
-- [ ] 建立分层骨架：`core / data / domain / state / ui / l10n`
-- [ ] 接入 Riverpod、drift、intl、fl_chart、uuid、archive
-- [ ] 定义全部数据表（见 [data-model.md](./data-model.md)）+ MigrationStrategy
-- [ ] 账本工厂：每账本一个库（`book-<id>`），全局库存 `books`
-- [ ] Repository 基础 CRUD + 金额转换工具 + 领域异常体系
-- [ ] 单元测试：金额转换、表 DDL、账本创建/切换
+- [x] `flutter create` 三端工程（android / ios / web），配置 lint / format / pre-commit
+- [x] 建立分层骨架：`core / data / domain / state / ui / l10n`
+- [x] 接入 Riverpod、drift、intl、fl_chart、uuid、archive
+- [x] 定义全部数据表（见 [data-model.md](./data-model.md)）+ MigrationStrategy
+- [x] 账本工厂：每账本一个库（`book-<id>`），全局库存 `books`
+- [x] Repository 基础 CRUD + 金额转换工具 + 领域异常体系
+- [x] 单元测试：金额转换、表 DDL、账本创建/切换
 
 **验收**：`flutter analyze` 0 error；表结构单测通过；切账本数据隔离正确。
 
@@ -62,11 +62,11 @@
 **目标**：能完成「记账 → 转账 → 调账 → 看趋势」的完整闭环。
 
 任务：
-- [ ] 首页账单列表（分页 / 懒加载）
-- [ ] 记账弹窗：支出 / 收入 / 转账 + 金额键盘 + 二级分类 + 账户选择 + 默认账户
-- [ ] 余额联动与快照自动创建（[算法一](./algorithms.md)）
+- [x] 首页账单列表（分页 / 懒加载）
+- [x] 记账弹窗：支出 / 收入 / 转账 + 金额键盘 + 二级分类 + 账户选择 + 默认账户
+- [x] 余额联动与快照自动创建（[算法一](./algorithms.md)）
 - [ ] 账户管理：三类账户 CRUD、调账（[算法二](./algorithms.md)）、历史快照、账户合并、删除
-- [ ] 总资产 + 资产趋势图（[算法四/五](./algorithms.md)）
+- [x] 总资产 + 资产趋势图（[算法四/五](./algorithms.md)）
 - [ ] 单测 + 关键路径 widget 测试
 
 **验收**：记账/删除/修改后余额、快照、趋势三者一致；调账后不被重算覆盖。
@@ -74,9 +74,9 @@
 ### Phase 2 — 辅助数据与多币种
 
 任务：
-- [ ] 分类管理（两级、自定义、调账专用分类）
+- [x] 分类管理（两级、自定义、调账专用分类）
 - [ ] 标签管理（分组、preferCurrency）
-- [ ] 预算管理（卡片 + 表单 + 进度）
+- [x] 预算管理（卡片 + 表单 + 进度）
 - [ ] 多币种：本位币、内置汇率表、手动覆盖、账户币种、外币账单当时汇率
 
 **验收**：汇率换算公式单测（`convert = amount × rate[to] / rate[from]`）；外币总资产折算正确。
@@ -85,7 +85,7 @@
 
 任务：
 - [ ] 统计页：收支对比、分类占比、预算执行、趋势
-- [ ] 搜索：多条件筛选 + 模糊搜索 + 范围限定（全部/备注/标签/金额）
+- [x] 搜索：多条件筛选 + 模糊搜索 + 范围限定（全部/备注/标签/金额）
 - [ ] 搜索结果分析页（趋势 + 占比 + 词云）
 - [ ] 大数据量（10 万+ 账单）性能：分页、索引、isolate 统计
 
@@ -94,7 +94,7 @@
 ### Phase 4 — 特色业务（借贷/报销/退款/分期 + 完整转账）
 
 任务：
-- [ ] 转账完整：手续费、到账金额、跨币种转账
+- [x] 转账完整：手续费、到账金额、跨币种转账
 - [ ] 借贷管理 UI：借出 / 收回、利息、还款账户
 - [ ] 报销管理 UI：报销、结束、关联账单
 - [ ] 退款管理 UI
@@ -108,13 +108,13 @@
 **目标**：一木 / 昼虎 / 钱迹 `.db` 导入零丢失、重复导入幂等。
 
 任务：
-- [ ] 通用导入框架：`parse → map → diff → preview → write → mapping`
-- [ ] **一木** 解析 + 映射 + diff（accountbook/asset/category/bill/transfer/lend/budget/assethistory/refund/reimbursement/instalment）
-- [ ] **昼虎** 解析 + 映射 + diff（account_book/account/category/bill/account_change_log/budget）
-- [ ] **钱迹** 解析 + 映射 + diff（account_book/account/category/bill，含 extra 报销/退款/多币种）
-- [ ] 同名账户合并检测（[算法八](./algorithms.md)）
+- [x] 通用导入框架：`parse → map → diff → preview → write → mapping`
+- [x] **一木** 解析 + 映射 + diff（accountbook/asset/category/bill/transfer/lend/budget/assethistory/refund/reimbursement/instalment）
+- [x] **昼虎** 解析 + 映射 + diff（account_book/account/category/bill/account_change_log/budget）
+- [x] **钱迹** 解析 + 映射 + diff（account_book/account/category/bill，含 extra 报销/退款/多币种）
+- [x] 同名账户合并检测（[算法八](./algorithms.md)）
 - [ ] 预览弹窗 + 覆盖/增量模式
-- [ ] Web 端 WASM 加载 SQLite；原生端直接读 .db
+- [x] Web 端 WASM 加载 SQLite；原生端直接读 .db
 
 **验收**：
 - 用三家真实备份文件导入，**字段级对比无丢失**（账单数、金额、分类、标签、快照、业务实体全对齐）
