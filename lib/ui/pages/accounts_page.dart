@@ -11,6 +11,7 @@ import '../widgets/adjust_sheet.dart';
 import 'account_detail_page.dart';
 import 'account_form_sheet.dart';
 import 'account_manage_page.dart';
+import 'trend_page.dart';
 
 /// 资产页：总资产卡 + 三类账户分组列表。
 class AccountsPage extends ConsumerWidget {
@@ -64,6 +65,20 @@ class AccountsPage extends ConsumerWidget {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // 资产趋势入口
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.show_chart),
+              title: const Text('资产趋势'),
+              subtitle: const Text('总资产曲线与期间统计'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const TrendPage()),
               ),
             ),
           ),

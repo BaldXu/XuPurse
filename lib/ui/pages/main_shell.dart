@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import 'accounts_page.dart';
 import 'home_page.dart';
+import 'mine_page.dart';
 import 'statistics_page.dart';
-import 'trend_page.dart';
 
-/// 主导航壳：明细 / 资产 / 趋势 / 统计 四 tab（IndexedStack 保持各页状态）。
+/// 主导航壳：明细 / 资产 / 统计 / 我的 四 tab（IndexedStack 保持各页状态）。
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
 
@@ -19,8 +19,8 @@ class _MainShellState extends State<MainShell> {
   static const _pages = [
     HomePage(),
     AccountsPage(),
-    TrendPage(),
     StatisticsPage(),
+    MinePage(),
   ];
 
   @override
@@ -42,14 +42,14 @@ class _MainShellState extends State<MainShell> {
             label: '资产',
           ),
           NavigationDestination(
-            icon: Icon(Icons.show_chart_outlined),
-            selectedIcon: Icon(Icons.show_chart),
-            label: '趋势',
-          ),
-          NavigationDestination(
             icon: Icon(Icons.pie_chart_outline),
             selectedIcon: Icon(Icons.pie_chart),
             label: '统计',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: '我的',
           ),
         ],
       ),

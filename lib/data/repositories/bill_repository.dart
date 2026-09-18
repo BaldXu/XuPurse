@@ -146,28 +146,6 @@ class BillRepository {
     ];
   }
 
-  /// 时间段内按天汇总支出（统计页趋势图）。
-  Future<List<({int day, int amount})>> dailyExpenseInRange(
-    int start,
-    int end,
-  ) async {
-    final rows = await _db
-        .customSelect(
-          'SELECT (time / 86400000) AS day, SUM(amount) AS s FROM bills '
-          'WHERE type = ? AND time >= ? AND time < ? GROUP BY day ORDER BY day',
-          variables: [
-            Variable(BillType.expense.name),
-            Variable(start),
-            Variable(end),
-          ],
-        )
-        .get();
-    return [
-      for (final r in rows)
-        (day: r.data['day'] as int? ?? 0, amount: r.data['s'] as int? ?? 0),
-    ];
-  }
-
   // ---------- 标签关联 ----------
 
   /// 账单的全部标签 ID
@@ -181,9 +159,7 @@ class BillRepository {
   /// 全部账单-标签关联（分析页词云一次性取数，避免 N+1 查询）。
   Future<List<({String billId, String tagId})>> allBillTags() async {
     final rows = await (_db.select(_db.billTags)).get();
-    return [
-      for (final r in rows) (billId: r.billId, tagId: r.tagId),
-    ];
+    return [for (final r in rows) (billId: r.billId, tagId: r.tagId)];
   }
 
   /// 整体替换账单的标签关联

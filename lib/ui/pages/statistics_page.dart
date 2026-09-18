@@ -80,7 +80,10 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
                 categories: data.categories,
               ),
               const SizedBox(height: 16),
-              _DailyTrendCard(daily: data.daily, start: range.start),
+              _TrendCard(
+                title: _period == 2 ? '每月支出趋势' : '每周支出趋势',
+                points: data.trend,
+              ),
               const SizedBox(height: 16),
               _BudgetExecCard(start: range.start, end: range.end),
             ],
@@ -99,15 +102,44 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
       end,
       BillType.expense,
     );
-    final daily = await repo.dailyExpenseInRange(start, end);
     final categories = await ref.read(categoryRepoProvider).getAll();
+    // 趋势按粒度聚合（本地时区）：月份视图按周、年度视图按月
+    final bills = await repo.listByRange(start, end, type: BillType.expense);
+    final trend = _aggregateTrend(bills, byMonth: _period == 2);
     return _StatsData(
       expense: summary,
       income: income,
       categorySum: categorySum,
-      daily: daily,
+      trend: trend,
       categories: categories,
     );
+  }
+
+  /// 把区间内支出账单按周（周一起）或月聚合为趋势序列。
+  List<({String label, int amount})> _aggregateTrend(
+    List<Bill> bills, {
+    required bool byMonth,
+  }) {
+    final map = <int, int>{};
+    final labels = <int, String>{};
+    for (final b in bills) {
+      final dt = DateTime.fromMillisecondsSinceEpoch(b.time);
+      final int key;
+      final String label;
+      if (byMonth) {
+        key = DateTime(dt.year, dt.month).millisecondsSinceEpoch;
+        label = '${dt.month}月';
+      } else {
+        final weekStart = dt.subtract(Duration(days: dt.weekday - 1));
+        final ws = DateTime(weekStart.year, weekStart.month, weekStart.day);
+        key = ws.millisecondsSinceEpoch;
+        label = '${ws.month}/${ws.day}';
+      }
+      map[key] = (map[key] ?? 0) + b.amount;
+      labels[key] = label;
+    }
+    final keys = map.keys.toList()..sort();
+    return [for (final k in keys) (label: labels[k]!, amount: map[k]!)];
   }
 }
 
@@ -116,14 +148,16 @@ class _StatsData {
     required this.expense,
     required this.income,
     required this.categorySum,
-    required this.daily,
+    required this.trend,
     required this.categories,
   });
 
   final int expense;
   final int income;
   final List<({String categoryId, int amount})> categorySum;
-  final List<({int day, int amount})> daily;
+
+  /// 按粒度（周/月）聚合的支出趋势。
+  final List<({String label, int amount})> trend;
   final List<Category> categories;
 }
 
@@ -211,7 +245,7 @@ class _CategoryPieCard extends StatelessWidget {
       expense: 0,
       income: 0,
       categorySum: categorySum,
-      daily: const [],
+      trend: const [],
       categories: categories,
     );
     if (categorySum.isEmpty) {
@@ -456,15 +490,16 @@ class _BudgetExecRow extends StatelessWidget {
   }
 }
 
-class _DailyTrendCard extends StatelessWidget {
-  const _DailyTrendCard({required this.daily, required this.start});
+/// 支出趋势卡片（柱状图，按周/月粒度聚合）。
+class _TrendCard extends StatelessWidget {
+  const _TrendCard({required this.title, required this.points});
 
-  final List<({int day, int amount})> daily;
-  final int start;
+  final String title;
+  final List<({String label, int amount})> points;
 
   @override
   Widget build(BuildContext context) {
-    if (daily.isEmpty) {
+    if (points.isEmpty) {
       return const Card(
         child: Padding(
           padding: EdgeInsets.all(24),
@@ -472,17 +507,18 @@ class _DailyTrendCard extends StatelessWidget {
         ),
       );
     }
-    final byDay = {for (final d in daily) d.day: d.amount};
-    final days = (daily.last.day - daily.first.day + 1).clamp(1, 92);
-    final firstDay = daily.first.day;
-    final maxAmount = daily.fold<int>(0, (m, d) => d.amount > m ? d.amount : m);
+    final n = points.length;
+    final maxAmount = points.fold<int>(
+      0,
+      (m, p) => p.amount > m ? p.amount : m,
+    );
     final groups = <BarChartGroupData>[
-      for (var i = 0; i < days; i++)
+      for (var i = 0; i < n; i++)
         BarChartGroupData(
           x: i,
           barRods: [
             BarChartRodData(
-              toY: (byDay[firstDay + i] ?? 0) / (maxAmount > 0 ? maxAmount : 1),
+              toY: points[i].amount / (maxAmount > 0 ? maxAmount : 1),
               color: Theme.of(context).colorScheme.primary,
               width: 6,
             ),
@@ -495,7 +531,7 @@ class _DailyTrendCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('每日支出趋势', style: Theme.of(context).textTheme.titleSmall),
+            Text(title, style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 12),
             SizedBox(
               height: 160,
@@ -504,21 +540,32 @@ class _DailyTrendCard extends StatelessWidget {
                   barGroups: groups,
                   borderData: FlBorderData(show: false),
                   gridData: const FlGridData(show: false),
-                  titlesData: const FlTitlesData(
-                    leftTitles: AxisTitles(
+                  titlesData: FlTitlesData(
+                    leftTitles: const AxisTitles(
                       sideTitles: SideTitles(showTitles: false),
                     ),
-                    rightTitles: AxisTitles(
+                    rightTitles: const AxisTitles(
                       sideTitles: SideTitles(showTitles: false),
                     ),
-                    topTitles: AxisTitles(
+                    topTitles: const AxisTitles(
                       sideTitles: SideTitles(showTitles: false),
                     ),
                     bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
                         reservedSize: 24,
-                        interval: 7,
+                        interval: n > 8 ? (n / 6).ceilToDouble() : 1,
+                        getTitlesWidget: (v, _) {
+                          final i = v.toInt();
+                          if (i < 0 || i >= n) return const SizedBox();
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(
+                              points[i].label,
+                              style: Theme.of(context).textTheme.labelSmall,
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ),

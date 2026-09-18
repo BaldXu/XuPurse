@@ -6,13 +6,7 @@ import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
 import '../widgets/bill_tile.dart';
 import 'bookkeeping_sheet.dart';
-import 'budget_manage_page.dart';
-import 'category_manage_page.dart';
-import 'currency_settings_page.dart';
-import 'import_page.dart';
-import 'ledger_manage_page.dart';
 import 'search_page.dart';
-import 'tag_manage_page.dart';
 
 /// 首页：月汇总卡 + 账单流（按天分组、滚动懒加载、点按编辑、长按删除）。
 class HomePage extends ConsumerWidget {
@@ -35,54 +29,6 @@ class HomePage extends ConsumerWidget {
             onPressed: () => Navigator.of(
               context,
             ).push(MaterialPageRoute(builder: (_) => const SearchPage())),
-          ),
-          IconButton(
-            tooltip: '数据导入',
-            icon: const Icon(Icons.file_download_outlined),
-            onPressed: () => Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (_) => const ImportPage())),
-          ),
-          PopupMenuButton<String>(
-            tooltip: '更多',
-            onSelected: (v) => _openManage(context, v),
-            itemBuilder: (_) => const [
-              PopupMenuItem(
-                value: 'category',
-                child: ListTile(
-                  leading: Icon(Icons.category_outlined),
-                  title: Text('分类管理'),
-                ),
-              ),
-              PopupMenuItem(
-                value: 'tag',
-                child: ListTile(
-                  leading: Icon(Icons.label_outline),
-                  title: Text('标签管理'),
-                ),
-              ),
-              PopupMenuItem(
-                value: 'budget',
-                child: ListTile(
-                  leading: Icon(Icons.savings_outlined),
-                  title: Text('预算管理'),
-                ),
-              ),
-              PopupMenuItem(
-                value: 'ledger',
-                child: ListTile(
-                  leading: Icon(Icons.handshake_outlined),
-                  title: Text('业务记录'),
-                ),
-              ),
-              PopupMenuItem(
-                value: 'currency',
-                child: ListTile(
-                  leading: Icon(Icons.currency_exchange),
-                  title: Text('汇率设置'),
-                ),
-              ),
-            ],
           ),
         ],
       ),
@@ -185,21 +131,6 @@ class HomePage extends ConsumerWidget {
         child: const Icon(Icons.add),
       ),
     );
-  }
-
-  /// 打开管理页。
-  void _openManage(BuildContext context, String key) {
-    final page = switch (key) {
-      'category' => const CategoryManagePage(),
-      'tag' => const TagManagePage(),
-      'budget' => const BudgetManagePage(),
-      'currency' => const CurrencySettingsPage(),
-      'ledger' => const LedgerManagePage(),
-      _ => null,
-    };
-    if (page != null) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
-    }
   }
 
   Future<void> _confirmDelete(

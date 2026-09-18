@@ -4,12 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'data/database/database_manager.dart';
 import 'domain/services/currency_service.dart';
 import 'state/providers.dart';
+import 'state/theme_provider.dart';
 import 'ui/pages/main_shell.dart';
 import 'ui/theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await CurrencyService.init();
+  await ThemeNotifier.init();
 
   // 初始化数据库管理器：打开全局库 → 无账本则创建默认账本 → 打开第一个账本
   final manager = DatabaseManager();
@@ -28,15 +30,26 @@ Future<void> main() async {
   );
 }
 
-class XuPurseApp extends StatelessWidget {
+class XuPurseApp extends ConsumerWidget {
   const XuPurseApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.watch(currentThemeProvider);
     return MaterialApp(
       title: 'XuPurse',
-      theme: buildAppTheme(Brightness.light),
-      darkTheme: buildAppTheme(Brightness.dark),
+      theme: buildAppTheme(
+        Brightness.light,
+        theme.seedColor,
+        background: theme.background,
+        cardColor: theme.cardColor,
+      ),
+      darkTheme: buildAppTheme(
+        Brightness.dark,
+        theme.seedColor,
+        background: theme.background,
+        cardColor: theme.cardColor,
+      ),
       themeMode: ThemeMode.system,
       home: const MainShell(),
     );
