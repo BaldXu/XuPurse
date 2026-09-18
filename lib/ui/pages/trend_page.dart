@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/utils/amount.dart';
 import '../../data/database/app_database.dart';
+import '../../domain/services/trend_service.dart';
 import '../../state/providers.dart';
 
 /// 趋势页：总资产曲线（快照聚合，算法五）+ 期间统计。
@@ -58,9 +59,7 @@ class _TrendPageState extends ConsumerState<TrendPage> {
         actions: [
           SegmentedButton<_Range>(
             showSelectedIcon: false,
-            style: const ButtonStyle(
-              visualDensity: VisualDensity.compact,
-            ),
+            style: const ButtonStyle(visualDensity: VisualDensity.compact),
             segments: _Range.values
                 .map((r) => ButtonSegment(value: r, label: Text(r.label)))
                 .toList(),
@@ -74,20 +73,27 @@ class _TrendPageState extends ConsumerState<TrendPage> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('加载失败：$e')),
         data: (snaps) {
-          final cutoff = _range.days == null
+          // 窗口起点：近 30/90 天从当前时刻回退；「全部」从最早快照开始。
+          final start = _range.days == null
               ? null
               : DateTime.now()
-                      .subtract(Duration(days: _range.days!))
-                      .millisecondsSinceEpoch;
-          final relevant = snaps
-              .where((s) => assetIds.contains(s.accountId))
-              .where((s) => cutoff == null || s.timestamp >= cutoff)
-              .toList();
+                    .subtract(Duration(days: _range.days!))
+                    .millisecondsSinceEpoch;
+          final end = DateTime.now().millisecondsSinceEpoch;
+          // 算法五：不过滤窗口外快照（用于期初锚点），由 buildTrendPoints
+          // 内部取「start 之前最近一条」作为各账户期初值，避免近 30/90 天
+          // 期初被低估/缺失。
+          final points = buildTrendPoints(
+            snaps: snaps,
+            assetIds: assetIds,
+            accounts: accounts,
+            start: start,
+            end: end,
+          );
 
-          if (relevant.isEmpty) {
+          if (points.isEmpty) {
             return const _EmptyHint();
           }
-          final points = _buildTrend(relevant);
           final first = points.first.value;
           final last = points.last.value;
           final change = last - first;
@@ -107,10 +113,9 @@ class _TrendPageState extends ConsumerState<TrendPage> {
                 children: [
                   Text(
                     '¥ ${formatYuan(total)}',
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineMedium
-                        ?.copyWith(fontWeight: FontWeight.w700),
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Padding(
@@ -128,10 +133,7 @@ class _TrendPageState extends ConsumerState<TrendPage> {
                 ],
               ),
               const SizedBox(height: 16),
-              SizedBox(
-                height: 220,
-                child: _TrendChart(points: points),
-              ),
+              SizedBox(height: 220, child: _TrendChart(points: points)),
               const SizedBox(height: 16),
               Row(
                 children: [
@@ -160,55 +162,13 @@ class _TrendPageState extends ConsumerState<TrendPage> {
     );
   }
 
-  /// 算法五（初版简化）：按天聚合每账户「当天最后一条快照」余额求和。
-  List<_TrendPoint> _buildTrend(List<BalanceSnapshot> snaps) {
-    final byAccount = <String, List<BalanceSnapshot>>{};
-    for (final s in snaps) {
-      byAccount.putIfAbsent(s.accountId, () => []).add(s);
-    }
-    // 已按时间升序；收集全部天 key
-    final dayKeys = <int>{
-      for (final s in snaps)
-        _dayStart(s.timestamp),
-    }.toList()
-      ..sort();
-
-    final cursors = {for (final id in byAccount.keys) id: 0};
-    final points = <_TrendPoint>[];
-    for (final day in dayKeys) {
-      final dayEnd = day + 86400000;
-      var sum = 0;
-      for (final entry in byAccount.entries) {
-        final list = entry.value;
-        var i = cursors[entry.key]!;
-        while (i < list.length && list[i].timestamp < dayEnd) {
-          i++;
-        }
-        // list[i-1] 是 <= dayEnd 前的最后一条（i 是 first beyond）
-        cursors[entry.key] = i;
-        if (i > 0) sum += list[i - 1].balance;
-      }
-      points.add(_TrendPoint(day, sum));
-    }
-    return points;
-  }
-
-  static int _dayStart(int ms) {
-    final dt = DateTime.fromMillisecondsSinceEpoch(ms);
-    return DateTime(dt.year, dt.month, dt.day).millisecondsSinceEpoch;
-  }
-}
-
-class _TrendPoint {
-  const _TrendPoint(this.day, this.value);
-  final int day;
-  final int value;
+  /// 算法五：见 [buildTrendPoints]（期初锚点 + 无快照账户当前余额兜底）。
 }
 
 class _TrendChart extends StatelessWidget {
   const _TrendChart({required this.points});
 
-  final List<_TrendPoint> points;
+  final List<TrendPoint> points;
 
   @override
   Widget build(BuildContext context) {
@@ -233,8 +193,12 @@ class _TrendChart extends StatelessWidget {
           ),
         ),
         titlesData: FlTitlesData(
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          rightTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
@@ -333,11 +297,7 @@ class _TrendChart extends StatelessWidget {
 }
 
 class _StatCell extends StatelessWidget {
-  const _StatCell({
-    required this.label,
-    required this.value,
-    this.color,
-  });
+  const _StatCell({required this.label, required this.value, this.color});
 
   final String label;
   final String value;
@@ -379,10 +339,9 @@ class _EmptyHint extends StatelessWidget {
           Icon(
             Icons.show_chart,
             size: 56,
-            color: Theme.of(context)
-                .colorScheme
-                .onSurfaceVariant
-                .withValues(alpha: 0.4),
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
           ),
           const SizedBox(height: 12),
           const Text('暂无资产数据'),
