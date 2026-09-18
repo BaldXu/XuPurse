@@ -6,10 +6,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/enums.dart';
 import '../../core/utils/amount.dart';
 import '../../data/database/app_database.dart';
-import '../../data/repositories/budget_repository.dart';
 import '../../state/providers.dart';
 
-/// 统计页：收支对比 + 分类占比 + 每日支出趋势。
+/// 统计页：侧边栏分区（宽屏 NavigationRail / 窄屏横向 Tab）+ 日期范围下拉。
+///
+/// 分区：
+/// - 总览：收支汇总 KPI + 环比 + 日均
+/// - 分类：支出 / 收入分类占比
+/// - 趋势：支出趋势（粒度随范围自适应：日 → 周 → 月）
+/// - 预算：预算执行进度
+/// - 标签：标签支出 Top
+///
+/// 日期范围：本月 / 上月 / 本年 / 去年 / 最近一周 / 自定义（日历，
+/// 可选下界为最早账单时间，上界为今天），全部分区共用同一范围。
 class StatisticsPage extends ConsumerStatefulWidget {
   const StatisticsPage({super.key});
 
@@ -17,25 +26,143 @@ class StatisticsPage extends ConsumerStatefulWidget {
   ConsumerState<StatisticsPage> createState() => _StatisticsPageState();
 }
 
-class _StatisticsPageState extends ConsumerState<StatisticsPage> {
-  int _period = 0; // 0 本月 / 1 上月 / 2 本年
+/// 侧边栏分区。
+enum _Section {
+  overview('总览', Icons.grid_view_outlined, Icons.grid_view_rounded),
+  category('分类', Icons.pie_chart_outline, Icons.pie_chart),
+  trend('趋势', Icons.bar_chart_outlined, Icons.bar_chart),
+  budget('预算', Icons.savings_outlined, Icons.savings),
+  tag('标签', Icons.label_outline, Icons.label_rounded);
 
+  const _Section(this.label, this.icon, this.selectedIcon);
+
+  final String label;
+  final IconData icon;
+  final IconData selectedIcon;
+}
+
+/// 预设时间范围。
+enum _RangePreset {
+  thisMonth('本月'),
+  lastMonth('上月'),
+  thisYear('本年'),
+  lastYear('去年'),
+  lastWeek('最近一周'),
+  custom('自定义范围');
+
+  const _RangePreset(this.label);
+
+  final String label;
+}
+
+/// 趋势聚合粒度。
+enum _Granularity { day, week, month }
+
+String _fmtDate(DateTime d) =>
+    '${d.year}/${d.month.toString().padLeft(2, '0')}/${d.day.toString().padLeft(2, '0')}';
+
+class _StatisticsPageState extends ConsumerState<StatisticsPage> {
+  _Section _section = _Section.overview;
+  _RangePreset _preset = _RangePreset.thisMonth;
+  DateTimeRange? _customRange;
+
+  /// 最早账单时间（日历自定义范围的下界）；无账单时为 null。
+  DateTime? _earliest;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEarliest();
+  }
+
+  Future<void> _loadEarliest() async {
+    final t = await ref.read(billRepoProvider).minBillTime();
+    if (!mounted) return;
+    setState(() {
+      _earliest = t == null ? null : DateTime.fromMillisecondsSinceEpoch(t);
+    });
+  }
+
+  /// 当前生效范围 [start, end)（毫秒）。
   ({int start, int end}) get _range {
     final now = DateTime.now();
-    return switch (_period) {
-      0 => (
-        start: DateTime(now.year, now.month).millisecondsSinceEpoch,
-        end: DateTime(now.year, now.month + 1).millisecondsSinceEpoch,
-      ),
-      1 => (
-        start: DateTime(now.year, now.month - 1).millisecondsSinceEpoch,
-        end: DateTime(now.year, now.month).millisecondsSinceEpoch,
-      ),
-      _ => (
-        start: DateTime(now.year).millisecondsSinceEpoch,
-        end: DateTime(now.year + 1).millisecondsSinceEpoch,
-      ),
-    };
+    switch (_preset) {
+      case _RangePreset.thisMonth:
+        return (
+          start: DateTime(now.year, now.month).millisecondsSinceEpoch,
+          end: DateTime(now.year, now.month + 1).millisecondsSinceEpoch,
+        );
+      case _RangePreset.lastMonth:
+        return (
+          start: DateTime(now.year, now.month - 1).millisecondsSinceEpoch,
+          end: DateTime(now.year, now.month).millisecondsSinceEpoch,
+        );
+      case _RangePreset.thisYear:
+        return (
+          start: DateTime(now.year).millisecondsSinceEpoch,
+          end: DateTime(now.year + 1).millisecondsSinceEpoch,
+        );
+      case _RangePreset.lastYear:
+        return (
+          start: DateTime(now.year - 1).millisecondsSinceEpoch,
+          end: DateTime(now.year).millisecondsSinceEpoch,
+        );
+      case _RangePreset.lastWeek:
+        final today = DateTime(now.year, now.month, now.day);
+        return (
+          start: today.subtract(const Duration(days: 6)).millisecondsSinceEpoch,
+          end: today.add(const Duration(days: 1)).millisecondsSinceEpoch,
+        );
+      case _RangePreset.custom:
+        final r = _customRange;
+        if (r == null) {
+          // 理论不可达：custom 仅在日历选择后才会被设置。
+          return (
+            start: DateTime(now.year, now.month).millisecondsSinceEpoch,
+            end: DateTime(now.year, now.month + 1).millisecondsSinceEpoch,
+          );
+        }
+        return (
+          start: r.start.millisecondsSinceEpoch,
+          end: r.end.add(const Duration(days: 1)).millisecondsSinceEpoch,
+        );
+    }
+  }
+
+  /// 下拉按钮上显示的范围名。
+  String get _rangeLabel {
+    if (_preset != _RangePreset.custom) return _preset.label;
+    final r = _customRange;
+    if (r == null) return _RangePreset.custom.label;
+    return '${_fmtDate(r.start)} ~ ${_fmtDate(r.end)}';
+  }
+
+  /// 实际起止日期（用于范围说明小字）。
+  String get _rangeDetail {
+    final r = _range;
+    final s = DateTime.fromMillisecondsSinceEpoch(r.start);
+    final e = DateTime.fromMillisecondsSinceEpoch(
+      r.end,
+    ).subtract(const Duration(milliseconds: 1));
+    return '${_fmtDate(s)} ~ ${_fmtDate(e)}';
+  }
+
+  Future<void> _pickCustomRange() async {
+    final now = DateTime.now();
+    final first = _earliest ?? now.subtract(const Duration(days: 365 * 5));
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: first,
+      lastDate: now,
+      initialDateRange: _customRange,
+      helpText: '选择统计范围',
+      saveText: '确定',
+    );
+    if (picked == null) return;
+    setState(() {
+      _customRange = picked;
+      _preset = _RangePreset.custom;
+    });
   }
 
   @override
@@ -45,151 +172,377 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
       appBar: AppBar(
         title: const Text('统计'),
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(56),
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: SegmentedButton<int>(
-              segments: const [
-                ButtonSegment(value: 0, label: Text('本月')),
-                ButtonSegment(value: 1, label: Text('上月')),
-                ButtonSegment(value: 2, label: Text('本年')),
-              ],
-              selected: {_period},
-              onSelectionChanged: (s) => setState(() => _period = s.first),
-            ),
+          preferredSize: const Size.fromHeight(72),
+          child: Column(
+            children: [
+              _RangeDropdown(
+                label: _rangeLabel,
+                preset: _preset,
+                onPresetSelected: (p) {
+                  if (p == _RangePreset.custom) {
+                    _pickCustomRange();
+                  } else {
+                    setState(() => _preset = p);
+                  }
+                },
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  _rangeDetail,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
           ),
         ),
       ),
-      body: FutureBuilder<_StatsData>(
-        future: _load(range.start, range.end),
-        builder: (context, snap) {
-          if (snap.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snap.hasError) {
-            return Center(child: Text('加载失败：${snap.error}'));
-          }
-          final data = snap.data!;
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              _SummaryCard(expense: data.expense, income: data.income),
-              const SizedBox(height: 16),
-              _CategoryPieCard(
-                categorySum: data.categorySum,
-                categories: data.categories,
-              ),
-              const SizedBox(height: 16),
-              _TrendCard(
-                title: _period == 2 ? '每月支出趋势' : '每周支出趋势',
-                points: data.trend,
-              ),
-              const SizedBox(height: 16),
-              _BudgetExecCard(start: range.start, end: range.end),
-            ],
-          );
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final wide = constraints.maxWidth >= 640;
+          return wide ? _buildWide(range) : _buildNarrow(range);
         },
       ),
     );
   }
 
-  Future<_StatsData> _load(int start, int end) async {
-    final repo = ref.read(billRepoProvider);
-    final summary = await repo.sumByType(start, end, BillType.expense);
-    final income = await repo.sumByType(start, end, BillType.income);
-    final categorySum = await repo.sumByCategoryInRange(
-      start,
-      end,
-      BillType.expense,
-    );
-    final categories = await ref.read(categoryRepoProvider).getAll();
-    // 趋势按粒度聚合（本地时区）：月份视图按周、年度视图按月
-    final bills = await repo.listByRange(start, end, type: BillType.expense);
-    final trend = _aggregateTrend(bills, byMonth: _period == 2);
-    return _StatsData(
-      expense: summary,
-      income: income,
-      categorySum: categorySum,
-      trend: trend,
-      categories: categories,
+  /// 宽屏：左侧 NavigationRail 常驻。
+  Widget _buildWide(({int start, int end}) range) {
+    return Row(
+      children: [
+        NavigationRail(
+          selectedIndex: _section.index,
+          labelType: NavigationRailLabelType.all,
+          onDestinationSelected: (i) =>
+              setState(() => _section = _Section.values[i]),
+          destinations: [
+            for (final s in _Section.values)
+              NavigationRailDestination(
+                icon: Icon(s.icon),
+                selectedIcon: Icon(s.selectedIcon),
+                label: Text(s.label),
+              ),
+          ],
+        ),
+        const VerticalDivider(width: 1, thickness: 1),
+        Expanded(child: _buildSection(range)),
+      ],
     );
   }
 
-  /// 把区间内支出账单按周（周一起）或月聚合为趋势序列。
-  List<({String label, int amount})> _aggregateTrend(
-    List<Bill> bills, {
-    required bool byMonth,
-  }) {
-    final map = <int, int>{};
-    final labels = <int, String>{};
-    for (final b in bills) {
-      final dt = DateTime.fromMillisecondsSinceEpoch(b.time);
-      final int key;
-      final String label;
-      if (byMonth) {
-        key = DateTime(dt.year, dt.month).millisecondsSinceEpoch;
-        label = '${dt.month}月';
-      } else {
-        final weekStart = dt.subtract(Duration(days: dt.weekday - 1));
-        final ws = DateTime(weekStart.year, weekStart.month, weekStart.day);
-        key = ws.millisecondsSinceEpoch;
-        label = '${ws.month}/${ws.day}';
-      }
-      map[key] = (map[key] ?? 0) + b.amount;
-      labels[key] = label;
-    }
-    final keys = map.keys.toList()..sort();
-    return [for (final k in keys) (label: labels[k]!, amount: map[k]!)];
+  /// 窄屏：顶部横向滑动 Tab。
+  Widget _buildNarrow(({int start, int end}) range) {
+    return Column(
+      children: [
+        SizedBox(
+          height: 44,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            itemCount: _Section.values.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
+            itemBuilder: (context, i) {
+              final s = _Section.values[i];
+              final selected = i == _section.index;
+              return ChoiceChip(
+                label: Text(s.label),
+                selected: selected,
+                showCheckmark: false,
+                visualDensity: VisualDensity.compact,
+                onSelected: (_) => setState(() => _section = s),
+              );
+            },
+          ),
+        ),
+        Expanded(child: _buildSection(range)),
+      ],
+    );
+  }
+
+  /// 当前分区内容；用 ValueKey 保证切换范围后重新加载。
+  Widget _buildSection(({int start, int end}) range) {
+    final key = ValueKey('${_section.name}-${range.start}-${range.end}');
+    return switch (_section) {
+      _Section.overview => _OverviewSection(
+        key: key,
+        start: range.start,
+        end: range.end,
+      ),
+      _Section.category => _CategorySection(
+        key: key,
+        start: range.start,
+        end: range.end,
+      ),
+      _Section.trend => _TrendSection(
+        key: key,
+        start: range.start,
+        end: range.end,
+      ),
+      _Section.budget => _BudgetSection(
+        key: key,
+        start: range.start,
+        end: range.end,
+      ),
+      _Section.tag => _TagSection(key: key, start: range.start, end: range.end),
+    };
   }
 }
 
-class _StatsData {
-  const _StatsData({
+/// 日期范围下拉。
+class _RangeDropdown extends StatelessWidget {
+  const _RangeDropdown({
+    required this.label,
+    required this.preset,
+    required this.onPresetSelected,
+  });
+
+  final String label;
+  final _RangePreset preset;
+  final ValueChanged<_RangePreset> onPresetSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return PopupMenuButton<_RangePreset>(
+      onSelected: onPresetSelected,
+      tooltip: '选择时间范围',
+      position: PopupMenuPosition.under,
+      itemBuilder: (context) => [
+        for (final p in _RangePreset.values)
+          if (p == _RangePreset.custom)
+            const PopupMenuDivider()
+          else
+            PopupMenuItem(
+              value: p,
+              child: Row(
+                children: [
+                  if (preset == p)
+                    Icon(Icons.check, size: 18, color: scheme.primary),
+                  const SizedBox(width: 8),
+                  Text(p.label),
+                ],
+              ),
+            ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: _RangePreset.custom,
+          child: Row(
+            children: [
+              Icon(Icons.date_range_outlined, size: 18, color: scheme.primary),
+              const SizedBox(width: 8),
+              Text(_RangePreset.custom.label),
+            ],
+          ),
+        ),
+      ],
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.calendar_month_outlined,
+              size: 16,
+              color: scheme.primary,
+            ),
+            const SizedBox(width: 6),
+            Text(label, style: Theme.of(context).textTheme.labelMedium),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.arrow_drop_down,
+              size: 18,
+              color: scheme.onSurfaceVariant,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 趋势粒度：随范围天数自适应（≤14 天按日、≤62 天按周、其余按月）。
+_Granularity _granularityFor(int start, int end) {
+  final days = (end - start) / 86400000;
+  if (days <= 14) return _Granularity.day;
+  if (days <= 62) return _Granularity.week;
+  return _Granularity.month;
+}
+
+String _granularityLabel(_Granularity g) => switch (g) {
+  _Granularity.day => '每日支出趋势',
+  _Granularity.week => '每周支出趋势',
+  _Granularity.month => '每月支出趋势',
+};
+
+/// 把区间内支出账单按日/周/月聚合为趋势序列。
+List<({String label, int amount})> _aggregateTrend(
+  List<Bill> bills, {
+  required _Granularity granularity,
+}) {
+  final map = <int, int>{};
+  final labels = <int, String>{};
+  for (final b in bills) {
+    final dt = DateTime.fromMillisecondsSinceEpoch(b.time);
+    final int key;
+    final String label;
+    switch (granularity) {
+      case _Granularity.day:
+        key = DateTime(dt.year, dt.month, dt.day).millisecondsSinceEpoch;
+        label = '${dt.month}/${dt.day}';
+      case _Granularity.week:
+        final ws = dt.subtract(Duration(days: dt.weekday - 1));
+        final wk = DateTime(ws.year, ws.month, ws.day);
+        key = wk.millisecondsSinceEpoch;
+        label = '${wk.month}/${wk.day}';
+      case _Granularity.month:
+        key = DateTime(dt.year, dt.month).millisecondsSinceEpoch;
+        label = '${dt.month}月';
+    }
+    map[key] = (map[key] ?? 0) + b.amount;
+    labels[key] = label;
+  }
+  final keys = map.keys.toList()..sort();
+  return [for (final k in keys) (label: labels[k]!, amount: map[k]!)];
+}
+
+// ---------------------------------------------------------------------------
+// 总览分区
+// ---------------------------------------------------------------------------
+
+class _OverviewSection extends ConsumerStatefulWidget {
+  const _OverviewSection({super.key, required this.start, required this.end});
+
+  final int start;
+  final int end;
+
+  @override
+  ConsumerState<_OverviewSection> createState() => _OverviewSectionState();
+}
+
+class _OverviewData {
+  const _OverviewData({
     required this.expense,
     required this.income,
-    required this.categorySum,
-    required this.trend,
-    required this.categories,
+    required this.prevExpense,
+    required this.prevIncome,
+    required this.days,
   });
 
   final int expense;
   final int income;
-  final List<({String categoryId, int amount})> categorySum;
-
-  /// 按粒度（周/月）聚合的支出趋势。
-  final List<({String label, int amount})> trend;
-  final List<Category> categories;
+  final int prevExpense;
+  final int prevIncome;
+  final double days;
 }
 
-const _piePalette = [
-  Color(0xFF5470C6),
-  Color(0xFF91CC75),
-  Color(0xFFFAC858),
-  Color(0xFFEE6666),
-  Color(0xFF73C0DE),
-  Color(0xFF3BA272),
-  Color(0xFFEA7CCC),
-  Color(0xFF9A60B4),
-  Color(0xFFFC8452),
-  Color(0xFFF472B6),
-];
+class _OverviewSectionState extends ConsumerState<_OverviewSection> {
+  late Future<_OverviewData> _future;
 
-String _catName(_StatsData data, String id) {
-  for (final c in data.categories) {
-    if (c.id == id) return c.name;
+  @override
+  void initState() {
+    super.initState();
+    _future = _load();
   }
-  return '未知分类';
-}
 
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.expense, required this.income});
+  @override
+  void didUpdateWidget(covariant _OverviewSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.start != widget.start || oldWidget.end != widget.end) {
+      _future = _load();
+    }
+  }
 
-  final int expense;
-  final int income;
+  Future<_OverviewData> _load() async {
+    final repo = ref.read(billRepoProvider);
+    final expense = await repo.sumByType(
+      widget.start,
+      widget.end,
+      BillType.expense,
+    );
+    final income = await repo.sumByType(
+      widget.start,
+      widget.end,
+      BillType.income,
+    );
+    // 环比：与上一段等长区间对比
+    final span = widget.end - widget.start;
+    final prevExpense = await repo.sumByType(
+      widget.start - span,
+      widget.start,
+      BillType.expense,
+    );
+    final prevIncome = await repo.sumByType(
+      widget.start - span,
+      widget.start,
+      BillType.income,
+    );
+    return _OverviewData(
+      expense: expense,
+      income: income,
+      prevExpense: prevExpense,
+      prevIncome: prevIncome,
+      days: span / 86400000,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final balance = income - expense;
+    return FutureBuilder<_OverviewData>(
+      future: _future,
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snap.hasError) {
+          return Center(child: Text('加载失败：${snap.error}'));
+        }
+        final d = snap.data!;
+        final balance = d.income - d.expense;
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            _SummaryCard(
+              expense: d.expense,
+              income: d.income,
+              balance: balance,
+            ),
+            const SizedBox(height: 16),
+            _CompareCard(
+              expense: d.expense,
+              income: d.income,
+              prevExpense: d.prevExpense,
+              prevIncome: d.prevIncome,
+            ),
+            const SizedBox(height: 16),
+            _DailyCard(expense: d.expense, income: d.income, days: d.days),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _SummaryCard extends StatelessWidget {
+  const _SummaryCard({
+    required this.expense,
+    required this.income,
+    required this.balance,
+  });
+
+  final int expense;
+  final int income;
+  final int balance;
+
+  @override
+  Widget build(BuildContext context) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -233,26 +586,273 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
-class _CategoryPieCard extends StatelessWidget {
-  const _CategoryPieCard({required this.categorySum, required this.categories});
+/// 环比卡：本期 vs 上一段等长区间，展示涨跌幅。
+class _CompareCard extends StatelessWidget {
+  const _CompareCard({
+    required this.expense,
+    required this.income,
+    required this.prevExpense,
+    required this.prevIncome,
+  });
 
+  final int expense;
+  final int income;
+  final int prevExpense;
+  final int prevIncome;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('环比对比', style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 12),
+            _row(context, '支出', expense, prevExpense, upIsGood: false),
+            const SizedBox(height: 8),
+            _row(context, '收入', income, prevIncome, upIsGood: true),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _row(
+    BuildContext context,
+    String label,
+    int current,
+    int prev, {
+    required bool upIsGood,
+  }) {
+    final pct = prev > 0 ? (current - prev) / prev * 100 : null;
+    final (arrow, color) = pct == null
+        ? ('—', Theme.of(context).colorScheme.onSurfaceVariant)
+        : pct >= 0
+        ? (
+            upIsGood ? '↑' : '↑',
+            upIsGood ? Colors.green.shade600 : Colors.red.shade400,
+          )
+        : (
+            upIsGood ? '↓' : '↓',
+            upIsGood ? Colors.red.shade400 : Colors.green.shade600,
+          );
+    return Row(
+      children: [
+        SizedBox(
+          width: 40,
+          child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
+        ),
+        Expanded(
+          child: Text(
+            formatYuan(current),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
+        ),
+        Text(
+          pct == null
+              ? '上期 $label 无数据'
+              : '$arrow ${pct.abs().toStringAsFixed(1)}%',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: color),
+        ),
+      ],
+    );
+  }
+}
+
+/// 日均卡。
+class _DailyCard extends StatelessWidget {
+  const _DailyCard({
+    required this.expense,
+    required this.income,
+    required this.days,
+  });
+
+  final int expense;
+  final int income;
+  final double days;
+
+  @override
+  Widget build(BuildContext context) {
+    final d = days > 0 ? days : 1.0;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            _cell(context, '日均支出', formatYuan((expense / d).round())),
+            _cell(context, '日均收入', formatYuan((income / d).round())),
+            _cell(context, '统计天数', days.toStringAsFixed(0)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _cell(BuildContext context, String label, String value) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 分类分区
+// ---------------------------------------------------------------------------
+
+class _CategorySection extends ConsumerStatefulWidget {
+  const _CategorySection({super.key, required this.start, required this.end});
+
+  final int start;
+  final int end;
+
+  @override
+  ConsumerState<_CategorySection> createState() => _CategorySectionState();
+}
+
+class _CategorySectionState extends ConsumerState<_CategorySection> {
+  late Future<_CategoryData> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant _CategorySection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.start != widget.start || oldWidget.end != widget.end) {
+      _future = _load();
+    }
+  }
+
+  Future<_CategoryData> _load() async {
+    final repo = ref.read(billRepoProvider);
+    final expenseSum = await repo.sumByCategoryInRange(
+      widget.start,
+      widget.end,
+      BillType.expense,
+    );
+    final incomeSum = await repo.sumByCategoryInRange(
+      widget.start,
+      widget.end,
+      BillType.income,
+    );
+    final categories = await ref.read(categoryRepoProvider).getAll();
+    return _CategoryData(
+      expenseSum: expenseSum,
+      incomeSum: incomeSum,
+      categories: categories,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<_CategoryData>(
+      future: _future,
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snap.hasError) {
+          return Center(child: Text('加载失败：${snap.error}'));
+        }
+        final d = snap.data!;
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            _CategoryPieCard(
+              title: '支出分类占比',
+              emptyHint: '本时段暂无支出',
+              categorySum: d.expenseSum,
+              categories: d.categories,
+            ),
+            const SizedBox(height: 16),
+            _CategoryPieCard(
+              title: '收入分类占比',
+              emptyHint: '本时段暂无收入',
+              categorySum: d.incomeSum,
+              categories: d.categories,
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _CategoryData {
+  const _CategoryData({
+    required this.expenseSum,
+    required this.incomeSum,
+    required this.categories,
+  });
+
+  final List<({String categoryId, int amount})> expenseSum;
+  final List<({String categoryId, int amount})> incomeSum;
+  final List<Category> categories;
+}
+
+const _piePalette = [
+  Color(0xFF5470C6),
+  Color(0xFF91CC75),
+  Color(0xFFFAC858),
+  Color(0xFFEE6666),
+  Color(0xFF73C0DE),
+  Color(0xFF3BA272),
+  Color(0xFFEA7CCC),
+  Color(0xFF9A60B4),
+  Color(0xFFFC8452),
+  Color(0xFFF472B6),
+];
+
+String _catName(List<Category> categories, String id) {
+  for (final c in categories) {
+    if (c.id == id) return c.name;
+  }
+  return '未知分类';
+}
+
+class _CategoryPieCard extends StatelessWidget {
+  const _CategoryPieCard({
+    required this.title,
+    required this.emptyHint,
+    required this.categorySum,
+    required this.categories,
+  });
+
+  final String title;
+  final String emptyHint;
   final List<({String categoryId, int amount})> categorySum;
   final List<Category> categories;
 
   @override
   Widget build(BuildContext context) {
-    final data = _StatsData(
-      expense: 0,
-      income: 0,
-      categorySum: categorySum,
-      trend: const [],
-      categories: categories,
-    );
     if (categorySum.isEmpty) {
-      return const Card(
+      return Card(
         child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Center(child: Text('本时段暂无支出')),
+          padding: const EdgeInsets.all(24),
+          child: Center(child: Text(emptyHint)),
         ),
       );
     }
@@ -287,7 +887,7 @@ class _CategoryPieCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('支出分类占比', style: Theme.of(context).textTheme.titleSmall),
+            Text(title, style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -309,7 +909,7 @@ class _CategoryPieCard extends StatelessWidget {
                       for (var i = 0; i < top5.length; i++)
                         _legend(
                           _piePalette[i % _piePalette.length],
-                          _catName(data, top5[i].categoryId),
+                          _catName(categories, top5[i].categoryId),
                           '${formatYuan(top5[i].amount)}'
                           '（${(top5[i].amount / total * 100).toStringAsFixed(0)}%）',
                         ),
@@ -350,147 +950,82 @@ class _CategoryPieCard extends StatelessWidget {
   }
 }
 
-/// 预算执行单项（预算 + 当前区间内实际支出）。
-class _BudgetExec {
-  const _BudgetExec({required this.budget, required this.spent});
+// ---------------------------------------------------------------------------
+// 趋势分区
+// ---------------------------------------------------------------------------
 
-  final Budget budget;
-  final int spent;
-}
-
-/// 预算执行模块：统计「与当前时间范围重叠」的预算及其支出进度。
-class _BudgetExecCard extends ConsumerWidget {
-  const _BudgetExecCard({required this.start, required this.end});
+class _TrendSection extends ConsumerStatefulWidget {
+  const _TrendSection({super.key, required this.start, required this.end});
 
   final int start;
   final int end;
 
-  Future<List<_BudgetExec>> _load(AppDatabase db, BudgetRepository repo) async {
-    final budgets = await repo.getAll();
-    final result = <_BudgetExec>[];
-    for (final b in budgets) {
-      if (b.type != BillType.expense.name) continue;
-      final bStart = b.startTime;
-      if (bStart == null) continue;
-      final bEnd = b.endTime ?? bStart + 32 * 24 * 3600 * 1000;
-      if (!(bStart < end && bEnd > start)) continue; // 与当前区间重叠
-      final winStart = bStart > start ? bStart : start;
-      final winEnd = bEnd < end ? bEnd : end;
-      final rows = await db
-          .customSelect(
-            'SELECT COALESCE(SUM(amount), 0) AS s FROM bills '
-            'WHERE type = ? AND time >= ? AND time < ? '
-            '${b.categoryId != null ? 'AND category_id = ?' : ''}',
-            variables: [
-              Variable(BillType.expense.name),
-              Variable(winStart),
-              Variable(winEnd),
-              if (b.categoryId != null) Variable(b.categoryId),
-            ],
-          )
-          .get();
-      final spent = rows.first.data['s'] as int? ?? 0;
-      result.add(_BudgetExec(budget: b, spent: spent));
-    }
-    return result;
+  @override
+  ConsumerState<_TrendSection> createState() => _TrendSectionState();
+}
+
+class _TrendSectionState extends ConsumerState<_TrendSection> {
+  late Future<_TrendData> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _load();
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final db = ref.watch(dbProvider);
-    final repo = ref.watch(budgetRepoProvider);
-    return FutureBuilder<List<_BudgetExec>>(
-      future: _load(db, repo),
+  void didUpdateWidget(covariant _TrendSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.start != widget.start || oldWidget.end != widget.end) {
+      _future = _load();
+    }
+  }
+
+  Future<_TrendData> _load() async {
+    final bills = await ref
+        .read(billRepoProvider)
+        .listByRange(widget.start, widget.end, type: BillType.expense);
+    final granularity = _granularityFor(widget.start, widget.end);
+    return _TrendData(
+      granularity: granularity,
+      points: _aggregateTrend(bills, granularity: granularity),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<_TrendData>(
+      future: _future,
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
-          return const Card(
-            child: Padding(
-              padding: EdgeInsets.all(24),
-              child: Center(child: Text('预算执行计算中…')),
-            ),
-          );
+          return const Center(child: CircularProgressIndicator());
         }
-        final items = snap.data ?? const <_BudgetExec>[];
-        if (items.isEmpty) {
-          return const SizedBox.shrink();
+        if (snap.hasError) {
+          return Center(child: Text('加载失败：${snap.error}'));
         }
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('预算执行', style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: 12),
-                for (final item in items) _BudgetExecRow(item: item),
-              ],
+        final d = snap.data!;
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            _TrendCard(
+              title: _granularityLabel(d.granularity),
+              points: d.points,
             ),
-          ),
+          ],
         );
       },
     );
   }
 }
 
-class _BudgetExecRow extends StatelessWidget {
-  const _BudgetExecRow({required this.item});
+class _TrendData {
+  const _TrendData({required this.granularity, required this.points});
 
-  final _BudgetExec item;
-
-  @override
-  Widget build(BuildContext context) {
-    final b = item.budget;
-    final textTheme = Theme.of(context).textTheme;
-    final progress = b.amount <= 0
-        ? 0.0
-        : (item.spent / b.amount).clamp(0.0, 1.0);
-    final over = item.spent > b.amount;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  b.name.isEmpty ? '未命名预算' : b.name,
-                  style: textTheme.bodyMedium,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Text(
-                '${formatYuan(item.spent)} / ${formatYuan(b.amount)}'
-                '${b.amount > 0 ? '（${(progress * 100).toStringAsFixed(0)}%）' : ''}',
-                style: textTheme.bodySmall?.copyWith(
-                  color: over
-                      ? Theme.of(context).colorScheme.error
-                      : Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 6,
-              color: over
-                  ? Theme.of(context).colorScheme.error
-                  : Theme.of(context).colorScheme.primary,
-              backgroundColor: Theme.of(
-                context,
-              ).colorScheme.surfaceContainerHighest,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  final _Granularity granularity;
+  final List<({String label, int amount})> points;
 }
 
-/// 支出趋势卡片（柱状图，按周/月粒度聚合）。
+/// 支出趋势卡片（柱状图，按日/周/月粒度聚合）。
 class _TrendCard extends StatelessWidget {
   const _TrendCard({required this.title, required this.points});
 
@@ -582,6 +1117,344 @@ class _TrendCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 预算分区
+// ---------------------------------------------------------------------------
+
+/// 预算执行单项（预算 + 当前区间内实际支出）。
+class _BudgetExec {
+  const _BudgetExec({required this.budget, required this.spent});
+
+  final Budget budget;
+  final int spent;
+}
+
+class _BudgetSection extends ConsumerStatefulWidget {
+  const _BudgetSection({super.key, required this.start, required this.end});
+
+  final int start;
+  final int end;
+
+  @override
+  ConsumerState<_BudgetSection> createState() => _BudgetSectionState();
+}
+
+class _BudgetSectionState extends ConsumerState<_BudgetSection> {
+  late Future<List<_BudgetExec>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant _BudgetSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.start != widget.start || oldWidget.end != widget.end) {
+      _future = _load();
+    }
+  }
+
+  Future<List<_BudgetExec>> _load() async {
+    final db = ref.read(dbProvider);
+    final repo = ref.read(budgetRepoProvider);
+    final budgets = await repo.getAll();
+    final result = <_BudgetExec>[];
+    for (final b in budgets) {
+      if (b.type != BillType.expense.name) continue;
+      final bStart = b.startTime;
+      if (bStart == null) continue;
+      final bEnd = b.endTime ?? bStart + 32 * 24 * 3600 * 1000;
+      if (!(bStart < widget.end && bEnd > widget.start)) continue; // 与当前区间重叠
+      final winStart = bStart > widget.start ? bStart : widget.start;
+      final winEnd = bEnd < widget.end ? bEnd : widget.end;
+      final rows = await db
+          .customSelect(
+            'SELECT COALESCE(SUM(amount), 0) AS s FROM bills '
+            'WHERE type = ? AND time >= ? AND time < ? '
+            '${b.categoryId != null ? 'AND category_id = ?' : ''}',
+            variables: [
+              Variable(BillType.expense.name),
+              Variable(winStart),
+              Variable(winEnd),
+              if (b.categoryId != null) Variable(b.categoryId),
+            ],
+          )
+          .get();
+      final spent = rows.first.data['s'] as int? ?? 0;
+      result.add(_BudgetExec(budget: b, spent: spent));
+    }
+    return result;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<_BudgetExec>>(
+      future: _future,
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final items = snap.data ?? const <_BudgetExec>[];
+        if (items.isEmpty) {
+          return const Card(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: Text('本时段暂无预算')),
+            ),
+          );
+        }
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('预算执行', style: Theme.of(context).textTheme.titleSmall),
+                    const SizedBox(height: 12),
+                    for (final item in items) _BudgetExecRow(item: item),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _BudgetExecRow extends StatelessWidget {
+  const _BudgetExecRow({required this.item});
+
+  final _BudgetExec item;
+
+  @override
+  Widget build(BuildContext context) {
+    final b = item.budget;
+    final textTheme = Theme.of(context).textTheme;
+    final progress = b.amount <= 0
+        ? 0.0
+        : (item.spent / b.amount).clamp(0.0, 1.0);
+    final over = item.spent > b.amount;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  b.name.isEmpty ? '未命名预算' : b.name,
+                  style: textTheme.bodyMedium,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Text(
+                '${formatYuan(item.spent)} / ${formatYuan(b.amount)}'
+                '${b.amount > 0 ? '（${(progress * 100).toStringAsFixed(0)}%）' : ''}',
+                style: textTheme.bodySmall?.copyWith(
+                  color: over
+                      ? Theme.of(context).colorScheme.error
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 6,
+              color: over
+                  ? Theme.of(context).colorScheme.error
+                  : Theme.of(context).colorScheme.primary,
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHighest,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 标签分区
+// ---------------------------------------------------------------------------
+
+class _TagSection extends ConsumerStatefulWidget {
+  const _TagSection({super.key, required this.start, required this.end});
+
+  final int start;
+  final int end;
+
+  @override
+  ConsumerState<_TagSection> createState() => _TagSectionState();
+}
+
+class _TagData {
+  const _TagData({required this.sum, required this.tags});
+
+  final List<({String tagId, int amount})> sum;
+  final List<Tag> tags;
+}
+
+class _TagSectionState extends ConsumerState<_TagSection> {
+  late Future<_TagData> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TagSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.start != widget.start || oldWidget.end != widget.end) {
+      _future = _load();
+    }
+  }
+
+  Future<_TagData> _load() async {
+    final sum = await ref
+        .read(billRepoProvider)
+        .sumByTagInRange(widget.start, widget.end, BillType.expense);
+    final tags = await ref.read(tagRepoProvider).getAll();
+    return _TagData(sum: sum, tags: tags);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<_TagData>(
+      future: _future,
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snap.hasError) {
+          return Center(child: Text('加载失败：${snap.error}'));
+        }
+        final d = snap.data!;
+        if (d.sum.isEmpty) {
+          return const Card(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: Text('本时段暂无标签支出')),
+            ),
+          );
+        }
+        final total = d.sum.fold<int>(0, (s, e) => s + e.amount);
+        final sorted = [...d.sum]..sort((a, b) => b.amount.compareTo(a.amount));
+        final maxAmount = sorted.first.amount;
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '标签支出 Top',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 12),
+                    for (var i = 0; i < sorted.length; i++)
+                      _TagBar(
+                        color: _piePalette[i % _piePalette.length],
+                        name: _tagName(d.tags, sorted[i].tagId),
+                        amount: sorted[i].amount,
+                        total: total,
+                        ratio: maxAmount > 0 ? sorted[i].amount / maxAmount : 0,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _tagName(List<Tag> tags, String id) {
+    for (final t in tags) {
+      if (t.id == id) return t.name;
+    }
+    return '未知标签';
+  }
+}
+
+/// 横向条形图行：名称 + 占比条形 + 金额。
+class _TagBar extends StatelessWidget {
+  const _TagBar({
+    required this.color,
+    required this.name,
+    required this.amount,
+    required this.total,
+    required this.ratio,
+  });
+
+  final Color color;
+  final String name;
+  final int amount;
+  final int total;
+  final double ratio;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 64,
+            child: Text(
+              name,
+              style: const TextStyle(fontSize: 12),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: ratio.clamp(0.0, 1.0),
+                minHeight: 8,
+                color: color,
+                backgroundColor: theme.colorScheme.surfaceContainerHighest,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '${formatYuan(amount)}'
+            '（${total > 0 ? (amount / total * 100).toStringAsFixed(0) : 0}%）',
+            style: const TextStyle(fontSize: 11, color: Colors.grey),
+          ),
+        ],
       ),
     );
   }

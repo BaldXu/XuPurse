@@ -146,6 +146,38 @@ class BillRepository {
     ];
   }
 
+  /// 最早账单时间（毫秒）；无账单返回 null（统计页自定义范围的日历下界）。
+  Future<int?> minBillTime() async {
+    final row = await _db
+        .customSelect('SELECT MIN(time) AS t FROM bills')
+        .getSingle();
+    return row.data['t'] as int?;
+  }
+
+  /// 时间段内按标签汇总金额（统计页标签分区；不含转账）。
+  Future<List<({String tagId, int amount})>> sumByTagInRange(
+    int start,
+    int end,
+    BillType type,
+  ) async {
+    final rows = await _db
+        .customSelect(
+          'SELECT bt.tag_id AS tid, SUM(b.amount) AS s FROM bills b '
+          'JOIN bill_tags bt ON bt.bill_id = b.id '
+          'WHERE b.type = ? AND b.time >= ? AND b.time < ? '
+          'GROUP BY bt.tag_id',
+          variables: [Variable(type.name), Variable(start), Variable(end)],
+        )
+        .get();
+    return [
+      for (final r in rows)
+        (
+          tagId: r.data['tid'] as String? ?? '',
+          amount: r.data['s'] as int? ?? 0,
+        ),
+    ];
+  }
+
   // ---------- 标签关联 ----------
 
   /// 账单的全部标签 ID
