@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xupurse/data/database/app_database.dart';
 import 'package:xupurse/data/database/database_manager.dart';
+import 'package:xupurse/data/database/global_database.dart';
 import 'package:xupurse/data/seed/default_categories.dart';
 
 void main() {
@@ -70,6 +71,15 @@ void main() {
       expect(clothing.parentId, shopping.id);
       expect(shopping.parentId, isNull);
     });
+
+    test('updateBookBaseCurrency 修改本位币', () async {
+      final bookId = await manager.createBook(name: '本位币');
+      expect((await _bookOf(manager, bookId)).baseCurrency, 'CNY');
+
+      await manager.updateBookBaseCurrency(bookId, 'USD');
+
+      expect((await _bookOf(manager, bookId)).baseCurrency, 'USD');
+    });
   });
 
   group('多账本隔离', () {
@@ -138,4 +148,12 @@ void main() {
       expect(categories, isEmpty);
     });
   });
+}
+
+/// 取全局库中指定账本记录。
+Future<Book> _bookOf(DatabaseManager manager, String bookId) async {
+  final globalDb = await manager.global();
+  return (globalDb.select(
+    globalDb.books,
+  )..where((t) => t.id.equals(bookId))).getSingle();
 }

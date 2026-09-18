@@ -178,6 +178,14 @@ class BillRepository {
     return rows.map((r) => r.tagId).toList();
   }
 
+  /// 全部账单-标签关联（分析页词云一次性取数，避免 N+1 查询）。
+  Future<List<({String billId, String tagId})>> allBillTags() async {
+    final rows = await (_db.select(_db.billTags)).get();
+    return [
+      for (final r in rows) (billId: r.billId, tagId: r.tagId),
+    ];
+  }
+
   /// 整体替换账单的标签关联
   Future<void> setBillTags(String billId, List<String> tagIds) async {
     await _db.transaction(() async {

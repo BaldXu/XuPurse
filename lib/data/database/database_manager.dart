@@ -129,6 +129,16 @@ class DatabaseManager {
   /// 切换账本
   Future<AppDatabase> switchBook(String bookId) => openBook(bookId);
 
+  /// 修改账本本位币（全局库 books.base_currency）。
+  Future<void> updateBookBaseCurrency(String bookId, String code) async {
+    final globalDb = await global();
+    await (globalDb.update(
+      globalDb.books,
+    )..where((t) => t.id.equals(bookId))).write(
+      BooksCompanion(baseCurrency: Value(code), updatedAt: Value(nowMs())),
+    );
+  }
+
   /// 种子数据：默认分类 + 默认账户 + 默认标签分组（幂等，按 key 判断跳过）。
   Future<void> seedBook(AppDatabase db) async {
     final now = DateTime.now().millisecondsSinceEpoch;

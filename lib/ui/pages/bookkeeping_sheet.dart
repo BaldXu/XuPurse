@@ -7,6 +7,7 @@ import '../../core/utils/amount.dart';
 import '../../core/utils/app_colors.dart';
 import '../../core/utils/icons.dart';
 import '../../data/database/app_database.dart';
+import '../../domain/services/currency_service.dart';
 import '../../state/providers.dart';
 import '../widgets/bill_tile.dart' show kExpenseColor, kIncomeColor;
 
@@ -47,6 +48,10 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
   final _feeController = TextEditingController();
   DateTime _date = DateTime.now();
   final _commentController = TextEditingController();
+  final Set<String> _tagIds = {};
+
+  /// 记账币种（[CurrencyService.supportedCodes]；null = 跟随账户币种）。
+  String? _currencyCode;
 
   bool get _isEdit => widget.initialBill != null;
 
@@ -56,15 +61,42 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
     final bill = widget.initialBill;
     _type = bill == null ? BillType.expense : BillType.values.byName(bill.type);
     if (bill != null) {
-      _amountText = formatYuan(bill.amount);
+      // 外币账单编辑时显示原外币金额（保存时按当前汇率重新换算）
+      _amountText = bill.currencyCode != null && bill.currencyAmount != null
+          ? formatYuan(bill.currencyAmount!)
+          : formatYuan(bill.amount);
       _parentId = bill.categoryId;
       _accountId = bill.accountId;
       _incomeAccountId = bill.incomeAccountId;
       _commentController.text = bill.comment ?? '';
       _date = DateTime.fromMillisecondsSinceEpoch(bill.time);
+      _currencyCode = bill.currencyCode;
       if (bill.type == BillType.transfer.name) _loadTransferFee();
+      _loadTags();
     }
   }
+
+  /// 编辑模式：回填账单标签（避免保存时清空原标签）。
+  Future<void> _loadTags() async {
+    final bill = widget.initialBill;
+    if (bill == null) return;
+    final ids = await ref.read(billRepoProvider).tagIdsOf(bill.id);
+    if (mounted) setState(() => _tagIds.addAll(ids));
+  }
+
+  /// 当前账户币种（无账户或未命中按 CNY 兜底）。
+  String _accountCurrencyOf(String? id) {
+    final accounts =
+        ref.read(accountsProvider).valueOrNull ?? const <Account>[];
+    for (final a in accounts) {
+      if (a.id == id) return a.currency;
+    }
+    return 'CNY';
+  }
+
+  /// 记账币种（未显式选择时跟随账户币种）。
+  String get _effectiveCurrency =>
+      _currencyCode ?? _accountCurrencyOf(_accountId);
 
   /// 编辑转账账单时，从 Transfers 表回填手续费（避免编辑后丢失原手续费）。
   Future<void> _loadTransferFee() async {
@@ -135,8 +167,8 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
   // ---------- 保存 ----------
 
   Future<void> _save() async {
-    final amount = parseYuanInput(_amountText);
-    if (amount == null || amount <= 0) {
+    final amountInput = parseYuanInput(_amountText);
+    if (amountInput == null || amountInput <= 0) {
       _toast('请输入有效金额');
       return;
     }
@@ -167,12 +199,42 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
       DateTime.now().minute,
     ).millisecondsSinceEpoch;
 
-    // 转账手续费：到账金额 = 转出金额 - 手续费
+    // ---- 多币种：输入币种 → 账户币种换算 ----
+    final rates = ref.read(currencyServiceProvider);
+    final billCur = _effectiveCurrency;
+    final base = ref.read(baseCurrencyProvider).value ?? 'CNY';
+    var amount = amountInput;
     int? transferToAmount;
+    String? currencyCode;
+    int? currencyAmount;
     if (_type == BillType.transfer) {
+      final fromCur = _accountCurrencyOf(_accountId);
+      final toCur = _accountCurrencyOf(_incomeAccountId);
       final feeText = _feeController.text.trim();
-      final fee = feeText.isEmpty ? 0 : (parseYuanInput(feeText) ?? 0);
-      transferToAmount = (amount - fee).clamp(0, amount);
+      final feeInput = feeText.isEmpty ? 0 : (parseYuanInput(feeText) ?? 0);
+      // 转出金额与手续费先换算到转出账户币种，再换算到转入账户币种作为到账金额
+      final amountFrom = billCur == fromCur
+          ? amountInput
+          : convertAmount(amountInput, billCur, fromCur, rates);
+      final feeFrom = billCur == fromCur
+          ? feeInput
+          : convertAmount(feeInput, billCur, fromCur, rates);
+      final netFrom = (amountFrom - feeFrom).clamp(0, amountFrom);
+      amount = amountFrom;
+      transferToAmount = fromCur == toCur
+          ? netFrom
+          : convertAmount(netFrom, fromCur, toCur, rates);
+      if (billCur != fromCur) {
+        currencyCode = billCur;
+        currencyAmount = amountInput;
+      }
+    } else {
+      final fromCur = _accountCurrencyOf(_accountId);
+      if (billCur != fromCur) {
+        currencyCode = billCur;
+        currencyAmount = amountInput;
+        amount = convertAmount(amountInput, billCur, fromCur, rates);
+      }
     }
 
     try {
@@ -189,7 +251,11 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
           comment: _commentController.text.trim().isEmpty
               ? null
               : _commentController.text.trim(),
+          tagIds: _tagIds.toList(),
           transferToAmount: transferToAmount,
+          currencyCode: currencyCode,
+          currencyAmount: currencyAmount,
+          baseCurrency: currencyCode == null ? null : base,
         );
       } else {
         await billService.addBill(
@@ -202,7 +268,11 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
           comment: _commentController.text.trim().isEmpty
               ? null
               : _commentController.text.trim(),
+          tagIds: _tagIds.toList(),
           transferToAmount: transferToAmount,
+          currencyCode: currencyCode,
+          currencyAmount: currencyAmount,
+          baseCurrency: currencyCode == null ? null : base,
         );
       }
       if (mounted) Navigator.of(context).pop();
@@ -391,9 +461,10 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
     );
   }
 
-  /// 账户 + 备注 + 日期输入行
+  /// 账户 + 币种 + 标签 + 备注 + 日期输入行
   Widget _buildInputBar(ColorScheme scheme) {
     final accounts = ref.watch(accountsProvider).value ?? const <Account>[];
+    final tags = ref.watch(tagsProvider).valueOrNull ?? const <Tag>[];
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
       child: Column(
@@ -403,8 +474,18 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
               label: '账户',
               accounts: accounts,
               selectedId: _accountId,
-              onChanged: (id) => setState(() => _accountId = id),
+              onChanged: (id) => setState(() {
+                _accountId = id;
+                // 切换账户后回到跟随账户币种
+                if (_type != BillType.transfer) _currencyCode = null;
+              }),
             ),
+          const SizedBox(height: 6),
+          _buildCurrencyRow(),
+          if (tags.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            _buildTagRow(tags),
+          ],
           Row(
             children: [
               Expanded(
@@ -428,6 +509,87 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
     );
   }
 
+  /// 记账币种选择（null = 跟随账户币种）。
+  Widget _buildCurrencyRow() {
+    final accCur = _accountCurrencyOf(_accountId);
+    final selected = _effectiveCurrency;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '记账币种（账户 $accCur${selected == accCur ? '' : ' · 当前 $selected'}）',
+          style: Theme.of(context).textTheme.labelMedium,
+        ),
+        const SizedBox(height: 4),
+        SizedBox(
+          height: 36,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            children: [
+              for (final code in CurrencyService.supportedCodes)
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: ChoiceChip(
+                    label: Text(code),
+                    selected: selected == code,
+                    onSelected: (_) => setState(() {
+                      _currencyCode = code == accCur ? null : code;
+                    }),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 标签行（含 preferCurrency 的标签选中后自动切换记账币种）。
+  Widget _buildTagRow(List<Tag> tags) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('标签', style: Theme.of(context).textTheme.labelMedium),
+        const SizedBox(height: 4),
+        SizedBox(
+          height: 36,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            children: [
+              for (final tag in tags)
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: ChoiceChip(
+                    label: Text(
+                      tag.name,
+                      style: tag.preferCurrency != null
+                          ? TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            )
+                          : null,
+                    ),
+                    selected: _tagIds.contains(tag.id),
+                    onSelected: (v) => setState(() {
+                      if (v) {
+                        _tagIds.add(tag.id);
+                        if (tag.preferCurrency != null &&
+                            tag.preferCurrency!.isNotEmpty) {
+                          _currencyCode = tag.preferCurrency!;
+                        }
+                      } else {
+                        _tagIds.remove(tag.id);
+                      }
+                    }),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -442,6 +604,17 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
     final amountStyle = Theme.of(
       context,
     ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold);
+    final accCur = _accountCurrencyOf(_accountId);
+    final billCur = _effectiveCurrency;
+    final input = parseYuanInput(_amountText);
+    final converted = billCur != accCur && input != null
+        ? convertAmount(
+            input,
+            billCur,
+            accCur,
+            ref.read(currencyServiceProvider),
+          )
+        : null;
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       child: Column(
@@ -450,7 +623,10 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
             height: 48,
             child: Row(
               children: [
-                Text('¥', style: amountStyle?.copyWith(color: scheme.primary)),
+                Text(
+                  billCur == 'CNY' ? '¥' : billCur,
+                  style: amountStyle?.copyWith(color: scheme.primary),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Align(
@@ -466,6 +642,18 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
                   ),
                 ),
               ],
+            ),
+          ),
+          SizedBox(
+            height: 18,
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                converted == null ? '' : '≈ $accCur ${formatYuan(converted)}',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 6),

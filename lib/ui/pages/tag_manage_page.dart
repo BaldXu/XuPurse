@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/utils/ids.dart';
 import '../../data/database/app_database.dart';
+import '../../domain/services/currency_service.dart';
 import '../../state/providers.dart';
 
 /// 标签管理页（列表 + 新增/编辑/删除）。
@@ -110,6 +111,7 @@ class _TagFormSheetState extends ConsumerState<_TagFormSheet> {
   late final TextEditingController _nameCtrl;
   String _color = '#4D3C77';
   int _sort = 0;
+  String? _preferCurrency;
   bool _saving = false;
 
   static const _palette = [
@@ -133,6 +135,7 @@ class _TagFormSheetState extends ConsumerState<_TagFormSheet> {
     _nameCtrl = TextEditingController(text: widget.tag?.name ?? '');
     _color = widget.tag?.color ?? '#4D3C77';
     _sort = widget.tag?.sort ?? 0;
+    _preferCurrency = widget.tag?.preferCurrency;
   }
 
   @override
@@ -197,6 +200,24 @@ class _TagFormSheetState extends ConsumerState<_TagFormSheet> {
                   ),
               ],
             ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String?>(
+              key: ValueKey(_preferCurrency),
+              initialValue: _preferCurrency,
+              decoration: const InputDecoration(
+                labelText: '记账币种（可选；选中该标签记账时自动切换）',
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                const DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text('（不指定）'),
+                ),
+                for (final code in CurrencyService.supportedCodes)
+                  DropdownMenuItem<String?>(value: code, child: Text(code)),
+              ],
+              onChanged: (v) => setState(() => _preferCurrency = v),
+            ),
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
@@ -230,7 +251,7 @@ class _TagFormSheetState extends ConsumerState<_TagFormSheet> {
             name: name,
             color: Value(_color),
             groupId: const Value(null),
-            preferCurrency: const Value(null),
+            preferCurrency: Value(_preferCurrency),
             sort: Value(_sort),
             createdAt: now,
             updatedAt: now,
@@ -242,6 +263,7 @@ class _TagFormSheetState extends ConsumerState<_TagFormSheet> {
           TagsCompanion(
             name: Value(name),
             color: Value(_color),
+            preferCurrency: Value(_preferCurrency),
             sort: Value(_sort),
             updatedAt: Value(now),
           ),

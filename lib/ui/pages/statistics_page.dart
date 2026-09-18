@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Variable;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/enums.dart';
 import '../../core/utils/amount.dart';
 import '../../data/database/app_database.dart';
+import '../../data/repositories/budget_repository.dart';
 import '../../state/providers.dart';
 
 /// 统计页：收支对比 + 分类占比 + 每日支出趋势。
@@ -79,6 +81,8 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
               ),
               const SizedBox(height: 16),
               _DailyTrendCard(daily: data.daily, start: range.start),
+              const SizedBox(height: 16),
+              _BudgetExecCard(start: range.start, end: range.end),
             ],
           );
         },
@@ -306,6 +310,146 @@ class _CategoryPieCard extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(child: Text(name, style: const TextStyle(fontSize: 12))),
           Text(value, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+        ],
+      ),
+    );
+  }
+}
+
+/// 预算执行单项（预算 + 当前区间内实际支出）。
+class _BudgetExec {
+  const _BudgetExec({required this.budget, required this.spent});
+
+  final Budget budget;
+  final int spent;
+}
+
+/// 预算执行模块：统计「与当前时间范围重叠」的预算及其支出进度。
+class _BudgetExecCard extends ConsumerWidget {
+  const _BudgetExecCard({required this.start, required this.end});
+
+  final int start;
+  final int end;
+
+  Future<List<_BudgetExec>> _load(AppDatabase db, BudgetRepository repo) async {
+    final budgets = await repo.getAll();
+    final result = <_BudgetExec>[];
+    for (final b in budgets) {
+      if (b.type != BillType.expense.name) continue;
+      final bStart = b.startTime;
+      if (bStart == null) continue;
+      final bEnd = b.endTime ?? bStart + 32 * 24 * 3600 * 1000;
+      if (!(bStart < end && bEnd > start)) continue; // 与当前区间重叠
+      final winStart = bStart > start ? bStart : start;
+      final winEnd = bEnd < end ? bEnd : end;
+      final rows = await db
+          .customSelect(
+            'SELECT COALESCE(SUM(amount), 0) AS s FROM bills '
+            'WHERE type = ? AND time >= ? AND time < ? '
+            '${b.categoryId != null ? 'AND category_id = ?' : ''}',
+            variables: [
+              Variable(BillType.expense.name),
+              Variable(winStart),
+              Variable(winEnd),
+              if (b.categoryId != null) Variable(b.categoryId),
+            ],
+          )
+          .get();
+      final spent = rows.first.data['s'] as int? ?? 0;
+      result.add(_BudgetExec(budget: b, spent: spent));
+    }
+    return result;
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final db = ref.watch(dbProvider);
+    final repo = ref.watch(budgetRepoProvider);
+    return FutureBuilder<List<_BudgetExec>>(
+      future: _load(db, repo),
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return const Card(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: Text('预算执行计算中…')),
+            ),
+          );
+        }
+        final items = snap.data ?? const <_BudgetExec>[];
+        if (items.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('预算执行', style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 12),
+                for (final item in items) _BudgetExecRow(item: item),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _BudgetExecRow extends StatelessWidget {
+  const _BudgetExecRow({required this.item});
+
+  final _BudgetExec item;
+
+  @override
+  Widget build(BuildContext context) {
+    final b = item.budget;
+    final textTheme = Theme.of(context).textTheme;
+    final progress = b.amount <= 0
+        ? 0.0
+        : (item.spent / b.amount).clamp(0.0, 1.0);
+    final over = item.spent > b.amount;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  b.name.isEmpty ? '未命名预算' : b.name,
+                  style: textTheme.bodyMedium,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Text(
+                '${formatYuan(item.spent)} / ${formatYuan(b.amount)}'
+                '${b.amount > 0 ? '（${(progress * 100).toStringAsFixed(0)}%）' : ''}',
+                style: textTheme.bodySmall?.copyWith(
+                  color: over
+                      ? Theme.of(context).colorScheme.error
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 6,
+              color: over
+                  ? Theme.of(context).colorScheme.error
+                  : Theme.of(context).colorScheme.primary,
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHighest,
+            ),
+          ),
         ],
       ),
     );

@@ -344,4 +344,28 @@ class AccountService {
       );
     });
   }
+
+  /// 手动添加历史快照（模块 2.4「历史快照」）：在指定时间点记录该账户的余额，
+  /// 供趋势图回溯。**不改变当前余额**，仅新增一条 type=HISTORICAL 快照。
+  Future<void> addHistoricalSnapshot({
+    required String accountId,
+    required int balance,
+    required int timestamp,
+    String? note,
+  }) async {
+    final account = await _accounts.getById(accountId);
+    if (account == null) {
+      throw NotFoundException('账户不存在: $accountId');
+    }
+    await _snapshots.insert(
+      BalanceSnapshotsCompanion.insert(
+        id: genId(),
+        accountId: accountId,
+        balance: balance,
+        timestamp: timestamp,
+        type: SnapshotType.historical,
+        note: Value(note),
+      ),
+    );
+  }
 }

@@ -137,6 +137,9 @@ class BillService {
     List<String>? tagIds,
     BillExtra? extra,
     int? transferToAmount,
+    String? currencyCode,
+    int? currencyAmount,
+    String? baseCurrency,
   }) async {
     final old = await _bills.getById(id);
     if (old == null) throw NotFoundException('账单不存在: $id');
@@ -184,6 +187,9 @@ class BillService {
           incomeAccountId: Value(newIncomeAccountId),
           time: Value(newTime),
           comment: Value(comment ?? old.comment),
+          currencyCode: Value(currencyCode ?? old.currencyCode),
+          currencyAmount: Value(currencyAmount ?? old.currencyAmount),
+          baseCurrency: Value(baseCurrency ?? old.baseCurrency),
           extra: Value(extra?.encode() ?? old.extra),
           updatedAt: Value(nowMs()),
         ),

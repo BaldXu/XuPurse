@@ -1,3 +1,4 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -24,6 +25,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   int _range = 0; // 0 全部 / 1 本月 / 2 上月
   String? _minAmountText;
   String? _maxAmountText;
+  bool _showAnalysis = false; // false 列表 / true 分析
 
   @override
   void dispose() {
@@ -197,9 +199,6 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           if (b.type == BillType.expense.name) expense += b.amount;
           if (b.type == BillType.income.name) income += b.amount;
         }
-        if (filtered.isEmpty) {
-          return const Center(child: Text('没有符合条件的账单'));
-        }
         return Column(
           children: [
             Padding(
@@ -220,21 +219,48 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 ],
               ),
             ),
-            const Divider(height: 1),
-            Expanded(
-              child: ListView.builder(
-                itemCount: filtered.length,
-                itemBuilder: (context, i) {
-                  final bill = filtered[i];
-                  return BillTile(
-                    bill: bill,
-                    onTap: () => BookkeepingSheet.show(context, bill: bill),
-                    onLongPress: () => _delete(context, bill),
-                  );
-                },
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: SegmentedButton<bool>(
+                  showSelectedIcon: false,
+                  style: const ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  segments: const [
+                    ButtonSegment(value: false, label: Text('列表')),
+                    ButtonSegment(value: true, label: Text('分析')),
+                  ],
+                  selected: {_showAnalysis},
+                  onSelectionChanged: (s) =>
+                      setState(() => _showAnalysis = s.first),
+                ),
               ),
             ),
+            const Divider(height: 1),
+            Expanded(
+              child: filtered.isEmpty
+                  ? const Center(child: Text('没有符合条件的账单'))
+                  : _showAnalysis
+                  ? _AnalysisView(bills: filtered, categories: categories)
+                  : _buildBillList(filtered),
+            ),
           ],
+        );
+      },
+    );
+  }
+
+  Widget _buildBillList(List<Bill> filtered) {
+    return ListView.builder(
+      itemCount: filtered.length,
+      itemBuilder: (context, i) {
+        final bill = filtered[i];
+        return BillTile(
+          bill: bill,
+          onTap: () => BookkeepingSheet.show(context, bill: bill),
+          onLongPress: () => _delete(context, bill),
         );
       },
     );
@@ -313,3 +339,389 @@ final _allBillsProvider = FutureProvider<List<Bill>>((ref) {
   ref.watch(_revisionProvider);
   return ref.watch(billRepoProvider).getAll();
 });
+
+// ---------- 搜索结果分析视图 ----------
+
+enum _FocusType { expense, income, balance }
+
+/// 搜索结果分析：趋势（收入/支出/结余）+ 分类占比 + 标签词云。
+class _AnalysisView extends ConsumerStatefulWidget {
+  const _AnalysisView({required this.bills, required this.categories});
+
+  final List<Bill> bills;
+  final List<Category> categories;
+
+  @override
+  ConsumerState<_AnalysisView> createState() => _AnalysisViewState();
+}
+
+class _AnalysisViewState extends ConsumerState<_AnalysisView> {
+  _FocusType _focus = _FocusType.expense;
+  bool _byMonth = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final series = _trendSeries(widget.bills, _focus, _byMonth);
+    final cats = _categorySums(widget.bills, _focus);
+    final tags = ref.watch(tagsProvider).valueOrNull ?? const <Tag>[];
+    return FutureBuilder<List<({String billId, String tagId})>>(
+      future: ref.read(billRepoProvider).allBillTags(),
+      builder: (context, snap) {
+        final billTags = snap.data ?? const <({String billId, String tagId})>[];
+        final tagCounts = _tagCounts(widget.bills, billTags);
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            SegmentedButton<_FocusType>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(value: _FocusType.expense, label: Text('支出')),
+                ButtonSegment(value: _FocusType.income, label: Text('收入')),
+                ButtonSegment(value: _FocusType.balance, label: Text('结余')),
+              ],
+              selected: {_focus},
+              onSelectionChanged: (s) => setState(() => _focus = s.first),
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: SegmentedButton<bool>(
+                showSelectedIcon: false,
+                style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                segments: const [
+                  ButtonSegment(value: false, label: Text('按天')),
+                  ButtonSegment(value: true, label: Text('按月')),
+                ],
+                selected: {_byMonth},
+                onSelectionChanged: (s) => setState(() => _byMonth = s.first),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text('趋势', style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 180,
+              child: series.isEmpty
+                  ? const Center(child: Text('暂无趋势数据'))
+                  : _TrendLine(points: series, byMonth: _byMonth),
+            ),
+            if (_focus != _FocusType.balance) ...[
+              const SizedBox(height: 16),
+              Text('分类占比', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 140,
+                child: _FocusPie(sums: cats, categories: widget.categories),
+              ),
+            ],
+            const SizedBox(height: 16),
+            Text('标签词云', style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 8),
+            _TagCloud(counts: tagCounts, tags: tags),
+            const SizedBox(height: 32),
+          ],
+        );
+      },
+    );
+  }
+
+  /// 按天/按月聚合趋势序列（时间升序）。
+  List<({int time, int value})> _trendSeries(
+    List<Bill> bills,
+    _FocusType focus,
+    bool byMonth,
+  ) {
+    final map = <int, int>{};
+    for (final b in bills) {
+      final isExpense = b.type == BillType.expense.name;
+      final isIncome = b.type == BillType.income.name;
+      if (!isExpense && !isIncome) continue;
+      final dt = DateTime.fromMillisecondsSinceEpoch(b.time);
+      final key = byMonth
+          ? DateTime(dt.year, dt.month).millisecondsSinceEpoch
+          : DateTime(dt.year, dt.month, dt.day).millisecondsSinceEpoch;
+      final delta = switch (focus) {
+        _FocusType.expense => isExpense ? b.amount : 0,
+        _FocusType.income => isIncome ? b.amount : 0,
+        _FocusType.balance =>
+          (isIncome ? b.amount : 0) - (isExpense ? b.amount : 0),
+      };
+      map[key] = (map[key] ?? 0) + delta;
+    }
+    final keys = map.keys.toList()..sort();
+    return [for (final k in keys) (time: k, value: map[k]!)];
+  }
+
+  List<({String categoryId, int amount})> _categorySums(
+    List<Bill> bills,
+    _FocusType focus,
+  ) {
+    if (focus == _FocusType.balance) return const [];
+    final target = focus == _FocusType.expense
+        ? BillType.expense.name
+        : BillType.income.name;
+    final map = <String, int>{};
+    for (final b in bills) {
+      if (b.type != target) continue;
+      map[b.categoryId] = (map[b.categoryId] ?? 0) + b.amount;
+    }
+    return [for (final e in map.entries) (categoryId: e.key, amount: e.value)];
+  }
+
+  /// 过滤后账单中每个标签出现的次数。
+  Map<String, int> _tagCounts(
+    List<Bill> bills,
+    List<({String billId, String tagId})> billTags,
+  ) {
+    final billIds = bills.map((b) => b.id).toSet();
+    final counts = <String, int>{};
+    for (final rel in billTags) {
+      if (!billIds.contains(rel.billId)) continue;
+      counts[rel.tagId] = (counts[rel.tagId] ?? 0) + 1;
+    }
+    return counts;
+  }
+}
+
+/// 趋势折线（fl_chart）。
+class _TrendLine extends StatelessWidget {
+  const _TrendLine({required this.points, required this.byMonth});
+
+  final List<({int time, int value})> points;
+  final bool byMonth;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final spots = [
+      for (var i = 0; i < points.length; i++)
+        FlSpot(i.toDouble(), points[i].value / 10000),
+    ];
+    return LineChart(
+      LineChartData(
+        minX: 0,
+        maxX: (points.length - 1).toDouble().clamp(1, double.infinity),
+        gridData: const FlGridData(show: true, drawVerticalLine: false),
+        titlesData: FlTitlesData(
+          topTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          rightTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 44,
+              getTitlesWidget: (v, _) => Text(
+                _compact(v),
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
+            ),
+          ),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 22,
+              interval: points.length > 6
+                  ? (points.length / 5).ceilToDouble()
+                  : 1,
+              getTitlesWidget: (v, _) {
+                final i = v.toInt();
+                if (i < 0 || i >= points.length) return const SizedBox();
+                return Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    _xLabel(points[i].time, byMonth),
+                    style: Theme.of(context).textTheme.labelSmall,
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        borderData: FlBorderData(show: false),
+        lineBarsData: [
+          LineChartBarData(
+            spots: spots,
+            isCurved: true,
+            color: colorScheme.primary,
+            barWidth: 2,
+            dotData: const FlDotData(show: false),
+            belowBarData: BarAreaData(
+              show: true,
+              color: colorScheme.primary.withValues(alpha: 0.08),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _compact(double v) {
+    if (v.abs() >= 10000) return '${(v / 10000).toStringAsFixed(1)}w';
+    if (v.abs() >= 1000) return '${(v / 1000).toStringAsFixed(1)}k';
+    return v.toStringAsFixed(0);
+  }
+
+  static String _xLabel(int ms, bool byMonth) {
+    final dt = DateTime.fromMillisecondsSinceEpoch(ms);
+    if (byMonth) return '${dt.year}-${dt.month.toString().padLeft(2, '0')}';
+    return '${dt.month}/${dt.day}';
+  }
+}
+
+/// 分类占比饼图。
+class _FocusPie extends StatelessWidget {
+  const _FocusPie({required this.sums, required this.categories});
+
+  final List<({String categoryId, int amount})> sums;
+  final List<Category> categories;
+
+  static const _palette = [
+    Color(0xFF5470C6),
+    Color(0xFF91CC75),
+    Color(0xFFFAC858),
+    Color(0xFFEE6666),
+    Color(0xFF73C0DE),
+    Color(0xFF3BA272),
+    Color(0xFFEA7CCC),
+    Color(0xFF9A60B4),
+    Color(0xFFFC8452),
+    Color(0xFFF472B6),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final sorted = [...sums]..sort((a, b) => b.amount.compareTo(a.amount));
+    final total = sorted.fold<int>(0, (s, e) => s + e.amount);
+    if (total == 0) return const Center(child: Text('暂无数据'));
+    final top5 = sorted.take(5).toList();
+    final other = total - top5.fold<int>(0, (s, e) => s + e.amount);
+    String name(String id) {
+      for (final c in categories) {
+        if (c.id == id) return c.name;
+      }
+      return '未知分类';
+    }
+
+    return Row(
+      children: [
+        SizedBox(
+          width: 130,
+          height: 130,
+          child: PieChart(
+            PieChartData(
+              sectionsSpace: 2,
+              centerSpaceRadius: 26,
+              sections: [
+                for (var i = 0; i < top5.length; i++)
+                  PieChartSectionData(
+                    value: top5[i].amount.toDouble(),
+                    color: _palette[i % _palette.length],
+                    radius: 44,
+                    title:
+                        '${(top5[i].amount / total * 100).toStringAsFixed(0)}%',
+                    titleStyle: const TextStyle(
+                      fontSize: 9,
+                      color: Colors.white,
+                    ),
+                  ),
+                if (other > 0)
+                  PieChartSectionData(
+                    value: other.toDouble(),
+                    color: _palette[5],
+                    radius: 44,
+                    title: '${(other / total * 100).toStringAsFixed(0)}%',
+                    titleStyle: const TextStyle(
+                      fontSize: 9,
+                      color: Colors.white,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              for (var i = 0; i < top5.length; i++)
+                _legend(
+                  _palette[i % _palette.length],
+                  name(top5[i].categoryId),
+                  formatYuan(top5[i].amount),
+                ),
+              if (other > 0) _legend(_palette[5], '其他', formatYuan(other)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _legend(Color color, String name, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              name,
+              style: const TextStyle(fontSize: 11),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Text(value, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+        ],
+      ),
+    );
+  }
+}
+
+/// 标签词云：出现次数越多字号越大。
+class _TagCloud extends StatelessWidget {
+  const _TagCloud({required this.counts, required this.tags});
+
+  final Map<String, int> counts;
+  final List<Tag> tags;
+
+  @override
+  Widget build(BuildContext context) {
+    final tagName = {for (final t in tags) t.id: t.name};
+    final entries = counts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    if (entries.isEmpty) {
+      return Text(
+        '筛选结果中没有带标签的账单',
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      );
+    }
+    final maxCount = entries.first.value;
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final e in entries)
+          Chip(
+            label: Text(
+              '${tagName[e.key] ?? e.key}（${e.value}）',
+              style: TextStyle(
+                fontSize: 10 + (e.value / maxCount * 8).clamp(0, 8),
+              ),
+            ),
+            visualDensity: VisualDensity.compact,
+          ),
+      ],
+    );
+  }
+}

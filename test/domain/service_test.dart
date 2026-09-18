@@ -9,6 +9,7 @@ import 'package:xupurse/data/repositories/bill_repository.dart';
 import 'package:xupurse/data/repositories/snapshot_repository.dart';
 import 'package:xupurse/domain/services/account_service.dart';
 import 'package:xupurse/domain/services/bill_service.dart';
+import 'package:xupurse/domain/services/currency_service.dart';
 
 void main() {
   late DatabaseManager manager;
@@ -354,6 +355,100 @@ void main() {
 
       // 重算 = initial(10) - 30 + 100 = 80；调账(-900 效果)与导入账单跳过
       expect((await acc(accId)).currentBalance, yuanToAmount(80));
+    });
+  });
+
+  group('AccountService.addHistoricalSnapshot 历史快照', () {
+    test('新增 HISTORICAL 快照，不改变当前余额', () async {
+      final accId = await newAcc('测试现金', initial: yuanToAmount(100));
+      await accountService.addHistoricalSnapshot(
+        accountId: accId,
+        balance: yuanToAmount(66.6),
+        timestamp: 1700000000000,
+        note: '月末对账',
+      );
+
+      // 当前余额不变（历史快照只是记录，不参与余额）
+      expect((await acc(accId)).currentBalance, yuanToAmount(100));
+      final snaps = await snapshots.listByAccount(accId, validOnly: false);
+      expect(snaps, hasLength(1));
+      expect(snaps.single.type, SnapshotType.historical);
+      expect(snaps.single.balance, yuanToAmount(66.6));
+      expect(snaps.single.timestamp, 1700000000000);
+      expect(snaps.single.note, '月末对账');
+      expect(snaps.single.billId, isNull);
+    });
+
+    test('账户不存在抛错', () async {
+      expect(
+        () => accountService.addHistoricalSnapshot(
+          accountId: 'no-such',
+          balance: 100,
+          timestamp: 1,
+        ),
+        throwsA(isA<NotFoundException>()),
+      );
+    });
+  });
+
+  group('多币种账单（外币记账）', () {
+    Future<String> foodCat() async => (await db.select(db.categories).get())
+        .firstWhere((c) => c.seedKey == 'food')
+        .id;
+
+    test('外币支出：amount 为账户币种换算值，余额按换算值变动，币种字段落库', () async {
+      final accId = await newAcc('CNY现金', initial: yuanToAmount(100));
+      final converted = convertAmount(
+        yuanToAmount(100),
+        'USD',
+        'CNY',
+        CurrencyService.builtinRates,
+      );
+
+      await billService.addBill(
+        type: BillType.expense,
+        categoryId: await foodCat(),
+        amount: converted,
+        accountId: accId,
+        time: now,
+        currencyCode: 'USD',
+        currencyAmount: yuanToAmount(100),
+        baseCurrency: 'CNY',
+      );
+
+      // 余额按换算后的账户币种金额变动（100 元 - 100 USD≈720 元）
+      expect((await acc(accId)).currentBalance, yuanToAmount(100) - converted);
+      final bill = (await billRepo.getAll()).single;
+      expect(bill.currencyCode, 'USD');
+      expect(bill.currencyAmount, yuanToAmount(100));
+      expect(bill.baseCurrency, 'CNY');
+    });
+
+    test('updateBill 保留币种字段', () async {
+      final accId = await newAcc('CNY现金', initial: yuanToAmount(100));
+      final converted = convertAmount(
+        yuanToAmount(50),
+        'USD',
+        'CNY',
+        CurrencyService.builtinRates,
+      );
+      final billId = await billService.addBill(
+        type: BillType.expense,
+        categoryId: await foodCat(),
+        amount: converted,
+        accountId: accId,
+        time: now,
+        currencyCode: 'USD',
+        currencyAmount: yuanToAmount(50),
+        baseCurrency: 'CNY',
+      );
+
+      await billService.updateBill(billId, comment: '改备注不改币种');
+
+      final bill = (await billRepo.getAll()).single;
+      expect(bill.comment, '改备注不改币种');
+      expect(bill.currencyCode, 'USD');
+      expect(bill.currencyAmount, yuanToAmount(50));
     });
   });
 }

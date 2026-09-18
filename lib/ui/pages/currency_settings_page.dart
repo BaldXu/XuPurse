@@ -20,12 +20,64 @@ class CurrencySettingsPage extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.all(16),
             child: Text(
-              '汇率为 1 单位外币折合本位币（CNY）的数量。修改后总资产将按新汇率折算。',
+              '本位币为总资产折算的目标币种；汇率为 1 单位外币折合本位币（CNY）的数量。'
+              '修改后总资产将按新汇率折算。',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '本位币',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 8),
+                    ref.watch(baseCurrencyProvider).when(
+                      loading: () => const LinearProgressIndicator(),
+                      error: (e, _) => Text('加载失败：$e'),
+                      data: (base) => DropdownButtonFormField<String>(
+                        key: ValueKey(base),
+                        initialValue: base,
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        items: [
+                          for (final code in CurrencyService.supportedCodes)
+                            DropdownMenuItem<String>(
+                              value: code,
+                              child: Text(code),
+                            ),
+                        ],
+                        onChanged: (v) async {
+                          if (v == null || v == base) return;
+                          final mgr = ref.read(databaseManagerProvider);
+                          final bookId = mgr.currentBookId;
+                          if (bookId == null || !context.mounted) return;
+                          await mgr.updateBookBaseCurrency(bookId, v);
+                          ref.invalidate(baseCurrencyProvider);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('本位币已切换为 $v')),
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
           for (final code in CurrencyService.supportedCodes)
             ListTile(
               leading: CircleAvatar(
