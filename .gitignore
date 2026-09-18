@@ -43,3 +43,19 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# 敏感资源（防误提交：签名/密钥/证书/数据库）
+*.env
+*.env.*
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+*.cer
+*.crt
+android/key.properties
+*.db
+*.sqlite
+*.sqlite3
