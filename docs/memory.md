@@ -30,7 +30,7 @@ XuPurse —— 用 Flutter 从 0 重写 cent-xyx 的记账软件（三端 Web / 
 
 ## 3. 最近一次改动（本次会话）
 
-**统计页重构**：[lib/ui/pages/statistics_page.dart](lib/ui/pages/statistics_page.dart)
+**A. 统计页重构**：[lib/ui/pages/statistics_page.dart](lib/ui/pages/statistics_page.dart)
 
 用户反馈原统计页太简易，重构为「侧边栏分区 + 日期范围下拉」：
 
@@ -52,6 +52,11 @@ XuPurse —— 用 Flutter 从 0 重写 cent-xyx 的记账软件（三端 Web / 
 - `sumByTagInRange(start, end, type)`：JOIN bill_tags 按标签汇总金额
 
 **验证状态**：`flutter analyze` 0 问题；`flutter test` 91 个用例全过。
+
+**B. 搜索偏少 Bug 修复**：[lib/ui/pages/search_page.dart](lib/ui/pages/search_page.dart)
+- 现象：首页明细右上角搜索关键词（如「碧蓝航线」）结果明显偏少
+- 根因：关键词只匹配备注 + 叶子分类名；**标签完全没参与搜索**，父分类名也不匹配
+- 修复：关键词同时匹配 备注 / 叶子分类名 / 父分类名 / 标签名；新增 `_allBillTagsProvider`（revision 联动）一次性取账单-标签关联
 
 ## 4. 下一步待办（按优先级）
 

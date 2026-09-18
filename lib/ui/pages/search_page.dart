@@ -188,65 +188,89 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   };
 
   Widget _buildResults(List<Category> categories) {
+    final tags = ref.watch(tagsProvider).valueOrNull ?? const <Tag>[];
+    final billTagsAsync = ref.watch(_allBillTagsProvider);
     final allAsync = ref.watch(_allBillsProvider);
-    return allAsync.when(
+    return billTagsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('加载失败：$e')),
-      data: (all) {
-        final filtered = _filter(all, categories);
-        var expense = 0, income = 0;
-        for (final b in filtered) {
-          if (b.type == BillType.expense.name) expense += b.amount;
-          if (b.type == BillType.income.name) income += b.amount;
+      data: (billTags) {
+        final tagNameById = {for (final t in tags) t.id: t.name};
+        final billTagIds = <String, Set<String>>{};
+        for (final rel in billTags) {
+          billTagIds.putIfAbsent(rel.billId, () => <String>{}).add(rel.tagId);
         }
-        return Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  Text(
-                    '共 ${filtered.length} 笔',
-                    style: Theme.of(context).textTheme.labelMedium,
+        return allAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('加载失败：$e')),
+          data: (all) {
+            final filtered = _filter(
+              all,
+              categories,
+              tagNameById: tagNameById,
+              billTagIds: billTagIds,
+            );
+            var expense = 0, income = 0;
+            for (final b in filtered) {
+              if (b.type == BillType.expense.name) expense += b.amount;
+              if (b.type == BillType.income.name) income += b.amount;
+            }
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
                   ),
-                  const Spacer(),
-                  Text(
-                    '支出 ${formatYuan(expense)} · 收入 ${formatYuan(income)}',
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  child: Row(
+                    children: [
+                      Text(
+                        '共 ${filtered.length} 笔',
+                        style: Theme.of(context).textTheme.labelMedium,
+                      ),
+                      const Spacer(),
+                      Text(
+                        '支出 ${formatYuan(expense)} · 收入 ${formatYuan(income)}',
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: SegmentedButton<bool>(
+                      showSelectedIcon: false,
+                      style: const ButtonStyle(
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      segments: const [
+                        ButtonSegment(value: false, label: Text('列表')),
+                        ButtonSegment(value: true, label: Text('分析')),
+                      ],
+                      selected: {_showAnalysis},
+                      onSelectionChanged: (s) =>
+                          setState(() => _showAnalysis = s.first),
                     ),
                   ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: SegmentedButton<bool>(
-                  showSelectedIcon: false,
-                  style: const ButtonStyle(
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  segments: const [
-                    ButtonSegment(value: false, label: Text('列表')),
-                    ButtonSegment(value: true, label: Text('分析')),
-                  ],
-                  selected: {_showAnalysis},
-                  onSelectionChanged: (s) =>
-                      setState(() => _showAnalysis = s.first),
                 ),
-              ),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: filtered.isEmpty
-                  ? const Center(child: Text('没有符合条件的账单'))
-                  : _showAnalysis
-                  ? _AnalysisView(bills: filtered, categories: categories)
-                  : _buildBillList(filtered),
-            ),
-          ],
+                const Divider(height: 1),
+                Expanded(
+                  child: filtered.isEmpty
+                      ? const Center(child: Text('没有符合条件的账单'))
+                      : _showAnalysis
+                      ? _AnalysisView(bills: filtered, categories: categories)
+                      : _buildBillList(filtered),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -266,7 +290,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     );
   }
 
-  List<Bill> _filter(List<Bill> all, List<Category> categories) {
+  List<Bill> _filter(
+    List<Bill> all,
+    List<Category> categories, {
+    required Map<String, String> tagNameById,
+    required Map<String, Set<String>> billTagIds,
+  }) {
     final now = DateTime.now();
     final (start, end) = switch (_range) {
       1 => (
@@ -282,7 +311,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     final minAmount = parseYuanInput(_minAmountText ?? '');
     final maxAmount = parseYuanInput(_maxAmountText ?? '');
     final keyword = _keywordCtrl.text.trim().toLowerCase();
+    // 分类名 + 父分类名：二级分类下搜父类名也能命中
     final catNameById = {for (final c in categories) c.id: c.name};
+    final parentNameById = <String, String>{
+      for (final c in categories)
+        if (c.parentId != null) c.id: catNameById[c.parentId] ?? '',
+    };
 
     return all.where((b) {
       if (b.time < start || b.time >= end) return false;
@@ -300,7 +334,19 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             b.comment?.toLowerCase().contains(keyword) ?? false;
         final catMatch =
             catNameById[b.categoryId]?.toLowerCase().contains(keyword) ?? false;
-        if (!commentMatch && !catMatch) return false;
+        final parentMatch =
+            parentNameById[b.categoryId]?.toLowerCase().contains(keyword) ??
+            false;
+        var tagMatch = false;
+        for (final tid in billTagIds[b.id] ?? const <String>{}) {
+          if (tagNameById[tid]?.toLowerCase().contains(keyword) ?? false) {
+            tagMatch = true;
+            break;
+          }
+        }
+        if (!commentMatch && !catMatch && !parentMatch && !tagMatch) {
+          return false;
+        }
       }
       return true;
     }).toList();
@@ -339,6 +385,13 @@ final _allBillsProvider = FutureProvider<List<Bill>>((ref) {
   ref.watch(_revisionProvider);
   return ref.watch(billRepoProvider).getAll();
 });
+
+/// 全部账单-标签关联（搜索需按标签名过滤时一次性取数）。
+final _allBillTagsProvider =
+    FutureProvider<List<({String billId, String tagId})>>((ref) {
+      ref.watch(_revisionProvider);
+      return ref.watch(billRepoProvider).allBillTags();
+    });
 
 // ---------- 搜索结果分析视图 ----------
 
