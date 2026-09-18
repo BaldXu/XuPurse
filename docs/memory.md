@@ -58,6 +58,14 @@ XuPurse —— 用 Flutter 从 0 重写 cent-xyx 的记账软件（三端 Web / 
 - 根因：关键词只匹配备注 + 叶子分类名；**标签完全没参与搜索**，父分类名也不匹配
 - 修复：关键词同时匹配 备注 / 叶子分类名 / 父分类名 / 标签名；新增 `_allBillTagsProvider`（revision 联动）一次性取账单-标签关联
 
+**C. 不计入收支（一木 notintototal）**：
+- [bill_extra.dart](lib/core/utils/bill_extra.dart) 新增 `excludeFromStats` 标记，fromJson 兼容旧数据 `other.notInTotal`
+- [yimu_mapper.dart](lib/data/import/yimu_mapper.dart)：一木 `notintototal==1`（不计入收支）→ `excludeFromStats`
+- [bill_repository.dart](lib/data/repositories/bill_repository.dart)：统计 SQL（sumByType / watchSummary / sumByCategory / sumByTag / listByRange）全部排除这类账单；`watchPage`（列表）不排除
+- 记账弹窗 [bookkeeping_sheet.dart](lib/ui/pages/bookkeeping_sheet.dart)：布局重构（分类+明细设置并入滚动区、键盘固定底部）+ 新增「不计入收支」开关；`_buildExtra()` 编辑时保留导入标记
+- 预算执行 SQL、搜索页收支合计/分析同样排除；账户余额仍受影响（仅不计入收支统计）
+- 语义：不计入收支 = 仅记流水与余额，不参与收入/支出统计
+
 ## 4. 下一步待办（按优先级）
 
 1. **人工验证统计页**：`flutter run -d chrome` 看下宽/窄屏两种形态、5 个分区、日历自定义范围

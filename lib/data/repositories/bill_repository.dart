@@ -9,6 +9,15 @@ class BillRepository {
 
   final AppDatabase _db;
 
+  /// 「不计入收支」账单的 SQL 过滤条件（无表别名版）。
+  /// `excludeFromStats` 为新字段；`notInTotal` 兼容旧一木导入数据。
+  static const _excludedSql =
+      " AND (extra IS NULL OR (extra NOT LIKE '%\"excludeFromStats\":true%' AND extra NOT LIKE '%\"notInTotal\":true%'))";
+
+  /// 同上，`b` 表别名版（多表 JOIN 查询用）。
+  static const _excludedSqlAliasB =
+      " AND (b.extra IS NULL OR (b.extra NOT LIKE '%\"excludeFromStats\":true%' AND b.extra NOT LIKE '%\"notInTotal\":true%'))";
+
   /// 分页账单流（时间倒序；支持类型/账户/分类/时间段过滤）
   Stream<List<Bill>> watchPage({
     int limit = 50,
@@ -37,10 +46,16 @@ class BillRepository {
     return query.watch();
   }
 
-  /// 时间段账单列表（时间倒序）
+  /// 时间段账单列表（时间倒序；不含「不计入收支」账单，供统计趋势用）
   Future<List<Bill>> listByRange(int start, int end, {BillType? type}) async {
     final query = _db.select(_db.bills);
     _applyFilter(query, type: type, start: start, end: end);
+    // 排除「不计入收支」账单（统计口径；列表仍会展示全部账单）
+    query.where(
+      (_) => const CustomExpression<bool>(
+        "(extra IS NULL OR (extra NOT LIKE '%\"excludeFromStats\":true%' AND extra NOT LIKE '%\"notInTotal\":true%'))",
+      ),
+    );
     query.orderBy([(t) => OrderingTerm.desc(t.time)]);
     return query.get();
   }
@@ -90,19 +105,21 @@ class BillRepository {
     final row = await _db
         .customSelect(
           'SELECT COALESCE(SUM(amount), 0) AS s FROM bills '
-          'WHERE type = ? AND time >= ? AND time < ?',
+          'WHERE type = ? AND time >= ? AND time < ?'
+          '$_excludedSql',
           variables: [Variable(type.name), Variable(start), Variable(end)],
         )
         .getSingle();
     return row.data['s'] as int;
   }
 
-  /// 时间段收支柱出流（首页月汇总；不含转账）
+  /// 时间段收支柱出流（首页月汇总；不含转账；不含「不计入收支」）
   Stream<({int expense, int income})> watchSummaryInRange(int start, int end) {
     return _db
         .customSelect(
           'SELECT type, SUM(amount) AS s FROM bills '
-          'WHERE time >= ? AND time < ? AND type IN (?, ?) GROUP BY type',
+          'WHERE time >= ? AND time < ? AND type IN (?, ?)'
+          '$_excludedSql GROUP BY type',
           variables: [
             Variable(start),
             Variable(end),
@@ -124,7 +141,7 @@ class BillRepository {
         });
   }
 
-  /// 时间段内按分类汇总金额（统计页分类占比；不含转账）。
+  /// 时间段内按分类汇总金额（统计页分类占比；不含转账；不含「不计入收支」）。
   Future<List<({String categoryId, int amount})>> sumByCategoryInRange(
     int start,
     int end,
@@ -133,7 +150,8 @@ class BillRepository {
     final rows = await _db
         .customSelect(
           'SELECT category_id AS cid, SUM(amount) AS s FROM bills '
-          'WHERE type = ? AND time >= ? AND time < ? GROUP BY category_id',
+          'WHERE type = ? AND time >= ? AND time < ?'
+          '$_excludedSql GROUP BY category_id',
           variables: [Variable(type.name), Variable(start), Variable(end)],
         )
         .get();
@@ -154,7 +172,7 @@ class BillRepository {
     return row.data['t'] as int?;
   }
 
-  /// 时间段内按标签汇总金额（统计页标签分区；不含转账）。
+  /// 时间段内按标签汇总金额（统计页标签分区；不含转账；不含「不计入收支」）。
   Future<List<({String tagId, int amount})>> sumByTagInRange(
     int start,
     int end,
@@ -164,8 +182,8 @@ class BillRepository {
         .customSelect(
           'SELECT bt.tag_id AS tid, SUM(b.amount) AS s FROM bills b '
           'JOIN bill_tags bt ON bt.bill_id = b.id '
-          'WHERE b.type = ? AND b.time >= ? AND b.time < ? '
-          'GROUP BY bt.tag_id',
+          'WHERE b.type = ? AND b.time >= ? AND b.time < ?'
+          '$_excludedSqlAliasB GROUP BY bt.tag_id',
           variables: [Variable(type.name), Variable(start), Variable(end)],
         )
         .get();

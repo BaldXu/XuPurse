@@ -1177,8 +1177,9 @@ class _BudgetSectionState extends ConsumerState<_BudgetSection> {
       final rows = await db
           .customSelect(
             'SELECT COALESCE(SUM(amount), 0) AS s FROM bills '
-            'WHERE type = ? AND time >= ? AND time < ? '
-            '${b.categoryId != null ? 'AND category_id = ?' : ''}',
+            'WHERE type = ? AND time >= ? AND time < ?'
+            " AND (extra IS NULL OR (extra NOT LIKE '%\"excludeFromStats\":true%' AND extra NOT LIKE '%\"notInTotal\":true%'))"
+            '${b.categoryId != null ? ' AND category_id = ?' : ''}',
             variables: [
               Variable(BillType.expense.name),
               Variable(winStart),

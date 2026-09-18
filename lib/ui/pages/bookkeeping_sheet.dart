@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../core/constants/enums.dart';
 import '../../core/utils/amount.dart';
 import '../../core/utils/app_colors.dart';
+import '../../core/utils/bill_extra.dart';
 import '../../core/utils/icons.dart';
 import '../../data/database/app_database.dart';
 import '../../domain/services/currency_service.dart';
@@ -50,6 +51,9 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
   final _commentController = TextEditingController();
   final Set<String> _tagIds = {};
 
+  /// 不计入收支：仅记流水与余额，不参与收入/支出统计。
+  bool _excludeFromStats = false;
+
   /// 记账币种（[CurrencyService.supportedCodes]；null = 跟随账户币种）。
   String? _currencyCode;
 
@@ -71,6 +75,7 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
       _commentController.text = bill.comment ?? '';
       _date = DateTime.fromMillisecondsSinceEpoch(bill.time);
       _currencyCode = bill.currencyCode;
+      _excludeFromStats = BillExtra.fromJson(bill.extra).excludeFromStats;
       if (bill.type == BillType.transfer.name) _loadTransferFee();
       _loadTags();
     }
@@ -252,6 +257,7 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
               ? null
               : _commentController.text.trim(),
           tagIds: _tagIds.toList(),
+          extra: _buildExtra(),
           transferToAmount: transferToAmount,
           currencyCode: currencyCode,
           currencyAmount: currencyAmount,
@@ -269,6 +275,7 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
               ? null
               : _commentController.text.trim(),
           tagIds: _tagIds.toList(),
+          extra: _buildExtra(),
           transferToAmount: transferToAmount,
           currencyCode: currencyCode,
           currencyAmount: currencyAmount,
@@ -279,6 +286,22 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
     } catch (e) {
       _toast('保存失败：$e');
     }
+  }
+
+  /// 组装扩展字段：编辑时保留原来源标记（isYimu 等）与业务关联字段，
+  /// 仅覆盖「不计入收支」开关，避免保存后丢导入标记。
+  BillExtra _buildExtra() {
+    final old = widget.initialBill == null
+        ? const BillExtra()
+        : BillExtra.fromJson(widget.initialBill!.extra);
+    return BillExtra(
+      isAdjustment: old.isAdjustment,
+      isYimu: old.isYimu,
+      isZhouhu: old.isZhouhu,
+      isQianji: old.isQianji,
+      excludeFromStats: _excludeFromStats,
+      other: old.other,
+    );
   }
 
   void _toast(String msg) {
@@ -292,21 +315,32 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
     final scheme = Theme.of(context).colorScheme;
     return ConstrainedBox(
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.88,
+        maxHeight: MediaQuery.of(context).size.height * 0.9,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           _buildTabs(scheme),
+          const Divider(height: 1),
+          // 分类/转账主体 + 明细设置都在滚动区内，键盘固定底部，
+          // 内容多时可滑动，避免挤压显得局促。
           Flexible(
             child: SingleChildScrollView(
-              child: _type == BillType.transfer
-                  ? _buildTransferBody(scheme)
-                  : _buildCategoryBody(),
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (_type == BillType.transfer)
+                    _buildTransferBody(scheme)
+                  else
+                    _buildCategoryBody(),
+                  const Divider(height: 1),
+                  _buildSettingsSection(scheme),
+                ],
+              ),
             ),
           ),
           const Divider(height: 1),
-          _buildInputBar(scheme),
           _buildKeyboard(scheme),
         ],
       ),
@@ -461,15 +495,16 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
     );
   }
 
-  /// 账户 + 币种 + 标签 + 备注 + 日期输入行
-  Widget _buildInputBar(ColorScheme scheme) {
+  /// 明细设置区：账户 + 币种 + 标签 + 备注 + 日期 + 不计入收支。
+  Widget _buildSettingsSection(ColorScheme scheme) {
     final accounts = ref.watch(accountsProvider).value ?? const <Account>[];
     final tags = ref.watch(tagsProvider).valueOrNull ?? const <Tag>[];
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_type != BillType.transfer)
+          if (_type != BillType.transfer) ...[
             _AccountPicker(
               label: '账户',
               accounts: accounts,
@@ -480,12 +515,14 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
                 if (_type != BillType.transfer) _currencyCode = null;
               }),
             ),
-          const SizedBox(height: 6),
+            const SizedBox(height: 10),
+          ],
           _buildCurrencyRow(),
           if (tags.isNotEmpty) ...[
-            const SizedBox(height: 6),
+            const SizedBox(height: 10),
             _buildTagRow(tags),
           ],
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
@@ -503,6 +540,46 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
                 label: Text(DateFormat('M月d日').format(_date)),
               ),
             ],
+          ),
+          if (_type != BillType.transfer) ...[
+            const SizedBox(height: 4),
+            _buildExcludeToggle(scheme),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// 「不计入收支」开关：仅记流水与余额，不参与收入/支出统计。
+  Widget _buildExcludeToggle(ColorScheme scheme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(
+            Icons.visibility_off_outlined,
+            size: 18,
+            color: scheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('不计入收支', style: Theme.of(context).textTheme.bodyMedium),
+                Text(
+                  '仅记录流水与余额，不计入收支统计',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: _excludeFromStats,
+            onChanged: (v) => setState(() => _excludeFromStats = v),
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
         ],
       ),

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/enums.dart';
 import '../../core/utils/amount.dart';
+import '../../core/utils/bill_extra.dart';
 import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
 import '../widgets/bill_tile.dart';
@@ -210,8 +211,13 @@ class _SearchPageState extends ConsumerState<SearchPage> {
               tagNameById: tagNameById,
               billTagIds: billTagIds,
             );
+            // 「不计入收支」账单仍展示在列表，但不计入收支合计与分析
+            final statBills = [
+              for (final b in filtered)
+                if (!BillExtra.fromJson(b.extra).excludeFromStats) b,
+            ];
             var expense = 0, income = 0;
-            for (final b in filtered) {
+            for (final b in statBills) {
               if (b.type == BillType.expense.name) expense += b.amount;
               if (b.type == BillType.income.name) income += b.amount;
             }
@@ -265,7 +271,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                   child: filtered.isEmpty
                       ? const Center(child: Text('没有符合条件的账单'))
                       : _showAnalysis
-                      ? _AnalysisView(bills: filtered, categories: categories)
+                      ? _AnalysisView(bills: statBills, categories: categories)
                       : _buildBillList(filtered),
                 ),
               ],

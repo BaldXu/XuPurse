@@ -9,6 +9,7 @@ class BillExtra {
     this.isYimu = false,
     this.isZhouhu = false,
     this.isQianji = false,
+    this.excludeFromStats = false,
     this.other = const {},
   });
 
@@ -20,6 +21,10 @@ class BillExtra {
   final bool isZhouhu;
   final bool isQianji;
 
+  /// 不计入收支：仅记流水与余额，不参与收入/支出统计。
+  /// 兼容旧数据 `other.notInTotal`（一木导入历史字段）。
+  final bool excludeFromStats;
+
   /// 其他自由扩展（如关联业务 ID）
   final Map<String, Object?> other;
 
@@ -27,25 +32,30 @@ class BillExtra {
     if (json == null || json.isEmpty) return const BillExtra();
     final map = jsonDecode(json);
     if (map is! Map<String, Object?>) return const BillExtra();
+    final other = Map<String, Object?>.from(
+      (map['other'] as Map?)?.cast<String, Object?>() ?? const {},
+    );
     return BillExtra(
       isAdjustment: map['isAdjustment'] == true,
       isYimu: map['isYimu'] == true,
       isZhouhu: map['isZhouhu'] == true,
       isQianji: map['isQianji'] == true,
-      other: Map<String, Object?>.from(
-        (map['other'] as Map?)?.cast<String, Object?>() ?? const {},
-      ),
+      excludeFromStats:
+          map['excludeFromStats'] == true || other['notInTotal'] == true,
+      other: other,
     );
   }
 
   String? encode() {
-    final hasFlags = isAdjustment || isYimu || isZhouhu || isQianji;
+    final hasFlags =
+        isAdjustment || isYimu || isZhouhu || isQianji || excludeFromStats;
     if (!hasFlags && other.isEmpty) return null;
     return jsonEncode({
       if (isAdjustment) 'isAdjustment': true,
       if (isYimu) 'isYimu': true,
       if (isZhouhu) 'isZhouhu': true,
       if (isQianji) 'isQianji': true,
+      if (excludeFromStats) 'excludeFromStats': true,
       if (other.isNotEmpty) 'other': other,
     });
   }

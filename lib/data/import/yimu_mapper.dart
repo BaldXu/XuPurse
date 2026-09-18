@@ -260,7 +260,6 @@ MappedImport mapYimuToXuPurse(
     final extraMap = <String, Object?>{
       'yimuBillId': billid,
       if (asInt(yimuBill['notintobudget']) == 1) 'notInBudget': true,
-      if (asInt(yimuBill['notintototal']) == 1) 'notInTotal': true,
       if ((asInt(yimuBill['discountnumber']) ?? 0) != 0)
         'discountAmount': yuanToAmount(
           asDouble(yimuBill['discountnumber']) ?? 0,
@@ -283,7 +282,12 @@ MappedImport mapYimuToXuPurse(
       comment: asString(yimuBill['remark']).isEmpty
           ? null
           : asString(yimuBill['remark']),
-      extra: BillExtra(isYimu: true, other: extraMap).encode(),
+      extra: BillExtra(
+        isYimu: true,
+        // 一木「不计入收支」→ excludeFromStats，导入后保持不计入收支统计
+        excludeFromStats: asInt(yimuBill['notintototal']) == 1,
+        other: extraMap,
+      ).encode(),
       currency: _parseCurrencyInfo(
         asString(yimuBill['currencyinfo']),
         fallbackAmount: asDouble(yimuBill['cost']) ?? 0,
