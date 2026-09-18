@@ -185,7 +185,16 @@ class _ImportPageState extends ConsumerState<ImportPage> {
       if (!mounted) return;
       setState(() {
         _preview = preview;
-        _mergeSelections.clear();
+        // 默认勾选可自动合并的同名候选（时间范围不冲突）：用户以第三方权威
+        // 数据为准，同名账户默认应合并而非新增重复账户；时间范围冲突的候选
+        // 需用户逐条确认，不预选。
+        _mergeSelections
+          ..clear()
+          ..addAll(
+            preview.mergeCandidates
+                .where((c) => c.autoMerge)
+                .map((c) => c.sourceId),
+          );
       });
     } catch (e) {
       if (!mounted) return;
@@ -281,9 +290,9 @@ class _ImportPageState extends ConsumerState<ImportPage> {
             Text('同名账户合并', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 4),
             Text(
-              '检测到与现有账户同名的账户。勾选后导入账单将归入现有账户，'
-              '且不会新增重复账户；保留账户将继承导入数据的余额'
-              '（已有流水的账户则叠加导入账户的净变化）。',
+              '检测到与现有账户同名的账户。合并方向按数据时间戳决定（更新更晚的'
+              '账户作为保留方）；勾选后账单将归入保留账户且不会新增重复账户。'
+              '保留账户继承导入数据的权威余额，其余引用一并转移。',
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 8),
@@ -297,7 +306,15 @@ class _ImportPageState extends ConsumerState<ImportPage> {
                     _mergeSelections.remove(c.sourceId);
                   }
                 }),
-                title: Text('「${c.name}」合并到「${c.targetName ?? '现有账户'}」'),
+                title: Text('「${c.name}」→「${c.targetName ?? '新账户'}」'),
+                subtitle: c.autoMerge
+                    ? null
+                    : Text(
+                        '${c.conflictReason ?? '存在冲突'}，请确认是否合并',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
                 controlAffinity: ListTileControlAffinity.leading,
                 dense: true,
               ),

@@ -139,4 +139,21 @@ void main() {
       expect(a.currency, 'USD');
     }
   });
+
+  test('lastActiveTimes：取账户 updatedAt / 最近账单 / 最近快照的最大值', () async {
+    // acc-a 无账单：最后活跃 = updatedAt（1）
+    // acc-b 加一笔收入（记账会刷新 updatedAt 并写快照，时间 1700000100000）
+    await bills.addBill(
+      type: BillType.income,
+      categoryId: 'cat-y',
+      amount: 50000,
+      accountId: 'acc-b',
+      time: 1700000100000,
+    );
+    final active = await accounts.lastActiveTimes(['acc-a', 'acc-b']);
+    expect(active['acc-a'], 1);
+    expect(active['acc-b']!, greaterThanOrEqualTo(1700000100000));
+    expect(active['acc-b']!, greaterThan(active['acc-a']!));
+    expect(active.containsKey('unknown-id'), isFalse, reason: '不存在的账户不返回');
+  });
 }

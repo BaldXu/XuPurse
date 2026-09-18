@@ -166,6 +166,49 @@ class AccountService {
     });
   }
 
+  /// 每个账户的「最后活跃时间」＝ max(账户 updatedAt, 最近账单 time, 最近快照
+  /// timestamp)。合并账户时用它按「数据时间戳」判断谁是最新状态的保留方。
+  Future<Map<String, int>> lastActiveTimes(Iterable<String> ids) async {
+    final idList = ids.toSet().toList();
+    if (idList.isEmpty) return const {};
+    final result = <String, int>{};
+    for (final a in await (_db.select(
+      _db.accounts,
+    )..where((t) => t.id.isIn(idList))).get()) {
+      result[a.id] = a.updatedAt;
+    }
+    final placeholders = List.filled(idList.length, '?').join(',');
+    final rows = await _db
+        .customSelect(
+          '''
+      SELECT id, MAX(t) AS t FROM (
+        SELECT account_id AS id, time AS t FROM bills
+          WHERE account_id IN ($placeholders)
+        UNION ALL
+        SELECT income_account_id AS id, time AS t FROM bills
+          WHERE income_account_id IN ($placeholders)
+        UNION ALL
+        SELECT account_id AS id, timestamp AS t FROM balance_snapshots
+          WHERE account_id IN ($placeholders)
+      ) GROUP BY id
+      ''',
+          variables: [
+            for (final id in idList) Variable(id),
+            for (final id in idList) Variable(id),
+            for (final id in idList) Variable(id),
+          ],
+          readsFrom: {_db.bills, _db.balanceSnapshots},
+        )
+        .get();
+    for (final r in rows) {
+      final id = r.data['id'] as String?;
+      final t = r.data['t'] as int?;
+      if (id == null || t == null) continue;
+      if (t > (result[id] ?? 0)) result[id] = t;
+    }
+    return result;
+  }
+
   /// 把某账户的全部引用重定向到另一账户（合并内部步骤）。
   Future<void> _redirectReferences(String fromId, String toId) async {
     // 账单主账户 / 转入账户

@@ -71,6 +71,10 @@ class MappedImport {
 }
 
 /// 同名账户合并候选（算法八）。
+///
+/// 合并方向由数据时间戳决定（docs/algorithms.md 算法八）：`updatedAt` 更早的
+/// 一方为 source（被合并），更晚的一方为 target（保留）。source / target 都
+/// 可能是「本次导入的新账户」或「现有账户」。
 class AccountMergeCandidate {
   const AccountMergeCandidate({
     required this.sourceId,
@@ -78,21 +82,26 @@ class AccountMergeCandidate {
     required this.name,
     required this.autoMerge,
     this.targetName,
+    this.conflictReason,
   });
 
-  /// 被合并方（本次导入的新账户，写入时其引用替换为 target）
+  /// 被合并方账户 id（现有账户或本次导入的新账户，写入时其引用替换为 target）
   final String sourceId;
 
-  /// 保留方（现有账户）
+  /// 保留方账户 id（现有账户或本次导入的新账户）
   final String targetId;
 
+  /// 被合并方账户名（用于 UI 展示合并方向）
   final String name;
 
-  /// 保留方账户名（用于 UI 展示合并方向）
+  /// 保留方账户名（用于 UI 展示合并方向；为导入账户时也可能为 null）
   final String? targetName;
 
   /// 时间范围不冲突时可自动合并，否则需用户确认
   final bool autoMerge;
+
+  /// 冲突原因（账单时间范围重叠时为非空，UI 用于提示）
+  final String? conflictReason;
 }
 
 /// 导入预览结果（preview 产出，write 消费）。

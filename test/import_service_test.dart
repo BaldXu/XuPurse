@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import 'package:drift/drift.dart' show Value;
+import 'package:drift/drift.dart' show Expression, Value;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
 
@@ -8,6 +8,7 @@ import 'package:xupurse/core/constants/enums.dart';
 import 'package:xupurse/data/database/app_database.dart';
 import 'package:xupurse/data/database/database_manager.dart';
 import 'package:xupurse/data/import/import_service.dart';
+import 'package:xupurse/domain/services/bill_service.dart';
 
 /// 构造第三方 .db 文件字节流（内存 VFS 建库后导出）。
 Uint8List _buildDb(void Function(Database db) build) {
@@ -308,34 +309,36 @@ void main() {
       final candidate = preview.mergeCandidates.firstWhere(
         (c) => c.name == '支付宝',
       );
-      expect(candidate.targetId, 'existing-alipay');
+      // 钱迹账户 lastpaytime（1701000000000）晚于现有账户 updatedAt(1) →
+      // 导入账户为保留方，现有「支付宝」被合并。
+      expect(candidate.sourceId, 'existing-alipay');
+      expect(candidate.targetId, isNot('existing-alipay'));
 
-      // 确认合并：新支付宝 → 现有支付宝，导入后不产生重复账户
+      // 确认合并：现有支付宝 → 导入支付宝，导入后不产生重复账户
       final mergeMap = {candidate.sourceId: candidate.targetId};
       await service.write(preview, mergeMap: mergeMap);
       final alipays = await (db.select(
         db.accounts,
       )..where((t) => t.name.equals('支付宝'))).get();
       expect(alipays.length, 1);
-      // 合并后账单指向现有账户
+      expect(alipays.single.id, candidate.targetId);
+      // 被合并的现有账户已删除，账单指向保留方（导入账户）
       final bills = await (db.select(
         db.bills,
-      )..where((t) => t.accountId.equals('existing-alipay'))).get();
+      )..where((t) => t.accountId.equals(alipays.single.id))).get();
       expect(bills, isNotEmpty);
-      // 空账户合并：继承第三方权威余额（1000.50 元 = 10005000），初始余额 500 元
-      final merged = await (db.select(
-        db.accounts,
-      )..where((t) => t.id.equals('existing-alipay'))).getSingle();
-      expect(merged.currentBalance, 10005000);
-      expect(merged.initialBalance, 5000000);
+      // 保留方（导入账户）继承第三方权威余额与初始余额（钱迹 initmoney=500 元）
+      expect(alipays.single.currentBalance, 10005000);
+      expect(alipays.single.initialBalance, 5000000);
     });
 
-    test('同名合并：target 已有流水时叠加导入净变化', () async {
+    test('同名合并：existing 更新更晚为保留方，target 已有流水时叠加导入净变化', () async {
       final mgr = DatabaseManager.inMemory();
       await mgr.createBook(name: '测试账本');
       final db = mgr.current;
       await db.delete(db.accounts).go();
-      // 现有账户：初始 100 元，一笔 25.5 元支出 → 余额 74.5 元
+      // 现有账户：初始 100 元，一笔 25.5 元支出 → 余额 74.5 元；
+      // updatedAt（1701000000001）晚于钱迹账户 lastpaytime（1701000000000）→ 现有账户为保留方
       await db
           .into(db.accounts)
           .insert(
@@ -347,7 +350,7 @@ void main() {
               initialBalance: const Value(1000000),
               currentBalance: const Value(745000),
               createdAt: 1,
-              updatedAt: 1,
+              updatedAt: 1701000000001,
             ),
           );
       final cats = await db.select(db.categories).get();
@@ -450,6 +453,207 @@ void main() {
       await service.write(preview2);
       final after = await db.select(db.bills).get();
       expect(after.length, before.length, reason: '重复导入不应产生新账单');
+
+      // 重复导入后账户余额仍为一木权威值（initial==current 快照覆盖）。
+      // 书中还有种子「支付宝」，因此按导入映射定位本次导入创建的账户。
+      final mapping =
+          await (db.select(db.importMappings)..where(
+                (t) => Expression.and([
+                  t.provider.equals('yimu'),
+                  t.entityType.equals('account'),
+                  t.sourceId.equals('11'),
+                ]),
+              ))
+              .getSingle();
+      final alipay2 = await (db.select(
+        db.accounts,
+      )..where((t) => t.id.equals(mapping.targetId))).getSingle();
+      expect(alipay2.currentBalance, 10000000);
+      expect(alipay2.initialBalance, 10000000, reason: '无本地流水时反推值等于权威值');
+    });
+
+    test('一木同名合并：existing 更旧被并入导入账户（导入账户为保留方，反推初始）', () async {
+      final mgr = DatabaseManager.inMemory();
+      await mgr.createBook(name: '测试账本');
+      final db = mgr.current;
+      await db.delete(db.accounts).go();
+      // 现有账户：初始 100 元，本地支出 30 元 → 余额 70 元；updatedAt=1。
+      // 一木库无 updatetime 列，导入账户 updatedAt=导入时刻 → 更晚，为保留方。
+      await db
+          .into(db.accounts)
+          .insert(
+            AccountsCompanion.insert(
+              id: 'existing-alipay',
+              name: '支付宝',
+              category: 'fund',
+              type: 'alipay',
+              initialBalance: const Value(1000000),
+              currentBalance: const Value(700000),
+              createdAt: 1,
+              updatedAt: 1,
+            ),
+          );
+      final cats = await db.select(db.categories).get();
+      await db
+          .into(db.bills)
+          .insert(
+            BillsCompanion.insert(
+              id: 'b-local',
+              type: 'expense',
+              categoryId: cats.first.id,
+              amount: 300000,
+              accountId: const Value('existing-alipay'),
+              time: 1700000100000,
+              createdAt: 1700000100000,
+              updatedAt: 1700000100000,
+            ),
+          );
+
+      final service = ImportService(db);
+      final preview = await service.preview(
+        source: ImportSource.yimu,
+        bytes: _buildYimuDb(),
+      );
+      final candidate = preview.mergeCandidates.firstWhere(
+        (c) => c.name == '支付宝',
+      );
+      await service.write(
+        preview,
+        mergeMap: {candidate.sourceId: candidate.targetId},
+      );
+
+      // existing-alipay（更旧）被删除；保留方为导入的「支付宝」（assetnumber=1000 元）
+      final remaining = await db.select(db.accounts).get();
+      expect(remaining.where((a) => a.id == 'existing-alipay'), isEmpty);
+      final mapping =
+          await (db.select(db.importMappings)..where(
+                (t) => Expression.and([
+                  t.provider.equals('yimu'),
+                  t.entityType.equals('account'),
+                  t.sourceId.equals('11'),
+                ]),
+              ))
+              .getSingle();
+      final merged = await (db.select(
+        db.accounts,
+      )..where((t) => t.id.equals(mapping.targetId))).getSingle();
+      expect(merged.name, '支付宝');
+      expect(merged.currentBalance, 10000000);
+      // 本地支出 -30 元已重定向到保留方 → 反推初始 = 1000 - (-30) = 1030 元
+      expect(merged.initialBalance, 10300000);
+      final local = await (db.select(
+        db.bills,
+      )..where((t) => t.id.equals('b-local'))).getSingle();
+      expect(local.accountId, merged.id, reason: '被合并账户的本地流水应重定向到保留方');
+
+      // 全量重算后余额不变（一木导入账单 skipInRecalculate，本地账单参与）
+      await BillService(db).recalculateAllBalances();
+      final after = await (db.select(
+        db.accounts,
+      )..where((t) => t.id.equals(merged.id))).getSingle();
+      expect(after.currentBalance, 10000000, reason: '重算不应破坏权威余额');
+    });
+
+    test('一木同名合并：existing 空账户并入导入账户，直接继承权威余额', () async {
+      final mgr = DatabaseManager.inMemory();
+      await mgr.createBook(name: '测试账本');
+      final db = mgr.current;
+      await db.delete(db.accounts).go();
+      await db
+          .into(db.accounts)
+          .insert(
+            AccountsCompanion.insert(
+              id: 'existing-alipay',
+              name: '支付宝',
+              category: 'fund',
+              type: 'alipay',
+              createdAt: 1,
+              updatedAt: 1,
+            ),
+          );
+      final service = ImportService(db);
+      final preview = await service.preview(
+        source: ImportSource.yimu,
+        bytes: _buildYimuDb(),
+      );
+      final candidate = preview.mergeCandidates.firstWhere(
+        (c) => c.name == '支付宝',
+      );
+      await service.write(
+        preview,
+        mergeMap: {candidate.sourceId: candidate.targetId},
+      );
+      // existing-alipay（空账户，更旧）被删除；保留方为导入账户（1000 元）
+      final remaining = await db.select(db.accounts).get();
+      expect(remaining.where((a) => a.id == 'existing-alipay'), isEmpty);
+      final mapping =
+          await (db.select(db.importMappings)..where(
+                (t) => Expression.and([
+                  t.provider.equals('yimu'),
+                  t.entityType.equals('account'),
+                  t.sourceId.equals('11'),
+                ]),
+              ))
+              .getSingle();
+      final merged = await (db.select(
+        db.accounts,
+      )..where((t) => t.id.equals(mapping.targetId))).getSingle();
+      expect(merged.currentBalance, 10000000);
+      expect(merged.initialBalance, 10000000, reason: '无本地流水时反推值等于权威值');
+    });
+
+    test('同名合并候选：账单时间范围重叠 → autoMerge=false，不重叠 → autoMerge=true', () async {
+      final mgr = DatabaseManager.inMemory();
+      await mgr.createBook(name: '测试账本');
+      final db = mgr.current;
+      await db.delete(db.accounts).go();
+      await db
+          .into(db.accounts)
+          .insert(
+            AccountsCompanion.insert(
+              id: 'existing-alipay',
+              name: '支付宝',
+              category: 'fund',
+              type: 'alipay',
+              createdAt: 1,
+              updatedAt: 1,
+            ),
+          );
+      final cats = await db.select(db.categories).get();
+      // 现有账单 2023-11-14，与导入账单（2023-11-14 ~ 11-16）重叠 → 冲突
+      await db
+          .into(db.bills)
+          .insert(
+            BillsCompanion.insert(
+              id: 'b-overlap',
+              type: 'expense',
+              categoryId: cats.first.id,
+              amount: 10000,
+              accountId: const Value('existing-alipay'),
+              time: 1700000100000,
+              createdAt: 1700000100000,
+              updatedAt: 1700000100000,
+            ),
+          );
+      final service = ImportService(db);
+      final preview = await service.preview(
+        source: ImportSource.yimu,
+        bytes: _buildYimuDb(),
+      );
+      final cand = preview.mergeCandidates.firstWhere((c) => c.name == '支付宝');
+      expect(cand.autoMerge, isFalse, reason: '账单时间范围重叠不可自动合并');
+      expect(cand.conflictReason, isNotNull);
+      expect(cand.sourceId, 'existing-alipay', reason: 'existing 更旧为被合并方');
+      expect(cand.targetId, isNot('existing-alipay'), reason: '导入账户为保留方');
+
+      // 删除现有账单 → 时间范围不重叠 → 可自动合并
+      await db.delete(db.bills).go();
+      final preview2 = await service.preview(
+        source: ImportSource.yimu,
+        bytes: _buildYimuDb(),
+      );
+      final cand2 = preview2.mergeCandidates.firstWhere((c) => c.name == '支付宝');
+      expect(cand2.autoMerge, isTrue);
     });
   });
 
