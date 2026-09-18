@@ -8,7 +8,8 @@ import '../../state/providers.dart';
 
 /// 数据导入页（一木 / 昼虎 / 钱迹）。
 ///
-/// 三步流程：选择来源与文件 → 预览统计与同名账户合并候选 → 确认导入并展示结果。
+/// 三步流程：选择来源与文件 → 预览弹窗（统计 + 覆盖/增量模式 + 同名账户
+/// 合并候选）→ 确认导入并展示结果。
 class ImportPage extends ConsumerStatefulWidget {
   const ImportPage({super.key});
 
@@ -20,7 +21,6 @@ class _ImportPageState extends ConsumerState<ImportPage> {
   ImportSource? _source;
   PlatformFile? _file;
   ImportPreview? _preview;
-  final Set<String> _mergeSelections = {};
   bool _importing = false;
   ImportWriteResult? _result;
   String? _error;
@@ -29,20 +29,6 @@ class _ImportPageState extends ConsumerState<ImportPage> {
     ImportSource.yimu: (name: '一木记账', desc: '导入 一木记账 的备份 .db 文件'),
     ImportSource.zhouhu: (name: '昼虎记账', desc: '导入 昼虎记账 的备份 .db 文件'),
     ImportSource.qianji: (name: '钱迹', desc: '导入 钱迹 的备份 .db 文件'),
-  };
-
-  static const _entityNames = {
-    'account': '账户',
-    'category': '分类',
-    'tag': '标签',
-    'bill': '账单',
-    'snapshot': '快照',
-    'transfer': '转账',
-    'lend': '借贷',
-    'refund': '退款',
-    'reimbursement': '报销',
-    'instalment': '分期',
-    'budget': '预算',
   };
 
   @override
@@ -54,32 +40,24 @@ class _ImportPageState extends ConsumerState<ImportPage> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                if (_importing) ...[
+                  const LinearProgressIndicator(),
+                  const SizedBox(height: 16),
+                ],
                 _buildSourceSelector(),
                 const SizedBox(height: 16),
                 _buildFilePicker(),
                 if (_error != null) _buildError(),
                 if (_preview != null) ...[
                   const SizedBox(height: 16),
-                  _buildPreview(),
-                  if (_preview!.mergeCandidates.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    _buildMergeCandidates(),
-                  ],
-                  if (_preview!.mapped.warnings.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    _buildWarnings(),
-                  ],
-                  const SizedBox(height: 24),
-                  FilledButton.icon(
-                    onPressed: _importing ? null : _import,
-                    icon: _importing
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.download_done),
-                    label: Text(_importing ? '导入中…' : '确认导入'),
+                  Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.visibility),
+                      title: const Text('已生成预览'),
+                      subtitle: Text('${_file?.name ?? ''} · 点击重新查看预览弹窗'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: _showPreviewSheet,
+                    ),
                   ),
                 ],
               ],
@@ -183,19 +161,8 @@ class _ImportPageState extends ConsumerState<ImportPage> {
           .read(importServiceProvider)
           .preview(source: source, bytes: file.bytes!, fileName: file.name);
       if (!mounted) return;
-      setState(() {
-        _preview = preview;
-        // 默认勾选可自动合并的同名候选（时间范围不冲突）：用户以第三方权威
-        // 数据为准，同名账户默认应合并而非新增重复账户；时间范围冲突的候选
-        // 需用户逐条确认，不预选。
-        _mergeSelections
-          ..clear()
-          ..addAll(
-            preview.mergeCandidates
-                .where((c) => c.autoMerge)
-                .map((c) => c.sourceId),
-          );
-      });
+      setState(() => _preview = preview);
+      await _showPreviewSheet();
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = '解析失败，请确认文件为 ${_sourceInfo[source]!.name} 备份：$e');
@@ -221,10 +188,214 @@ class _ImportPageState extends ConsumerState<ImportPage> {
     );
   }
 
-  // ---------- 步骤 2：预览 ----------
+  // ---------- 步骤 2：预览弹窗 ----------
 
-  Widget _buildPreview() {
-    final preview = _preview!;
+  Future<void> _showPreviewSheet() async {
+    final preview = _preview;
+    if (preview == null) return;
+    final result =
+        await showModalBottomSheet<
+          ({ImportMode mode, Map<String, String> mergeMap})
+        >(
+          context: context,
+          isScrollControlled: true,
+          builder: (_) => _ImportPreviewSheet(preview: preview),
+        );
+    if (result == null || !mounted) return;
+    await _import(result.mode, result.mergeMap);
+  }
+
+  // ---------- 步骤 3：导入 ----------
+
+  Future<void> _import(ImportMode mode, Map<String, String> mergeMap) async {
+    final preview = _preview;
+    if (preview == null) return;
+    setState(() {
+      _importing = true;
+      _error = null;
+    });
+    try {
+      final result = await ref
+          .read(importServiceProvider)
+          .write(preview, mergeMap: mergeMap, mode: mode);
+      if (!mounted) return;
+      setState(() {
+        _result = result;
+        _importing = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _importing = false;
+        _error = '导入失败：$e';
+      });
+    }
+  }
+
+  Widget _buildResult() {
+    final r = _result!;
+    final colorScheme = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.check_circle, size: 64, color: colorScheme.primary),
+            const SizedBox(height: 16),
+            Text('导入完成', style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 24),
+            _ResultRow(label: '新增', value: '${r.created}'),
+            _ResultRow(label: '更新', value: '${r.updated}'),
+            if (r.skipped > 0)
+              _ResultRow(label: '跳过（增量模式）', value: '${r.skipped}'),
+            if (r.skippedAccounts > 0)
+              _ResultRow(label: '跳过（账户缺失）', value: '${r.skippedAccounts}'),
+            if (r.mergedAccounts > 0)
+              _ResultRow(label: '合并账户', value: '${r.mergedAccounts}'),
+            const SizedBox(height: 32),
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('完成'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 导入预览弹窗：统计 + 覆盖/增量模式 + 同名账户合并候选。
+///
+/// 确认后通过 `Navigator.pop` 返回 `(mode, mergeMap)`；取消返回 null。
+class _ImportPreviewSheet extends ConsumerStatefulWidget {
+  const _ImportPreviewSheet({required this.preview});
+
+  final ImportPreview preview;
+
+  @override
+  ConsumerState<_ImportPreviewSheet> createState() =>
+      _ImportPreviewSheetState();
+}
+
+class _ImportPreviewSheetState extends ConsumerState<_ImportPreviewSheet> {
+  ImportMode _mode = ImportMode.overwrite;
+  late final Set<String> _mergeSelections;
+
+  ImportPreview get preview => widget.preview;
+
+  @override
+  void initState() {
+    super.initState();
+    // 默认勾选可自动合并的同名候选（时间范围不冲突）：用户以第三方权威
+    // 数据为准，同名账户默认应合并而非新增重复账户；时间范围冲突的候选
+    // 需用户逐条确认，不预选。
+    _mergeSelections = {
+      for (final c in preview.mergeCandidates)
+        if (c.autoMerge) c.sourceId,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.85,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 8, 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '导入预览 · ${preview.fileName}',
+                      style: Theme.of(context).textTheme.titleMedium,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: SegmentedButton<ImportMode>(
+                segments: const [
+                  ButtonSegment(
+                    value: ImportMode.overwrite,
+                    label: Text('覆盖已有'),
+                    icon: Icon(Icons.sync, size: 18),
+                  ),
+                  ButtonSegment(
+                    value: ImportMode.incremental,
+                    label: Text('增量（跳过已有）'),
+                    icon: Icon(Icons.add, size: 18),
+                  ),
+                ],
+                selected: {_mode},
+                onSelectionChanged: (s) => setState(() => _mode = s.first),
+                showSelectedIcon: false,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Text(
+                _mode == ImportMode.overwrite
+                    ? '覆盖：已导入过的记录用本次文件数据覆盖，以第三方数据为准。'
+                    : '增量：已导入过的记录保持本地现状，只新增本次文件里没有的数据。',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  _buildStats(),
+                  if (preview.mergeCandidates.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    _buildMergeCandidates(),
+                  ],
+                  if (preview.mapped.warnings.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    _buildWarnings(),
+                  ],
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: FilledButton.icon(
+                onPressed: () => Navigator.pop(context, (
+                  mode: _mode,
+                  mergeMap: {
+                    for (final c in preview.mergeCandidates)
+                      if (_mergeSelections.contains(c.sourceId))
+                        c.sourceId: c.targetId,
+                  },
+                )),
+                icon: const Icon(Icons.download_done),
+                label: Text(_mode == ImportMode.overwrite ? '确认导入' : '增量导入'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ---------- 统计 ----------
+
+  Widget _buildStats() {
     final stats = preview.mapped.stats;
     final names = <String, int>{};
     for (final type in stats.createdTypes) {
@@ -234,7 +405,13 @@ class _ImportPageState extends ConsumerState<ImportPage> {
       names[type] = (names[type] ?? 0) + stats.updatedOf(type);
     }
     final ordered = names.keys.toList()
-      ..sort((a, b) => (_entityNames[a] ?? a).compareTo(_entityNames[b] ?? b));
+      ..sort(
+        (a, b) =>
+            (a == 'bill' ? '\u0000' : a).compareTo(b == 'bill' ? '\u0000' : b),
+      );
+    final incremental = _mode == ImportMode.incremental;
+    final verb = incremental ? '跳过' : '覆盖';
+    final icon = incremental ? Icons.skip_next : Icons.refresh;
 
     return Card(
       child: Padding(
@@ -244,10 +421,10 @@ class _ImportPageState extends ConsumerState<ImportPage> {
           children: [
             Row(
               children: [
-                Text('预览', style: Theme.of(context).textTheme.titleSmall),
+                Text('内容', style: Theme.of(context).textTheme.titleSmall),
                 const Spacer(),
                 Text(
-                  '共 ${stats.totalCreated} 新增 · ${stats.totalUpdated} 更新',
+                  '共 ${stats.totalCreated} 新增 · ${stats.totalUpdated} $verb',
                   style: Theme.of(context).textTheme.labelMedium,
                 ),
               ],
@@ -259,10 +436,10 @@ class _ImportPageState extends ConsumerState<ImportPage> {
               children: [
                 for (final type in ordered)
                   Chip(
-                    label: Text('${_entityNames[type] ?? type} ${names[type]}'),
+                    label: Text('${_entityName(type)} ${names[type]}'),
                     avatar: stats.createdOf(type) > 0
                         ? const Icon(Icons.add, size: 16)
-                        : const Icon(Icons.refresh, size: 16),
+                        : Icon(icon, size: 16),
                   ),
                 if (preview.isEmpty)
                   const Padding(
@@ -277,10 +454,25 @@ class _ImportPageState extends ConsumerState<ImportPage> {
     );
   }
 
-  // ---------- 步骤 2：同名账户合并 ----------
+  String _entityName(String type) =>
+      const {
+        'account': '账户',
+        'category': '分类',
+        'tag': '标签',
+        'bill': '账单',
+        'snapshot': '快照',
+        'transfer': '转账',
+        'lend': '借贷',
+        'refund': '退款',
+        'reimbursement': '报销',
+        'instalment': '分期',
+        'budget': '预算',
+      }[type] ??
+      type;
+
+  // ---------- 同名账户合并 ----------
 
   Widget _buildMergeCandidates() {
-    final preview = _preview!;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -324,7 +516,7 @@ class _ImportPageState extends ConsumerState<ImportPage> {
     );
   }
 
-  // ---------- 步骤 2：警告 ----------
+  // ---------- 警告 ----------
 
   Widget _buildWarnings() {
     return Card(
@@ -336,7 +528,7 @@ class _ImportPageState extends ConsumerState<ImportPage> {
           children: [
             Text('导入提示', style: Theme.of(context).textTheme.labelLarge),
             const SizedBox(height: 4),
-            for (final w in _preview!.mapped.warnings)
+            for (final w in preview.mapped.warnings)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
                 child: Text(
@@ -344,67 +536,6 @@ class _ImportPageState extends ConsumerState<ImportPage> {
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ---------- 步骤 3：导入 ----------
-
-  Future<void> _import() async {
-    final preview = _preview;
-    if (preview == null) return;
-    setState(() {
-      _importing = true;
-      _error = null;
-    });
-    try {
-      final mergeMap = {
-        for (final c in preview.mergeCandidates)
-          if (_mergeSelections.contains(c.sourceId)) c.sourceId: c.targetId,
-      };
-      final result = await ref
-          .read(importServiceProvider)
-          .write(preview, mergeMap: mergeMap);
-      if (!mounted) return;
-      setState(() {
-        _result = result;
-        _importing = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _importing = false;
-        _error = '导入失败：$e';
-      });
-    }
-  }
-
-  Widget _buildResult() {
-    final r = _result!;
-    final colorScheme = Theme.of(context).colorScheme;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.check_circle, size: 64, color: colorScheme.primary),
-            const SizedBox(height: 16),
-            Text('导入完成', style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: 24),
-            _ResultRow(label: '新增', value: '${r.created}'),
-            _ResultRow(label: '更新', value: '${r.updated}'),
-            if (r.skippedAccounts > 0)
-              _ResultRow(label: '跳过（账户缺失）', value: '${r.skippedAccounts}'),
-            if (r.mergedAccounts > 0)
-              _ResultRow(label: '合并账户', value: '${r.mergedAccounts}'),
-            const SizedBox(height: 32),
-            FilledButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('完成'),
-            ),
           ],
         ),
       ),

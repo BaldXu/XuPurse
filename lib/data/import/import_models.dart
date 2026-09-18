@@ -124,17 +124,30 @@ class ImportPreview {
       mapped.stats.totalCreated + mapped.stats.totalUpdated == 0;
 }
 
+/// 写库策略。
+enum ImportMode {
+  /// 覆盖：已导入过的记录（命中幂等映射）用本次数据覆盖，与现状一致。
+  overwrite,
+
+  /// 增量：已导入过的记录跳过不写，只新增本次新数据（保护本地已有修改）。
+  incremental,
+}
+
 /// 写库结果。
 class ImportWriteResult {
   const ImportWriteResult({
     required this.created,
     required this.updated,
+    required this.skipped,
     required this.skippedAccounts,
     required this.mergedAccounts,
   });
 
   final int created;
   final int updated;
+
+  /// 增量模式下命中已有映射被跳过的实体数（覆盖模式恒为 0）
+  final int skipped;
 
   /// 因账户映射缺失被跳过的账单数（不含账户缺失的转账等）
   final int skippedAccounts;

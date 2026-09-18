@@ -60,18 +60,36 @@ class ImportService {
   /// [mergeMap]：本次确认执行的同名账户合并，key=被合并账户 id（可能是本次
   /// 导入的新账户或现有账户），value=保留账户 id（算法八，方向由 updatedAt
   /// 决定：更新更晚的一方为保留方）。
+  ///
+  /// [mode]：写库策略——覆盖（默认，已导入过的记录用本次数据覆盖）或增量
+  /// （已导入过的记录跳过，只新增本次新数据）。
   Future<ImportWriteResult> write(
     ImportPreview preview, {
     Map<String, String> mergeMap = const {},
+    ImportMode mode = ImportMode.overwrite,
   }) async {
     final mapped = preview.mapped;
     final idMapper = preview.idMapper;
     final merge = Map<String, String>.from(mergeMap);
+    final skipExisting = mode == ImportMode.incremental;
 
     var created = 0;
     var updated = 0;
+    var skipped = 0;
+    void countSkip() => skipped++;
+    void countUpdate() => updated++;
 
     String? r(String? id) => id == null ? null : merge[id] ?? id;
+
+    // 覆盖模式：新增则 insert、已存在则 update；增量模式：已存在则跳过。
+    Future<int> upsert(dynamic table, dynamic entry) => _upsert(
+      table,
+      entry,
+      idMapper,
+      skipExisting: skipExisting,
+      onSkip: countSkip,
+      onUpdate: countUpdate,
+    );
 
     await _db.transaction(() async {
       // 0. 拆分合并方向：key 可能是「本次导入的新账户」（incoming 作为 source，
@@ -131,6 +149,8 @@ class ImportService {
         if (idMapper.createdTargetIds.contains(id)) {
           await _db.into(_db.accounts).insert(c);
           created++;
+        } else if (skipExisting) {
+          countSkip();
         } else {
           final current = c.currentBalance.present ? c.currentBalance.value : 0;
           final initial = c.initialBalance.present ? c.initialBalance.value : 0;
@@ -138,10 +158,12 @@ class ImportService {
             final delta = await _recalculateDelta(id);
             await (_db.update(_db.accounts)..where((t) => t.id.equals(id)))
                 .write(c.copyWith(initialBalance: Value(current - delta)));
+            countUpdate();
           } else {
             await (_db.update(
               _db.accounts,
             )..where((t) => t.id.equals(id))).write(c);
+            countUpdate();
           }
         }
       }
@@ -201,12 +223,12 @@ class ImportService {
 
       // 2. 分类
       for (final c in mapped.categories) {
-        created += await _upsert(_db.categories, c, idMapper);
+        created += await upsert(_db.categories, c);
       }
 
       // 3. 标签
       for (final c in mapped.tags) {
-        created += await _upsert(_db.tags, c, idMapper);
+        created += await upsert(_db.tags, c);
       }
 
       // 4. 账单 + 标签关联（合并替换账户引用）
@@ -218,7 +240,7 @@ class ImportService {
             incomeAccountId: Value<String?>(r(c.incomeAccountId.value)),
           );
         }
-        created += await _upsert(_db.bills, cc, idMapper);
+        created += await upsert(_db.bills, cc);
         final tagIds = mapped.billTagIds[cc.id.value];
         if (tagIds != null && tagIds.isNotEmpty) {
           await (_db.delete(
@@ -262,7 +284,7 @@ class ImportService {
         if (merge.isNotEmpty) {
           cc = c.copyWith(accountId: Value<String>(r(c.accountId.value) ?? ''));
         }
-        created += await _upsert(_db.balanceSnapshots, cc, idMapper);
+        created += await upsert(_db.balanceSnapshots, cc);
       }
 
       // 6. 转账扩展
@@ -274,7 +296,7 @@ class ImportService {
             toAccountId: Value<String>(r(c.toAccountId.value) ?? ''),
           );
         }
-        created += await _upsert(_db.transfers, cc, idMapper);
+        created += await upsert(_db.transfers, cc);
       }
 
       // 7. 借贷
@@ -286,12 +308,12 @@ class ImportService {
             repaymentAccountId: Value<String?>(r(c.repaymentAccountId.value)),
           );
         }
-        created += await _upsert(_db.lends, cc, idMapper);
+        created += await upsert(_db.lends, cc);
       }
 
       // 8. 退款 / 报销 / 分期（引用账单与账户，合并时替换账户引用）
       for (final c in mapped.refunds) {
-        created += await _upsert(_db.refunds, c, idMapper);
+        created += await upsert(_db.refunds, c);
       }
       for (final c in mapped.reimbursements) {
         var cc = c;
@@ -303,19 +325,19 @@ class ImportService {
             ),
           );
         }
-        created += await _upsert(_db.reimbursements, cc, idMapper);
+        created += await upsert(_db.reimbursements, cc);
       }
       for (final c in mapped.instalments) {
         var cc = c;
         if (merge.isNotEmpty) {
           cc = c.copyWith(accountId: Value<String>(r(c.accountId.value) ?? ''));
         }
-        created += await _upsert(_db.instalments, cc, idMapper);
+        created += await upsert(_db.instalments, cc);
       }
 
       // 9. 预算
       for (final c in mapped.budgets) {
-        created += await _upsert(_db.budgets, c, idMapper);
+        created += await upsert(_db.budgets, c);
       }
 
       // 10. 映射写回（幂等保证）
@@ -325,24 +347,38 @@ class ImportService {
     return ImportWriteResult(
       created: created,
       updated: updated,
+      skipped: skipped,
       skippedAccounts: mapped.stats.createdOf('skipped'),
       mergedAccounts: merge.length,
     );
   }
 
-  /// 新增则 insert、已存在则 update；返回本次新增数（0/1）。
+  /// 新增则 insert、已存在则 update（增量模式下已存在则跳过）；返回本次
+  /// 新增数（0/1）。
   ///
   /// 用 dynamic 统一处理各表（全部表都有 id 主键），集中一处避免 14 份重复代码。
-  Future<int> _upsert(dynamic table, dynamic entry, IdMapper idMapper) async {
+  Future<int> _upsert(
+    dynamic table,
+    dynamic entry,
+    IdMapper idMapper, {
+    bool skipExisting = false,
+    void Function()? onSkip,
+    void Function()? onUpdate,
+  }) async {
     final id = (entry.id as Value<String>).value;
     final isNew = idMapper.createdTargetIds.contains(id);
     if (isNew) {
       await _db.into(table).insert(entry);
       return 1;
     }
+    if (skipExisting) {
+      onSkip?.call();
+      return 0;
+    }
     await (_db.update(
       table,
     )..where((t) => (t as dynamic).id.equals(id))).write(entry);
+    onUpdate?.call();
     return 0;
   }
 

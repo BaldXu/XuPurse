@@ -7,6 +7,7 @@ import 'package:sqlite3/sqlite3.dart';
 import 'package:xupurse/core/constants/enums.dart';
 import 'package:xupurse/data/database/app_database.dart';
 import 'package:xupurse/data/database/database_manager.dart';
+import 'package:xupurse/data/import/import_models.dart';
 import 'package:xupurse/data/import/import_service.dart';
 import 'package:xupurse/domain/services/bill_service.dart';
 
@@ -280,6 +281,62 @@ void main() {
       await service.write(preview2);
       final after = await db.select(db.bills).get();
       expect(after.length, before.length, reason: '重复导入不应产生新账单');
+    });
+
+    test('增量模式跳过已有数据不覆盖本地修改；覆盖模式恢复第三方数据', () async {
+      final mgr = DatabaseManager.inMemory();
+      await mgr.createBook(name: '测试账本');
+      final db = mgr.current;
+      // 清空种子账户，避免与导入账户同名冲突
+      await db.delete(db.accounts).go();
+      final service = ImportService(db);
+      final bytes = _buildQianjiDb();
+
+      // 第一次覆盖导入
+      final preview1 = await service.preview(
+        source: ImportSource.qianji,
+        bytes: bytes,
+      );
+      final result1 = await service.write(preview1, mode: ImportMode.overwrite);
+      expect(result1.skipped, 0, reason: '首次导入无已存在记录可跳过');
+      final bill1 = (await db.select(db.bills).get()).first;
+      final billCount = (await db.select(db.bills).get()).length;
+
+      // 模拟本地修改：改一条账单备注
+      await (db.update(db.bills)..where((t) => t.id.equals(bill1.id))).write(
+        BillsCompanion(comment: Value('本地修改')),
+      );
+
+      // 增量导入：全部命中已有映射 → 跳过，本地修改保留
+      final preview2 = await service.preview(
+        source: ImportSource.qianji,
+        bytes: bytes,
+      );
+      final result2 = await service.write(
+        preview2,
+        mode: ImportMode.incremental,
+      );
+      expect(result2.created, 0, reason: '无新实体');
+      expect(result2.skipped, greaterThan(0), reason: '已导入记录全部跳过');
+      expect(result2.updated, 0, reason: '增量模式不执行更新');
+      expect((await db.select(db.bills).get()).length, billCount);
+      final localBill = await (db.select(
+        db.bills,
+      )..where((t) => t.id.equals(bill1.id))).getSingle();
+      expect(localBill.comment, '本地修改', reason: '增量模式不应覆盖本地修改');
+
+      // 覆盖导入：用第三方数据覆盖本地修改
+      final preview3 = await service.preview(
+        source: ImportSource.qianji,
+        bytes: bytes,
+      );
+      final result3 = await service.write(preview3, mode: ImportMode.overwrite);
+      expect(result3.skipped, 0);
+      expect(result3.updated, greaterThan(0), reason: '覆盖模式更新已存在记录');
+      final restored = await (db.select(
+        db.bills,
+      )..where((t) => t.id.equals(bill1.id))).getSingle();
+      expect(restored.comment, isNot('本地修改'), reason: '覆盖模式恢复第三方数据');
     });
 
     test('同名账户合并候选检测', () async {
