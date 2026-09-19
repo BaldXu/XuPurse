@@ -7,6 +7,7 @@ import '../../core/utils/ids.dart';
 import '../database/app_database.dart';
 import 'db_reader.dart';
 import 'id_mapping.dart';
+import 'category_fuzzy_matcher.dart';
 import 'import_models.dart';
 import 'qianji_parser.dart';
 
@@ -151,7 +152,7 @@ MappedImport mapQianjiToXuPurse(
   final lendCatId =
       ctx.fallbackCategoryId(BillType.expense, ['loan-out']) ?? '';
   final collectCatId =
-      ctx.fallbackCategoryId(BillType.income, ['other-income', 'refund']) ?? '';
+      ctx.fallbackCategoryId(BillType.income, ['other-income', 'yimu-901']) ?? '';
 
   String resolveCategoryId(Map<String, Object?> qianjiBill, BillType type) {
     final categoryId = asInt(qianjiBill['categoryid']) ?? 0;
@@ -371,9 +372,13 @@ const qianjiExpenseCategoryNameToDefaultId = <String, String>{
 const qianjiIncomeCategoryNameToDefaultId = <String, String>{
   '工资': 'wage',
   '生活费': 'other-income',
-  '收红包': 'hongbao-income',
+  '收红包': 'gift-money',
   '外快': 'part-time',
-  '股票基金': 'other-income',
+  '股票基金': 'invest-profit',
+  '奖金': 'bonus',
+  '报销': 'yimu-901',
+  '理财': 'invest-profit',
+  '兼职': 'part-time',
   '其它': 'other-income',
 };
 
@@ -381,7 +386,12 @@ String? _resolveDefaultCategoryKey(String name, bool isIncome) {
   final map = isIncome
       ? qianjiIncomeCategoryNameToDefaultId
       : qianjiExpenseCategoryNameToDefaultId;
-  return map[name];
+  return map[name] ??
+      // 模糊匹配：种名与分类名双向包含（一木体系挂靠）
+      CategoryFuzzyMatcher.seedKeyByContain(
+        name,
+        isIncome ? BillType.income : BillType.expense,
+      );
 }
 
 String _fallbackCategory(MapperContext ctx, BillType type) =>

@@ -460,7 +460,7 @@ void main() {
       );
 
       expect(preview.mapped.accounts.length, 2);
-      expect(preview.mapped.categories.length, 4, reason: '2 父 + 2 子');
+      expect(preview.mapped.categories.length, 0, reason: '分类全部名称命中一木体系种子，直接复用不新建');
       expect(preview.mapped.tags.length, 1);
       expect(preview.mapped.transfers.length, 1);
       expect(preview.mapped.lends.length, 1);
@@ -732,8 +732,8 @@ void main() {
       expect(preview.mapped.accounts.length, 2);
       expect(
         preview.mapped.categories.length,
-        2,
-        reason: 'basedata.* 已翻译但保留为独立分类',
+        0,
+        reason: 'basedata.* 挂靠一木体系种子分类，不再新建',
       );
       expect(preview.mapped.bills.length, 3, reason: '转账为单条');
       expect(preview.mapped.snapshots.length, 2, reason: '同一天只保留最后一条快照');

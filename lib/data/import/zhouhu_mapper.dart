@@ -9,6 +9,7 @@ import '../../core/utils/ids.dart';
 import '../database/app_database.dart';
 import 'db_reader.dart';
 import 'id_mapping.dart';
+import 'category_fuzzy_matcher.dart';
 import 'import_models.dart';
 import 'zhouhu_parser.dart';
 
@@ -103,13 +104,22 @@ MappedImport mapZhouhuToXuPurse(
     final id = idMapper.getOrCreateSync('category', sourceId, genId);
     final isNew = idMapper.wasCreated('category', sourceId);
     final rawName = asString(cat['name']);
-    final name = _translateCategoryName(rawName);
+    final name = rawName.isEmpty ? '未命名分类' : rawName;
     final type = asInt(cat['type']) == 2 ? BillType.income : BillType.expense;
+    // 优先挂靠一木体系种子分类（精确 key → 模糊包含匹配）
+    final seedKey = _zhouhuSeedKey(rawName) ??
+        CategoryFuzzyMatcher.seedKeyByContain(rawName, type);
+    final seed = seedKey == null ? null : ctx.categoryBySeedKey(seedKey);
+    if (seed != null) {
+      idMapper.register('category', sourceId, seed.id);
+      stats.addUpdated('category');
+      continue;
+    }
     categories.add(
       CategoriesCompanion(
         id: Value(id),
         type: Value(type.name),
-        name: Value(name.isEmpty ? '未命名分类' : name),
+        name: Value(name),
         icon: const Value(null),
         color: Value(_mapCategoryColor(name)),
         parentId: const Value(null),
@@ -409,38 +419,42 @@ MappedImport mapZhouhuToXuPurse(
 }
 
 /// 昼虎 basedata.* 资源 key → 中文分类名
-const _zhouhuCategoryNameMap = <String, String>{
-  'basedata.diet': '餐饮',
-  'basedata.daily': '日常',
-  'basedata.traffic': '交通',
-  'basedata.social': '社交',
-  'basedata.residential': '居住',
-  'basedata.gift': '礼物',
-  'basedata.communication': '通讯',
-  'basedata.dress': '服饰',
-  'basedata.recreation': '娱乐',
-  'basedata.beautify': '美容',
-  'basedata.medical': '医疗',
-  'basedata.tax': '税费',
-  'basedata.education': '教育',
-  'basedata.baby': '育儿',
-  'basedata.pet': '宠物',
-  'basedata.travel': '旅行',
-  'basedata.wage': '工资',
-  'basedata.bonus': '奖金',
-  'basedata.investment': '投资',
-  'basedata.parttime_job': '兼职',
-  'basedata.myself': '自己',
-  'basedata.wife': '妻子',
-  'basedata.husband': '丈夫',
-  'basedata.child': '孩子',
-  'basedata.parent': '父母',
-  'basedata.home': '家庭',
-  'basedata.monthly': '月度预算',
+/// 昼虎分类 key → XuPurse 种子 key（一木体系；直接挂靠，不再新建翻译名分类）。
+const _zhouhuCategoryKeyMap = <String, String>{
+  'basedata.diet': 'food',           // 餐饮 → 食品餐饮
+  'basedata.daily': 'daily-necessities', // 日常 → 日用
+  'basedata.traffic': 'transport',   // 交通 → 出行交通
+  'basedata.social': 'relationship', // 社交 → 送礼人情
+  'basedata.residential': 'housing', // 居住 → 居家生活
+  'basedata.gift': 'gifts',          // 礼物
+  'basedata.communication': 'phone-broadband', // 通讯 → 话费宽带
+  'basedata.dress': 'clothing',      // 服饰 → 服装
+  'basedata.recreation': 'entertainment', // 娱乐 → 休闲娱乐
+  'basedata.beautify': 'beauty',     // 美容 → 理发美容
+  'basedata.medical': 'medical',     // 医疗 → 健康医疗
+  'basedata.tax': 'other-expenses',  // 税费 → 其他
+  'basedata.education': 'education', // 教育 → 文化教育
+  'basedata.baby': 'baby-toys',      // 育儿 → 母婴玩具
+  'basedata.pet': 'pet-supplies',    // 宠物 → 宠物用品
+  'basedata.travel': 'travel',       // 旅行 → 旅游度假
+  'basedata.wage': 'wage',           // 工资
+  'basedata.bonus': 'bonus',         // 奖金
+  'basedata.investment': 'invest-profit', // 投资 → 理财盈利
+  'basedata.parttime_job': 'part-time',   // 兼职 → 兼职外快
+  'basedata.myself': 'other-income', // 自己 → 其他
+  'basedata.wife': 'other-income',   // 妻子 → 其他
+  'basedata.husband': 'other-income', // 丈夫 → 其他
+  'basedata.child': 'other-income',  // 孩子 → 其他
+  'basedata.parent': 'other-income', // 父母 → 其他
+  'basedata.home': 'other-income',   // 家庭 → 其他
+  'basedata.monthly': 'other-expenses', // 月度预算 → 其他
 };
 
-String _translateCategoryName(String name) =>
-    _zhouhuCategoryNameMap[name] ?? name;
+/// 昼虎分类 key → 种子 key（未命中返回 null，走模糊匹配/新建）。
+String? _zhouhuSeedKey(String rawName) => _zhouhuCategoryKeyMap[rawName];
+
+/// 账本名等非分类字段的翻译（保留原中文名映射）。
+String _translateCategoryName(String name) => name;
 
 /// 昼虎账户类型映射（对齐 zhouhu/mapper.ts mapAccountType）。
 AccountType _mapAccountType(Map<String, Object?> account) {

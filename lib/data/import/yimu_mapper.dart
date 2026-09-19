@@ -32,6 +32,20 @@ MappedImport mapYimuToXuPurse(
     if (id == 9 || name.contains('收入')) incomeCategoryIds.add(id);
   }
 
+  // 分类解析（照搬一木）：名称精确匹配 XuPurse 种子分类 → 直接复用种子 id
+  // （customName=false，与内置分类同等）；未命中才新建 customName 分类。
+  // 同名冲突时限定 type（支出/收入）后再匹配。
+  String? matchSeedCategory(String name, bool isIncome) {
+    final n = name.trim();
+    if (n.isEmpty) return null;
+    final type = isIncome ? BillType.income : BillType.expense;
+    final exact = ctx.categoryByTypeName(type, n);
+    if (exact != null && exact.seedKey != null && exact.seedKey!.isNotEmpty) {
+      return exact.id;
+    }
+    return null;
+  }
+
   // ---------- 账户 ----------
   final accounts = <AccountsCompanion>[];
   for (final asset in data.assets) {
@@ -109,10 +123,17 @@ MappedImport mapYimuToXuPurse(
     final cid = asInt(parent['categoryid']);
     if (cid == null) continue;
     final sourceId = 'parent_$cid';
-    final id = awaitMap(idMapper, 'category', sourceId);
-    final isNew = idMapper.wasCreated('category', sourceId);
     final name = asString(parent['categoryname']);
     final isIncome = incomeCategoryIds.contains(cid);
+    // 名称精确匹配种子分类 → 复用种子 id，不再新建
+    final seedId = matchSeedCategory(name, isIncome);
+    if (seedId != null) {
+      idMapper.register('category', sourceId, seedId);
+      stats.addUpdated('category');
+      continue;
+    }
+    final id = awaitMap(idMapper, 'category', sourceId);
+    final isNew = idMapper.wasCreated('category', sourceId);
     categories.add(
       CategoriesCompanion(
         id: Value(id),
@@ -139,17 +160,24 @@ MappedImport mapYimuToXuPurse(
     final cid = asInt(child['categoryid']);
     if (cid == null) continue;
     final sourceId = 'child_$cid';
+    final name = asString(child['categoryname']);
+    final isIncome = incomeCategoryIds.contains(
+      asInt(child['parentcategoryid']) ?? -1,
+    );
+    if (isIncome) incomeCategoryIds.add(cid);
+    // 名称精确匹配种子分类 → 复用种子 id（父子关系由种子自身定义）
+    final seedId = matchSeedCategory(name, isIncome);
+    if (seedId != null) {
+      idMapper.register('category', sourceId, seedId);
+      stats.addUpdated('category');
+      continue;
+    }
     final id = awaitMap(idMapper, 'category', sourceId);
     final isNew = idMapper.wasCreated('category', sourceId);
     final parentId = idMapper.find(
       'category',
       'parent_${asInt(child['parentcategoryid']) ?? -1}',
     );
-    final name = asString(child['categoryname']);
-    final isIncome = incomeCategoryIds.contains(
-      asInt(child['parentcategoryid']) ?? -1,
-    );
-    if (isIncome) incomeCategoryIds.add(cid);
     categories.add(
       CategoriesCompanion(
         id: Value(id),
@@ -220,7 +248,7 @@ MappedImport mapYimuToXuPurse(
   final lendCatId =
       ctx.fallbackCategoryId(BillType.expense, ['loan-out']) ?? '';
   final collectCatId =
-      ctx.fallbackCategoryId(BillType.income, ['other-income', 'refund']) ?? '';
+      ctx.fallbackCategoryId(BillType.income, ['other-income', 'yimu-901']) ?? '';
   final instalmentCatId =
       ctx.fallbackCategoryId(BillType.expense, ['other-expenses']) ?? '';
 
