@@ -7,6 +7,7 @@ import '../../core/utils/app_colors.dart';
 import '../../core/utils/icons.dart';
 import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
+import '../layout/breakpoints.dart';
 import '../widgets/adjust_sheet.dart';
 import 'account_detail_page.dart';
 import 'account_form_sheet.dart';
@@ -41,8 +42,10 @@ class AccountsPage extends ConsumerWidget {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+      // 宽屏限宽居中，窄屏铺满（手机版式不变）
+      body: ContentWidthBox(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
         children: [
           // 总资产卡
           Card(
@@ -157,6 +160,7 @@ class AccountsPage extends ConsumerWidget {
             },
           ),
         ],
+        ),
       ),
     );
   }

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/utils/amount.dart';
 import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
+import '../layout/breakpoints.dart';
 import '../widgets/bill_tile.dart';
 import 'bookkeeping_sheet.dart';
 import 'search_page.dart';
@@ -34,10 +35,12 @@ class HomePage extends ConsumerWidget {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // 月汇总卡
-          Padding(
+      // 宽屏限宽居中，窄屏铺满（手机版式不变）
+      body: ContentWidthBox(
+        child: Column(
+          children: [
+            // 月汇总卡
+            Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
             child: Card(
               child: Padding(
@@ -136,7 +139,8 @@ class HomePage extends ConsumerWidget {
               },
             ),
           ),
-        ],
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         tooltip: '记一笔',

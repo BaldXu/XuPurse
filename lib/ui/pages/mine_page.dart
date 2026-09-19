@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../layout/breakpoints.dart';
 import 'about_page.dart';
 import 'book_manage_page.dart';
 import 'data_manage_page.dart';
@@ -14,11 +15,13 @@ class MinePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('我的')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-        children: [
-          const SizedBox(height: 8),
-          _GroupCard(
+      // 宽屏限宽居中，窄屏铺满（手机版式不变）
+      body: ContentWidthBox(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+          children: [
+            const SizedBox(height: 8),
+            _GroupCard(
             children: [
               _Entry(
                 icon: Icons.settings_outlined,
@@ -52,7 +55,8 @@ class MinePage extends StatelessWidget {
               ),
             ],
           ),
-        ],
+          ],
+        ),
       ),
     );
   }

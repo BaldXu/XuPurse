@@ -7,6 +7,7 @@ import '../../core/constants/enums.dart';
 import '../../core/utils/amount.dart';
 import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
+import '../layout/breakpoints.dart';
 
 /// 统计页：侧边栏分区（宽屏 NavigationRail / 窄屏横向 Tab）+ 日期范围下拉。
 ///
@@ -265,7 +266,7 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
   /// 当前分区内容；用 ValueKey 保证切换范围后重新加载。
   Widget _buildSection(({int start, int end}) range) {
     final key = ValueKey('${_section.name}-${range.start}-${range.end}');
-    return switch (_section) {
+    Widget section = switch (_section) {
       _Section.overview => _OverviewSection(
         key: key,
         start: range.start,
@@ -288,6 +289,9 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
       ),
       _Section.tag => _TagSection(key: key, start: range.start, end: range.end),
     };
+    // 宽屏限宽居中，避免卡片/图表在桌面大屏上无限拉伸。
+    section = ContentWidthBox(maxWidth: 960, child: section);
+    return section;
   }
 }
 
