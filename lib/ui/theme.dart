@@ -11,12 +11,17 @@ import 'tokens/design_tokens.dart';
 /// - 卡片:样式(filled/outlined/elevated)+ 圆角由主题统一定制,页面不得绕过。
 /// - 动画:pageTransitionsTheme / 弹窗等由 animationsEnabled 控制
 ///   (系统 reduce-motion 时在 main 层强制关闭)。
-ThemeData buildAppTheme(Brightness brightness, AppTheme theme) {
+ThemeData buildAppTheme(
+  Brightness brightness,
+  AppTheme theme, {
+  bool? animationsEnabled,
+}) {
   final dark = brightness == Brightness.dark || theme.isDark;
   final scheme = ColorScheme.fromSeed(
     seedColor: theme.seedColor,
     brightness: dark ? Brightness.dark : Brightness.light,
   );
+  final animOn = animationsEnabled ?? theme.animationsEnabled;
   // 暗色主题不应用用户的浅色背景/卡色覆盖(暗色 = 独立预设主题,已决策)。
   final background = dark ? null : theme.background;
   final cardColor = dark ? null : theme.cardColor;
@@ -83,7 +88,7 @@ ThemeData buildAppTheme(Brightness brightness, AppTheme theme) {
     pageTransitionsTheme: PageTransitionsTheme(
       builders: {
         for (final platform in TargetPlatform.values)
-          platform: theme.animationsEnabled
+          platform: animOn
               ? const ZoomPageTransitionsBuilder()
               : const FadeUpwardsPageTransitionsBuilder(),
       },

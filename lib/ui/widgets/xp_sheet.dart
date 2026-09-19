@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 /// 统一底部弹窗入口:shape 由主题 bottomSheetTheme 提供(顶部圆角+拖动手柄),
 /// 约定 isScrollControlled + 可选高度系数;调用方不再手写 RoundedRectangleBorder。
+/// 出入场由 Material 3 内建(bottomSheetTheme 统一),主题动画开关控制页面转场。
 Future<T?> showXpSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
