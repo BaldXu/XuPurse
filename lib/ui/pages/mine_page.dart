@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../layout/breakpoints.dart';
 import 'about_page.dart';
+import 'ai_settings_page.dart';
 import 'book_manage_page.dart';
 import 'data_manage_page.dart';
 import 'settings_page.dart';
@@ -40,6 +41,12 @@ class MinePage extends StatelessWidget {
                 title: '数据管理',
                 subtitle: '第三方数据导入、备份导出',
                 onTap: () => _push(context, const DataManagePage()),
+              ),
+              _Entry(
+                icon: Icons.smart_toy_outlined,
+                title: 'AI 设置',
+                subtitle: '接入 AI 助手分析财务数据',
+                onTap: () => _push(context, const AiSettingsPage()),
               ),
               _Entry(
                 icon: Icons.palette_outlined,

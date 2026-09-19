@@ -8,6 +8,7 @@ import '../../core/utils/amount.dart';
 import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
 import '../layout/breakpoints.dart';
+import '../widgets/ai_chat_sheet.dart';
 
 /// 统计页：侧边栏分区（宽屏 NavigationRail / 窄屏横向 Tab）+ 日期范围下拉。
 ///
@@ -207,6 +208,7 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
           return wide ? _buildWide(range) : _buildNarrow(range);
         },
       ),
+      floatingActionButton: const AiFab(),
     );
   }
 
