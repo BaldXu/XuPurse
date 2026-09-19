@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/utils/amount.dart';
 import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
+import 'xp_snack.dart';
 
 /// 手动添加历史快照弹窗（模块 2.4「历史快照」）：输入时间点 + 余额 + 备注，
 /// 记录该时点的余额供趋势图回溯。**不改变当前余额**。
@@ -55,13 +56,7 @@ class _HistoricalSnapshotSheetState
     );
     if (time == null || !mounted) return;
     setState(() {
-      _time = DateTime(
-        date.year,
-        date.month,
-        date.day,
-        time.hour,
-        time.minute,
-      );
+      _time = DateTime(date.year, date.month, date.day, time.hour, time.minute);
     });
   }
 
@@ -73,7 +68,9 @@ class _HistoricalSnapshotSheetState
     }
     setState(() => _saving = true);
     try {
-      await ref.read(accountServiceProvider).addHistoricalSnapshot(
+      await ref
+          .read(accountServiceProvider)
+          .addHistoricalSnapshot(
             accountId: widget.account.id,
             balance: balance,
             timestamp: _time.millisecondsSinceEpoch,
@@ -89,9 +86,7 @@ class _HistoricalSnapshotSheetState
   }
 
   void _toast(String msg) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(msg)));
+    showXpSnack(context, msg);
   }
 
   @override

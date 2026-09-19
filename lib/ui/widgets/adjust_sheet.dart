@@ -6,6 +6,7 @@ import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../tokens/design_tokens.dart';
+import 'xp_snack.dart';
 
 /// 手动调账弹窗（算法二）：输入目标余额 → 产生调账账单 + MANUAL 快照。
 class AdjustSheet extends ConsumerStatefulWidget {
@@ -57,7 +58,10 @@ class _AdjustSheetState extends ConsumerState<AdjustSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('调账 · ${widget.account.name}', style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            '调账 · ${widget.account.name}',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 4),
           Text(
             '当前余额 ${formatYuan(widget.account.currentBalance)}',
@@ -69,8 +73,7 @@ class _AdjustSheetState extends ConsumerState<AdjustSheet> {
           TextField(
             controller: _balanceCtrl,
             autofocus: true,
-            keyboardType:
-                const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
             ],
@@ -131,8 +134,6 @@ class _AdjustSheetState extends ConsumerState<AdjustSheet> {
   }
 
   void _toast(String msg) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(msg)));
+    showXpSnack(context, msg);
   }
 }

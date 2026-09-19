@@ -5,6 +5,7 @@ import '../../domain/ai/ai_config.dart';
 import '../../domain/ai/ai_service.dart';
 import '../layout/breakpoints.dart';
 import '../tokens/design_tokens.dart';
+import '../widgets/xp_snack.dart';
 
 /// AI 设置页：多配置管理（新增/编辑/删除/启用停用/切换当前）+ 连通性测试。
 class AiSettingsPage extends ConsumerWidget {
@@ -511,9 +512,7 @@ class _AiConfigEditPageState extends ConsumerState<_AiConfigEditPage> {
         config.apiKey.isEmpty ||
         config.model.isEmpty ||
         config.baseUrl.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请完整填写名称、Base URL、API Key 和模型名称')),
-      );
+      showXpSnack(context, '请完整填写名称、Base URL、API Key 和模型名称');
       return;
     }
     await ref.read(aiConfigProvider.notifier).upsert(config);

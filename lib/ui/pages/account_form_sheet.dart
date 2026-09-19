@@ -8,6 +8,7 @@ import '../../core/utils/amount.dart';
 import '../../core/utils/icons.dart';
 import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
+import '../widgets/xp_snack.dart';
 
 /// 账户表单（新建 / 编辑）。
 class AccountFormSheet extends ConsumerStatefulWidget {
@@ -257,8 +258,6 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
   }
 
   void _toast(String msg) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(msg)));
+    showXpSnack(context, msg);
   }
 }

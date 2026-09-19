@@ -74,7 +74,7 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
               ),
               const SizedBox(width: 12),
               Text(
-                '#${_hex(_color)}',
+                _hex(_color),
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ],

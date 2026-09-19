@@ -10,6 +10,7 @@ import '../../core/utils/icons.dart';
 import '../../data/database/app_database.dart';
 import '../../domain/services/currency_service.dart';
 import '../../state/providers.dart';
+import '../widgets/xp_snack.dart';
 import '../widgets/bill_tile.dart' show kExpenseColor, kIncomeColor;
 
 /// 记账弹窗：支出 / 收入 / 转账 + 数字键盘 + 二级分类 + 账户选择。
@@ -305,7 +306,7 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
   }
 
   void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showXpSnack(context, msg);
   }
 
   // ---------- 构建 ----------
