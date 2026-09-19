@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/ai/ai_config.dart';
 import '../../domain/ai/ai_service.dart';
+import '../../domain/ai/stats_context.dart';
 
 /// 统计页 AI 悬浮按钮：已配置 AI 时显示，点击弹出底部聊天窗口。
 class AiFab extends ConsumerWidget {
@@ -46,6 +47,17 @@ class _AiChatSheet extends ConsumerStatefulWidget {
 class _AiChatSheetState extends ConsumerState<_AiChatSheet> {
   String? _convId;
   bool _sending = false;
+  bool _attachStats = true; // 附带本机统计摘要（聚合口径）
+  bool _thinking = false; // 思考模式（默认关闭；仅支持的模型显示开关）
+  String? _statsCache; // 每次打开聊天窗只生成一次
+
+  /// 当前配置的模型是否疑似支持思考模式（启发式，按模型名判断）。
+  bool get _modelSupportsThinking {
+    final model = ref.watch(
+      aiConfigProvider.select((s) => s.current?.model ?? ''),
+    );
+    return AiClient.modelSupportsThinking(model);
+  }
   final _inputCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
 
@@ -113,15 +125,37 @@ class _AiChatSheetState extends ConsumerState<_AiChatSheet> {
       // 只带当前会话历史（不含占位空消息）
       final history = _current(ref.read(aiChatProvider))!.messages
           .sublist(0, _current(ref.read(aiChatProvider))!.messages.length - 1);
+
+      // 附带本机统计摘要（仅首次发送时生成，后续复用）
+      var systemPrompt = kDefaultSystemPrompt;
+      if (_attachStats) {
+        _statsCache ??= await AiStatsContext(ref).build();
+        systemPrompt = '$kDefaultSystemPrompt\n\n$_statsCache';
+      }
+
       final reply = await client.chat(
-        systemPrompt: kDefaultSystemPrompt,
+        systemPrompt: systemPrompt,
         history: history,
         userMessage: text,
+        enableThinking: _thinking,
       );
-      await chat.replaceLast(
-        conv.id,
-        AiMessage(role: 'assistant', content: reply),
-      );
+      // 推理模型可能把 max_tokens 全部耗在思考上导致 content 为空
+      if (reply.trim().isEmpty) {
+        await chat.replaceLast(
+          conv.id,
+          AiMessage(
+            role: 'assistant',
+            content: '（未收到回复内容：模型可能把全部输出 tokens 用在思考上。'
+                '请在 AI 设置中把「最大输出 tokens」调大，如 4096，或换用非推理模型。）',
+            error: 'empty_reply',
+          ),
+        );
+      } else {
+        await chat.replaceLast(
+          conv.id,
+          AiMessage(role: 'assistant', content: reply),
+        );
+      }
     } catch (e) {
       await chat.replaceLast(
         conv.id,
@@ -178,6 +212,42 @@ class _AiChatSheetState extends ConsumerState<_AiChatSheet> {
                   tooltip: '历史对话',
                   icon: const Icon(Icons.history, size: 22),
                   onPressed: () => _showHistoryDrawer(conversations),
+                ),
+                // 思考模式开关（仅对疑似支持思考的模型显示；默认关闭）
+                if (_modelSupportsThinking)
+                  IconButton(
+                    tooltip: _thinking
+                        ? '思考模式：开（点击关闭）'
+                        : '思考模式：关（点击开启）',
+                    icon: Icon(
+                      _thinking ? Icons.psychology : Icons.psychology_outlined,
+                      size: 22,
+                      color: _thinking
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    onPressed: () => setState(() => _thinking = !_thinking),
+                  ),
+                // 附带统计数据开关（聚合口径，保护隐私）
+                IconButton(
+                  tooltip: _attachStats
+                      ? '附带统计数据：开（点击关闭）'
+                      : '附带统计数据：关（点击开启）',
+                  icon: Icon(
+                    _attachStats
+                        ? Icons.dataset_linked
+                        : Icons.dataset_linked_outlined,
+                    size: 22,
+                    color: _attachStats
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _attachStats = !_attachStats;
+                      if (!_attachStats) _statsCache = null;
+                    });
+                  },
                 ),
                 IconButton(
                   tooltip: '新建对话',

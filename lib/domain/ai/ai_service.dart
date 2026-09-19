@@ -209,15 +209,39 @@ class AiClient {
 
   static const _timeout = Duration(seconds: 60);
 
+  /// 启发式判断模型是否支持思考/推理模式（无法从 API 查询，按模型名判断）。
+  static bool modelSupportsThinking(String model) {
+    final m = model.toLowerCase();
+    const keywords = [
+      'reasoner', 'thinking', 'r1', 'qwq', 'o1', 'o3', 'o4-',
+      'deepseek-v4', 'deepseek-v3.2', 'seed-1.6', 'seed-1-6',
+      'claude-3-7', 'claude-4', 'claude-sonnet', 'claude-opus', 'claude-haiku',
+      'gemini-2.5', 'glm-4.5', 'glm-4.6', 'kimi-k2',
+    ];
+    return keywords.any(m.contains);
+  }
+
   /// 发送消息历史，返回助手回复全文。onDelta 用于渐进更新（非流式协议只回调一次）。
+  ///
+  /// [enableThinking]：思考模式开关（仅对支持的模型生效；默认关闭）。
+  /// - OpenAI 兼容（火山方舟风格）：请求体带 `thinking: {type: enabled|disabled}`；
+  ///   不支持该参数的模型不会带上此字段。
+  /// - Anthropic：开启时带 `thinking: {type: enabled, budget_tokens: ...}`；
+  ///   Anthropic 默认即关闭，关闭时不传。
   Future<String> chat({
     required String systemPrompt,
     required List<AiMessage> history,
     required String userMessage,
     void Function(String delta)? onDelta,
+    bool enableThinking = false,
   }) async {
     final headers = _headers();
-    final body = _buildBody(systemPrompt, history, userMessage);
+    final body = _buildBody(
+      systemPrompt,
+      history,
+      userMessage,
+      enableThinking: enableThinking,
+    );
     final resp = await http
         .post(_chatUrl(), headers: headers, body: jsonEncode(body))
         .timeout(_timeout);
@@ -259,8 +283,9 @@ class AiClient {
   Map<String, Object?> _buildBody(
     String systemPrompt,
     List<AiMessage> history,
-    String userMessage,
-  ) {
+    String userMessage, {
+    bool enableThinking = false,
+  }) {
     final msgs = [
       ...history.where((m) => m.error == null).map(
         (m) => {'role': m.role, 'content': m.content},
@@ -276,6 +301,11 @@ class AiClient {
           {'role': 'system', 'content': systemPrompt},
           ...msgs,
         ],
+        // 思考模式开关：仅对支持的模型显式关闭/开启（火山方舟风格参数）
+        if (modelSupportsThinking(_config.model))
+          'thinking': {
+            'type': enableThinking ? 'enabled' : 'disabled',
+          },
       },
       AiProtocol.anthropic => {
         'model': _config.model,
@@ -283,6 +313,9 @@ class AiClient {
         'max_tokens': _config.maxTokens,
         'system': systemPrompt,
         'messages': msgs,
+        // Anthropic 思考需 budget_tokens >= 1024 且开启时不允许 temperature=0/1
+        if (enableThinking && modelSupportsThinking(_config.model))
+          'thinking': {'type': 'enabled', 'budget_tokens': 2048},
       },
     };
   }
@@ -352,6 +385,7 @@ const String _systemPromptText = '''
 - 不确定的信息要明确说「不确定」，不要编造数字或结论。
 
 ## 限制
-- 你无法直接访问用户的账本数据库；只能分析用户在对话中提供的数据摘要。
+- 若系统提示词末尾附有「本机统计摘要」，表示用户已授权你读取该聚合数据，请直接基于摘要回答，无需用户复述数字；摘要未涵盖的部分（如单笔账单备注、具体消费明细）明确说不知道，不要索要更多明细。
+- 若没有附带统计摘要，说明用户选择了纯聊天模式：不要主动要求提供数据，可提示用户开启「附带统计数据」开关。
 - 涉及投资建议时保持保守，强调「不构成投资建议」。
 ''';

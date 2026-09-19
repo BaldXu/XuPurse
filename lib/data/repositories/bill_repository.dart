@@ -113,6 +113,35 @@ class BillRepository {
     return row.data['s'] as int;
   }
 
+  /// 时间段收支柱出（一次性查询，AI 摘要用；口径同 watchSummaryInRange）。
+  Future<({int expense, int income})> summaryInRangeOnce(
+    int start,
+    int end,
+  ) async {
+    final rows = await _db
+        .customSelect(
+          'SELECT type, SUM(amount) AS s FROM bills '
+          'WHERE time >= ? AND time < ? AND type IN (?, ?)'
+          '$_excludedSql GROUP BY type',
+          variables: [
+            Variable(start),
+            Variable(end),
+            Variable(BillType.expense.name),
+            Variable(BillType.income.name),
+          ],
+          readsFrom: {_db.bills},
+        )
+        .get();
+    var expense = 0;
+    var income = 0;
+    for (final row in rows) {
+      final s = row.data['s'] as int? ?? 0;
+      if (row.data['type'] == BillType.expense.name) expense = s;
+      if (row.data['type'] == BillType.income.name) income = s;
+    }
+    return (expense: expense, income: income);
+  }
+
   /// 时间段收支柱出流（首页月汇总；不含转账；不含「不计入收支」）
   Stream<({int expense, int income})> watchSummaryInRange(int start, int end) {
     return _db
