@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/ai/ai_config.dart';
 import '../../domain/ai/ai_service.dart';
+import '../tokens/design_tokens.dart';
 
 /// AI 设置页：多配置管理（新增/编辑/删除/启用停用/切换当前）+ 连通性测试。
 class AiSettingsPage extends ConsumerWidget {
@@ -453,7 +454,7 @@ class _AiConfigEditPageState extends ConsumerState<_AiConfigEditPage> {
                 child: Text(
                   '✓ 连接成功',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: const Color(0xFF30A46C),
+                    color: XpSemanticColors.income,
                   ),
                 ),
               ),

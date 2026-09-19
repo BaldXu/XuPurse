@@ -7,11 +7,19 @@ import '../../core/utils/app_colors.dart';
 import '../../core/utils/icons.dart';
 import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
+import '../tokens/design_tokens.dart';
 
-/// 金额语义色（与分类色系一致的简洁配色）。
-const Color kExpenseColor = Color(0xFFE5484D);
-const Color kIncomeColor = Color(0xFF30A46C);
-const Color kTransferColor = Color(0xFF6E7681);
+/// 金额语义色(统一从 design_tokens 提供,保留旧名兼容既有调用方)。
+const Color kExpenseColor = XpSemanticColors.expense;
+const Color kIncomeColor = XpSemanticColors.income;
+const Color kTransferColor = XpSemanticColors.transfer;
+
+/// 按账单类型取金额语义色。
+Color semanticColorOf(BillType type) => switch (type) {
+  BillType.expense => XpSemanticColors.expense,
+  BillType.income => XpSemanticColors.income,
+  BillType.transfer => XpSemanticColors.transfer,
+};
 
 /// 单条账单（首页列表行）。
 class BillTile extends ConsumerWidget {
@@ -41,11 +49,7 @@ class BillTile extends ConsumerWidget {
       BillType.expense => accById[bill.accountId]?.name ?? '',
       BillType.income => accById[bill.accountId]?.name ?? '',
     };
-    final color = switch (type) {
-      BillType.expense => kExpenseColor,
-      BillType.income => kIncomeColor,
-      BillType.transfer => kTransferColor,
-    };
+    final color = semanticColorOf(type);
     final prefix = type == BillType.expense
         ? '-'
         : (type == BillType.income ? '+' : '');

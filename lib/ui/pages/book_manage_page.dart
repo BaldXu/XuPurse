@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/database/global_database.dart';
 import '../../state/providers.dart';
+import '../layout/breakpoints.dart';
 
 /// 账本管理页：新建 / 切换 / 删除账本（切换后重建数据源）。
 class BookManagePage extends ConsumerStatefulWidget {
@@ -120,45 +121,47 @@ class _BookManagePageState extends ConsumerState<BookManagePage> {
     final currentId = ref.watch(databaseManagerProvider).currentBookId;
     return Scaffold(
       appBar: AppBar(title: const Text('账本管理')),
-      body: FutureBuilder<List<Book>>(
-        future: _loadBooks(),
-        builder: (context, snap) {
-          if (snap.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final books = snap.data ?? const <Book>[];
-          if (books.isEmpty) {
-            return const Center(child: Text('暂无账本'));
-          }
-          return ListView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-            itemCount: books.length,
-            itemBuilder: (context, i) {
-              final book = books[i];
-              final isCurrent = book.id == currentId;
-              return Card(
-                child: ListTile(
-                  leading: Icon(
-                    isCurrent ? Icons.check_circle : Icons.menu_book_outlined,
-                    color: isCurrent
-                        ? Theme.of(context).colorScheme.primary
-                        : null,
+      body: ContentWidthBox(
+        child: FutureBuilder<List<Book>>(
+          future: _loadBooks(),
+          builder: (context, snap) {
+            if (snap.connectionState != ConnectionState.done) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final books = snap.data ?? const <Book>[];
+            if (books.isEmpty) {
+              return const Center(child: Text('暂无账本'));
+            }
+            return ListView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+              itemCount: books.length,
+              itemBuilder: (context, i) {
+                final book = books[i];
+                final isCurrent = book.id == currentId;
+                return Card(
+                  child: ListTile(
+                    leading: Icon(
+                      isCurrent ? Icons.check_circle : Icons.menu_book_outlined,
+                      color: isCurrent
+                          ? Theme.of(context).colorScheme.primary
+                          : null,
+                    ),
+                    title: Text(book.name),
+                    subtitle: Text(
+                      '本位币 ${book.baseCurrency}${isCurrent ? ' · 当前' : ''}',
+                    ),
+                    trailing: IconButton(
+                      tooltip: '删除',
+                      icon: const Icon(Icons.delete_outline),
+                      onPressed: () => _deleteBook(book),
+                    ),
+                    onTap: () => _switchBook(book.id),
                   ),
-                  title: Text(book.name),
-                  subtitle: Text(
-                    '本位币 ${book.baseCurrency}${isCurrent ? ' · 当前' : ''}',
-                  ),
-                  trailing: IconButton(
-                    tooltip: '删除',
-                    icon: const Icon(Icons.delete_outline),
-                    onPressed: () => _deleteBook(book),
-                  ),
-                  onTap: () => _switchBook(book.id),
-                ),
-              );
-            },
-          );
-        },
+                );
+              },
+            );
+          },
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _createBook,

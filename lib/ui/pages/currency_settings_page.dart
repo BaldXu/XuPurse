@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/services/currency_service.dart';
 import '../../state/providers.dart';
+import '../layout/breakpoints.dart';
 
 /// 汇率设置页：列出内置币种汇率，可手动覆盖（1 单位外币 = X 本位币）。
 class CurrencySettingsPage extends ConsumerWidget {
@@ -15,90 +16,95 @@ class CurrencySettingsPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('汇率设置')),
-      body: ListView(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              '本位币为总资产折算的目标币种；汇率为 1 单位外币折合本位币（CNY）的数量。'
-              '修改后总资产将按新汇率折算。',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+      body: ContentWidthBox(
+        child: ListView(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                '本位币为总资产折算的目标币种；汇率为 1 单位外币折合本位币（CNY）的数量。'
+                '修改后总资产将按新汇率折算。',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '本位币',
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                    const SizedBox(height: 8),
-                    ref.watch(baseCurrencyProvider).when(
-                      loading: () => const LinearProgressIndicator(),
-                      error: (e, _) => Text('加载失败：$e'),
-                      data: (base) => DropdownButtonFormField<String>(
-                        key: ValueKey(base),
-                        initialValue: base,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                        ),
-                        items: [
-                          for (final code in CurrencyService.supportedCodes)
-                            DropdownMenuItem<String>(
-                              value: code,
-                              child: Text(code),
-                            ),
-                        ],
-                        onChanged: (v) async {
-                          if (v == null || v == base) return;
-                          final mgr = ref.read(databaseManagerProvider);
-                          final bookId = mgr.currentBookId;
-                          if (bookId == null || !context.mounted) return;
-                          await mgr.updateBookBaseCurrency(bookId, v);
-                          ref.invalidate(baseCurrencyProvider);
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('本位币已切换为 $v')),
-                            );
-                          }
-                        },
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '本位币',
+                        style: Theme.of(context).textTheme.titleSmall,
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      ref
+                          .watch(baseCurrencyProvider)
+                          .when(
+                            loading: () => const LinearProgressIndicator(),
+                            error: (e, _) => Text('加载失败：$e'),
+                            data: (base) => DropdownButtonFormField<String>(
+                              key: ValueKey(base),
+                              initialValue: base,
+                              decoration: const InputDecoration(
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                              items: [
+                                for (final code
+                                    in CurrencyService.supportedCodes)
+                                  DropdownMenuItem<String>(
+                                    value: code,
+                                    child: Text(code),
+                                  ),
+                              ],
+                              onChanged: (v) async {
+                                if (v == null || v == base) return;
+                                final mgr = ref.read(databaseManagerProvider);
+                                final bookId = mgr.currentBookId;
+                                if (bookId == null || !context.mounted) return;
+                                await mgr.updateBookBaseCurrency(bookId, v);
+                                ref.invalidate(baseCurrencyProvider);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('本位币已切换为 $v')),
+                                  );
+                                }
+                              },
+                            ),
+                          ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-          for (final code in CurrencyService.supportedCodes)
-            ListTile(
-              leading: CircleAvatar(
-                radius: 16,
-                child: Text(code.substring(0, 1)),
-              ),
-              title: Text(code),
-              subtitle: Text(
-                service.isOverridden(code)
-                    ? '手动覆盖：1 $code = ${_fmt(rates[code])} CNY'
-                    : '内置：1 $code = ${_fmt(rates[code])} CNY',
-                style: TextStyle(
-                  color: service.isOverridden(code)
-                      ? Theme.of(context).colorScheme.primary
-                      : null,
+            const SizedBox(height: 8),
+            for (final code in CurrencyService.supportedCodes)
+              ListTile(
+                leading: CircleAvatar(
+                  radius: 16,
+                  child: Text(code.substring(0, 1)),
                 ),
+                title: Text(code),
+                subtitle: Text(
+                  service.isOverridden(code)
+                      ? '手动覆盖：1 $code = ${_fmt(rates[code])} CNY'
+                      : '内置：1 $code = ${_fmt(rates[code])} CNY',
+                  style: TextStyle(
+                    color: service.isOverridden(code)
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
+                  ),
+                ),
+                trailing: const Icon(Icons.edit_outlined, size: 18),
+                onTap: () => _edit(context, ref, code),
               ),
-              trailing: const Icon(Icons.edit_outlined, size: 18),
-              onTap: () => _edit(context, ref, code),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -113,9 +119,7 @@ class CurrencySettingsPage extends ConsumerWidget {
         title: Text('设置 $code 汇率'),
         content: TextField(
           controller: ctrl,
-          keyboardType: const TextInputType.numberWithOptions(
-            decimal: true,
-          ),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
             labelText: '1 $code = ? CNY',
             border: const OutlineInputBorder(),

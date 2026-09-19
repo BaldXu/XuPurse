@@ -7,6 +7,7 @@ import '../../core/utils/amount.dart';
 import '../../core/utils/bill_extra.dart';
 import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
+import '../layout/breakpoints.dart';
 import '../widgets/bill_tile.dart';
 import 'bookkeeping_sheet.dart';
 
@@ -43,130 +44,132 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('搜索账单')),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: TextField(
-              controller: _keywordCtrl,
-              decoration: InputDecoration(
-                hintText: '搜索备注 / 分类 / 标签',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _keywordCtrl.text.isEmpty
-                    ? null
-                    : IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _keywordCtrl.clear();
-                          setState(() {});
-                        },
-                      ),
-                border: const OutlineInputBorder(),
-                isDense: true,
+      body: ContentWidthBox(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: TextField(
+                controller: _keywordCtrl,
+                decoration: InputDecoration(
+                  hintText: '搜索备注 / 分类 / 标签',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: _keywordCtrl.text.isEmpty
+                      ? null
+                      : IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            _keywordCtrl.clear();
+                            setState(() {});
+                          },
+                        ),
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                ),
+                onChanged: (_) => setState(() {}),
+                onSubmitted: (_) => setState(() {}),
               ),
-              onChanged: (_) => setState(() {}),
-              onSubmitted: (_) => setState(() {}),
             ),
-          ),
-          SizedBox(
-            height: 44,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              children: [
-                _filterChip(
-                  '全部',
-                  _type == null,
-                  () => setState(() => _type = null),
-                ),
-                for (final t in BillType.values)
+            SizedBox(
+              height: 44,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                children: [
                   _filterChip(
-                    _typeLabel(t),
-                    _type == t,
-                    () => setState(() => _type = t),
+                    '全部',
+                    _type == null,
+                    () => setState(() => _type = null),
                   ),
-                _filterChip(
-                  '本月',
-                  _range == 1,
-                  () => setState(() => _range = 1),
-                ),
-                _filterChip(
-                  '上月',
-                  _range == 2,
-                  () => setState(() => _range = 2),
-                ),
-                _filterChip(
-                  '全部时间',
-                  _range == 0,
-                  () => setState(() => _range = 0),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(
-            height: 44,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              children: [
-                DropdownButton<String?>(
-                  value: _accountId,
-                  hint: const Text('全部账户'),
-                  items: [
-                    const DropdownMenuItem(value: null, child: Text('全部账户')),
-                    for (final a in accounts)
-                      DropdownMenuItem(value: a.id, child: Text(a.name)),
-                  ],
-                  onChanged: (v) => setState(() => _accountId = v),
-                ),
-                const SizedBox(width: 8),
-                DropdownButton<String?>(
-                  value: _categoryId,
-                  hint: const Text('全部分类'),
-                  items: [
-                    const DropdownMenuItem(value: null, child: Text('全部分类')),
-                    for (final c in categories)
-                      DropdownMenuItem(value: c.id, child: Text(c.name)),
-                  ],
-                  onChanged: (v) => setState(() => _categoryId = v),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: '最小金额',
-                      isDense: true,
+                  for (final t in BillType.values)
+                    _filterChip(
+                      _typeLabel(t),
+                      _type == t,
+                      () => setState(() => _type = t),
                     ),
-                    onChanged: (v) => _minAmountText = v,
+                  _filterChip(
+                    '本月',
+                    _range == 1,
+                    () => setState(() => _range = 1),
                   ),
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8),
-                  child: Text('—'),
-                ),
-                Expanded(
-                  child: TextField(
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: '最大金额',
-                      isDense: true,
-                    ),
-                    onChanged: (v) => _maxAmountText = v,
+                  _filterChip(
+                    '上月',
+                    _range == 2,
+                    () => setState(() => _range = 2),
                   ),
-                ),
-              ],
+                  _filterChip(
+                    '全部时间',
+                    _range == 0,
+                    () => setState(() => _range = 0),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const Divider(height: 1),
-          Expanded(child: _buildResults(categories)),
-        ],
+            SizedBox(
+              height: 44,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                children: [
+                  DropdownButton<String?>(
+                    value: _accountId,
+                    hint: const Text('全部账户'),
+                    items: [
+                      const DropdownMenuItem(value: null, child: Text('全部账户')),
+                      for (final a in accounts)
+                        DropdownMenuItem(value: a.id, child: Text(a.name)),
+                    ],
+                    onChanged: (v) => setState(() => _accountId = v),
+                  ),
+                  const SizedBox(width: 8),
+                  DropdownButton<String?>(
+                    value: _categoryId,
+                    hint: const Text('全部分类'),
+                    items: [
+                      const DropdownMenuItem(value: null, child: Text('全部分类')),
+                      for (final c in categories)
+                        DropdownMenuItem(value: c.id, child: Text(c.name)),
+                    ],
+                    onChanged: (v) => setState(() => _categoryId = v),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: '最小金额',
+                        isDense: true,
+                      ),
+                      onChanged: (v) => _minAmountText = v,
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    child: Text('—'),
+                  ),
+                  Expanded(
+                    child: TextField(
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: '最大金额',
+                        isDense: true,
+                      ),
+                      onChanged: (v) => _maxAmountText = v,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(child: _buildResults(categories)),
+          ],
+        ),
       ),
     );
   }

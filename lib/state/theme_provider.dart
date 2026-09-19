@@ -4,9 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// 主题定义：主题色（seed）+ 可选页面背景 / 卡片背景覆盖。
+/// 卡片样式风格。
+enum XpCardStyle { filled, outlined, elevated }
+
+/// 主题定义:颜色(seed/背景/卡片)+ 可选定制维度(字体/卡片样式/动画)。
 ///
-/// `background` / `cardColor` 为 null 时跟随主题默认（Material 3 派生色）。
+/// - 暗色模式是独立预设主题(preset_dark),系统暗色开关 = 切换到它;
+///   用户自定义主题仅在浅色模式下生效,不参与暗色。
+/// - 持久化 JSON 带 `v` 版本号:旧格式(无 v)按 v1 读取,新字段全部取默认,
+///   用户已建主题无损迁移。
 class AppTheme {
   const AppTheme({
     required this.id,
@@ -14,15 +20,39 @@ class AppTheme {
     required this.seedColor,
     this.background,
     this.cardColor,
+    this.fontFamily,
+    this.fontScale = 1.0,
+    this.cardStyle = XpCardStyle.filled,
+    this.cardRadius,
+    this.animationsEnabled = true,
+    this.isDark = false,
   });
 
   final String id;
   final String name;
   final Color seedColor;
-  final Color? background; // 页面背景覆盖
-  final Color? cardColor; // 卡片背景覆盖
+  final Color? background; // 页面背景覆盖(浅色)
+  final Color? cardColor; // 卡片背景覆盖(浅色)
 
-  /// 内置预设主题不可删除；用户自建主题 id 以 `user_` 开头。
+  /// 系统字体名(null = 平台默认);仅支持系统已装字体,不做字体文件导入。
+  final String? fontFamily;
+
+  /// 字号缩放(0.85 / 1.0 / 1.15)。
+  final double fontScale;
+
+  /// 卡片统一样式。
+  final XpCardStyle cardStyle;
+
+  /// 卡片圆角覆盖(null = 跟随 token 默认 12)。
+  final double? cardRadius;
+
+  /// 页面转场 / 弹窗动画开关(尊重系统 reduce-motion 时强制关闭)。
+  final bool animationsEnabled;
+
+  /// 是否为暗色主题(暗色预设专用标记)。
+  final bool isDark;
+
+  /// 内置预设主题不可删除;用户自建主题 id 以 `user_` 开头。
   bool get isPreset => id.startsWith('preset_');
 
   static Color _color(String hex) {
@@ -33,14 +63,27 @@ class AppTheme {
   static String _hex(Color c) =>
       '#${c.toARGB32().toRadixString(16).substring(2).toUpperCase()}';
 
+  static XpCardStyle _cardStyleOf(String? s) => XpCardStyle.values.firstWhere(
+    (e) => e.name == s,
+    orElse: () => XpCardStyle.filled,
+  );
+
   Map<String, Object?> toJson() => {
+    'v': 2,
     'id': id,
     'name': name,
     'seedColor': _hex(seedColor),
     if (background != null) 'background': _hex(background!),
     if (cardColor != null) 'cardColor': _hex(cardColor!),
+    if (fontFamily != null) 'fontFamily': fontFamily,
+    if (fontScale != 1.0) 'fontScale': fontScale,
+    if (cardStyle != XpCardStyle.filled) 'cardStyle': cardStyle.name,
+    if (cardRadius != null) 'cardRadius': cardRadius,
+    if (!animationsEnabled) 'animationsEnabled': false,
+    if (isDark) 'isDark': true,
   };
 
+  /// 兼容 v1(无 v 字段,仅三色)与 v2 格式。
   static AppTheme fromJson(Map<String, Object?> json) => AppTheme(
     id: json['id'] as String,
     name: json['name'] as String,
@@ -51,8 +94,44 @@ class AppTheme {
     cardColor: json['cardColor'] == null
         ? null
         : _color(json['cardColor'] as String),
+    fontFamily: json['fontFamily'] as String?,
+    fontScale: (json['fontScale'] as num?)?.toDouble() ?? 1.0,
+    cardStyle: _cardStyleOf(json['cardStyle'] as String?),
+    cardRadius: (json['cardRadius'] as num?)?.toDouble(),
+    animationsEnabled: json['animationsEnabled'] as bool? ?? true,
+    isDark: json['isDark'] as bool? ?? false,
+  );
+
+  AppTheme copyWith({
+    String? fontFamily,
+    double? fontScale,
+    XpCardStyle? cardStyle,
+    double? cardRadius,
+    bool? animationsEnabled,
+    bool clearFontFamily = false,
+    bool clearCardRadius = false,
+  }) => AppTheme(
+    id: id,
+    name: name,
+    seedColor: seedColor,
+    background: background,
+    cardColor: cardColor,
+    fontFamily: clearFontFamily ? null : (fontFamily ?? this.fontFamily),
+    fontScale: fontScale ?? this.fontScale,
+    cardStyle: cardStyle ?? this.cardStyle,
+    cardRadius: clearCardRadius ? null : (cardRadius ?? this.cardRadius),
+    animationsEnabled: animationsEnabled ?? this.animationsEnabled,
+    isDark: isDark,
   );
 }
+
+/// 暗色主题预设(独立于用户自定义体系;系统暗色开关即切换到它)。
+const darkThemePreset = AppTheme(
+  id: 'preset_dark',
+  name: '暗色',
+  seedColor: Color(0xFF7A9E7E),
+  isDark: true,
+);
 
 /// 内置预设主题（不可删除）。克莱因蓝：浅灰白页面背景 + 白色卡片 + 克莱因蓝主题色。
 const presetThemes = <AppTheme>[
@@ -80,7 +159,8 @@ class ThemeState {
   final String currentId;
   final List<AppTheme> userThemes;
 
-  List<AppTheme> get allThemes => [...presetThemes, ...userThemes];
+  /// 全部可选主题(浅色主题 + 暗色预设;主题设置页展示用)。
+  List<AppTheme> get allThemes => [...presetThemes, darkThemePreset, ...userThemes];
 
   AppTheme get current => allThemes.firstWhere(
     (t) => t.id == currentId,
@@ -93,10 +173,15 @@ final themeProvider = NotifierProvider<ThemeNotifier, ThemeState>(
   ThemeNotifier.new,
 );
 
-/// 当前生效主题。
-final currentThemeProvider = Provider<AppTheme>(
-  (ref) => ref.watch(themeProvider).current,
-);
+/// 当前生效主题(带系统暗色感知:系统暗色时强制返回暗色预设主题)。
+final currentThemeProvider = Provider<AppTheme>((ref) {
+  final state = ref.watch(themeProvider);
+  final platformDark =
+      WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+      Brightness.dark;
+  if (platformDark) return darkThemePreset;
+  return state.current;
+});
 
 class ThemeNotifier extends Notifier<ThemeState> {
   static const _currentKey = 'theme_current_id';
@@ -113,10 +198,7 @@ class ThemeNotifier extends Notifier<ThemeState> {
   ThemeState build() {
     final userThemes = _loadUserThemes();
     final currentId = _prefsCache?.getString(_currentKey);
-    final valid = [
-      ...presetThemes,
-      ...userThemes,
-    ].any((t) => t.id == currentId);
+    final valid = [...presetThemes, ...userThemes].any((t) => t.id == currentId);
     return ThemeState(
       currentId: valid ? currentId! : presetThemes.first.id,
       userThemes: userThemes,
@@ -147,7 +229,8 @@ class ThemeNotifier extends Notifier<ThemeState> {
     );
   }
 
-  /// 选择并应用主题。
+  /// 选择并应用主题。暗色预设不在浅色列表中可直接选中(设置页入口),但
+  /// 实际生效主题由系统暗色决定(currentThemeProvider)。
   Future<void> select(String id) async {
     if (state.currentId == id) return;
     final next = ThemeState(currentId: id, userThemes: state.userThemes);
@@ -172,6 +255,22 @@ class ThemeNotifier extends Notifier<ThemeState> {
     final next = ThemeState(
       currentId: state.currentId,
       userThemes: state.userThemes.where((t) => t.id != id).toList(),
+    );
+    await _persist(next);
+    state = next;
+    return true;
+  }
+
+  /// 更新当前主题的定制维度(字体/卡片样式/动画)并持久化。
+  /// 仅用户自建主题可改;预设主题(含暗色)不可变,返回是否成功。
+  Future<bool> updateCurrentTheme(AppTheme updated) async {
+    if (updated.isPreset) return false;
+    final next = ThemeState(
+      currentId: state.currentId,
+      userThemes: [
+        for (final t in state.userThemes)
+          if (t.id == updated.id) updated else t,
+      ],
     );
     await _persist(next);
     state = next;

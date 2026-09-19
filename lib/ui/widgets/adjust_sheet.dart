@@ -5,6 +5,7 @@ import '../../core/utils/amount.dart';
 import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../tokens/design_tokens.dart';
 
 /// 手动调账弹窗（算法二）：输入目标余额 → 产生调账账单 + MANUAL 快照。
 class AdjustSheet extends ConsumerStatefulWidget {
@@ -85,7 +86,9 @@ class _AdjustSheetState extends ConsumerState<AdjustSheet> {
             Text(
               '调整差额：${diff > 0 ? '+' : '-'}${formatYuan(diff.abs())}（将生成一笔调账账单）',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: diff > 0 ? const Color(0xFF30A46C) : const Color(0xFFE5484D),
+                color: diff > 0
+                    ? XpSemanticColors.income
+                    : XpSemanticColors.expense,
               ),
             ),
           ],

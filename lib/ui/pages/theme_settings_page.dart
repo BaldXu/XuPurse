@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../state/theme_provider.dart';
+import '../layout/breakpoints.dart';
+import '../tokens/design_tokens.dart';
 import '../widgets/color_picker_dialog.dart';
 
 /// 主题外观页：
@@ -137,103 +139,105 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage> {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('主题外观')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // ---- 第一层：预设主题 ----
-          Text('预设主题', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 4),
-          Text(
-            '点按应用；长按用户自建主题可删除（内置与当前使用中的不可删）。',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 20,
-            runSpacing: 20,
-            children: [
-              for (final theme in state.allThemes)
-                _ThemeBall(
-                  theme: theme,
-                  active: theme.id == state.currentId,
-                  deleteMode: _armedDelete == theme.id,
-                  onTap: () => _select(theme.id),
-                  onLongPress: () {
-                    // 仅用户自建且非当前使用中的主题可进入删除态
-                    if (!theme.isPreset && theme.id != state.currentId) {
-                      setState(() => _armedDelete = theme.id);
-                    }
-                  },
-                  onDelete: () => _confirmDelete(theme),
-                ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          const Divider(height: 1),
-          const SizedBox(height: 24),
-
-          // ---- 第二层：自定义主题设置 ----
-          Text('自定义主题', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 4),
-          Text(
-            '三个颜色项均为单选项：选中后打开取色器，滑动色相 / 饱和度 / 明度'
-            '取色并确认；保存后新增为一个预设主题。',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: 12),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    controller: _nameCtrl,
-                    decoration: const InputDecoration(
-                      labelText: '主题名称',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                  ),
-                  RadioGroup<String>(
-                    groupValue: _editing,
-                    onChanged: (v) {
-                      if (v != null) _pickColor(v);
+      body: ContentWidthBox(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            // ---- 第一层：预设主题 ----
+            Text('预设主题', style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 4),
+            Text(
+              '点按应用；长按用户自建主题可删除（内置与当前使用中的不可删）。',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 20,
+              runSpacing: 20,
+              children: [
+                for (final theme in state.allThemes)
+                  _ThemeBall(
+                    theme: theme,
+                    active: theme.id == state.currentId,
+                    deleteMode: _armedDelete == theme.id,
+                    onTap: () => _select(theme.id),
+                    onLongPress: () {
+                      // 仅用户自建且非当前使用中的主题可进入删除态
+                      if (!theme.isPreset && theme.id != state.currentId) {
+                        setState(() => _armedDelete = theme.id);
+                      }
                     },
-                    child: Column(
-                      children: [
-                        _colorRow(field: 'seed', label: '主题色', color: _seed),
-                        _colorRow(
-                          field: 'background',
-                          label: '页面背景色',
-                          color: _background,
-                        ),
-                        _colorRow(
-                          field: 'card',
-                          label: '卡片背景色',
-                          color: _cardColor,
-                        ),
-                      ],
-                    ),
+                    onDelete: () => _confirmDelete(theme),
                   ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: _saveCustom,
-                      icon: const Icon(Icons.add),
-                      label: const Text('保存为预设主题'),
+              ],
+            ),
+            const SizedBox(height: 24),
+            const Divider(height: 1),
+            const SizedBox(height: 24),
+
+            // ---- 第二层：自定义主题设置 ----
+            Text('自定义主题', style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 4),
+            Text(
+              '三个颜色项均为单选项：选中后打开取色器，滑动色相 / 饱和度 / 明度'
+              '取色并确认；保存后新增为一个预设主题。',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: _nameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: '主题名称',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
                     ),
-                  ),
-                ],
+                    RadioGroup<String>(
+                      groupValue: _editing,
+                      onChanged: (v) {
+                        if (v != null) _pickColor(v);
+                      },
+                      child: Column(
+                        children: [
+                          _colorRow(field: 'seed', label: '主题色', color: _seed),
+                          _colorRow(
+                            field: 'background',
+                            label: '页面背景色',
+                            color: _background,
+                          ),
+                          _colorRow(
+                            field: 'card',
+                            label: '卡片背景色',
+                            color: _cardColor,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: _saveCustom,
+                        icon: const Icon(Icons.add),
+                        label: const Text('保存为预设主题'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -351,7 +355,7 @@ class _ThemeBall extends StatelessWidget {
                 width: 22,
                 height: 22,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFE5484D),
+                  color: XpSemanticColors.danger,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.remove, size: 16, color: Colors.white),

@@ -7,6 +7,7 @@ import '../../core/utils/amount.dart';
 import '../../core/utils/ids.dart';
 import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
+import '../layout/breakpoints.dart';
 
 /// 预算管理页（卡片 + 进度 + 表单 + 删除）。
 class BudgetManagePage extends ConsumerWidget {
@@ -17,19 +18,21 @@ class BudgetManagePage extends ConsumerWidget {
     final budgetsAsync = ref.watch(_budgetsWithUsageProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('预算管理')),
-      body: budgetsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('加载失败：$e')),
-        data: (items) {
-          if (items.isEmpty) {
-            return const Center(child: Text('暂无预算，点击右下角新增'));
-          }
-          return ListView.builder(
-            padding: const EdgeInsets.only(bottom: 96),
-            itemCount: items.length,
-            itemBuilder: (context, i) => _BudgetCard(item: items[i]),
-          );
-        },
+      body: ContentWidthBox(
+        child: budgetsAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('加载失败：$e')),
+          data: (items) {
+            if (items.isEmpty) {
+              return const Center(child: Text('暂无预算，点击右下角新增'));
+            }
+            return ListView.builder(
+              padding: const EdgeInsets.only(bottom: 96),
+              itemCount: items.length,
+              itemBuilder: (context, i) => _BudgetCard(item: items[i]),
+            );
+          },
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => showModalBottomSheet<void>(

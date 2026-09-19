@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/utils/amount.dart';
 import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
+import '../layout/breakpoints.dart';
+import '../tokens/design_tokens.dart';
 
 /// 业务记录页：借贷 / 报销 / 退款 / 分期 四 tab（只读列表 + 删除）。
 class LedgerManagePage extends ConsumerWidget {
@@ -26,13 +28,15 @@ class LedgerManagePage extends ConsumerWidget {
             ],
           ),
         ),
-        body: const TabBarView(
-          children: [
-            _LendList(),
-            _ReimbursementList(),
-            _RefundList(),
-            _InstalmentList(),
-          ],
+        body: ContentWidthBox(
+          child: const TabBarView(
+            children: [
+              _LendList(),
+              _ReimbursementList(),
+              _RefundList(),
+              _InstalmentList(),
+            ],
+          ),
         ),
       ),
     );
@@ -64,7 +68,8 @@ class _LendList extends ConsumerWidget {
           itemBuilder: (context, i) {
             final l = lends[i];
             final isLend = l.type == 'lend';
-            final color = isLend ? Colors.red.shade400 : Colors.green.shade600;
+            final color =
+                isLend ? XpSemanticColors.expense : XpSemanticColors.income;
             return ListTile(
               leading: Icon(
                 isLend ? Icons.north_east : Icons.south_west,

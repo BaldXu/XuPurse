@@ -6,6 +6,7 @@ import '../../core/utils/ids.dart';
 import '../../data/database/app_database.dart';
 import '../../domain/services/currency_service.dart';
 import '../../state/providers.dart';
+import '../layout/breakpoints.dart';
 
 /// 标签管理页（列表 + 新增/编辑/删除）。
 class TagManagePage extends ConsumerWidget {
@@ -16,41 +17,43 @@ class TagManagePage extends ConsumerWidget {
     final tagsAsync = ref.watch(tagsProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('标签管理')),
-      body: tagsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('加载失败：$e')),
-        data: (tags) {
-          if (tags.isEmpty) {
-            return const Center(child: Text('暂无标签，点击右下角新增'));
-          }
-          return ListView.builder(
-            itemCount: tags.length,
-            itemBuilder: (context, i) {
-              final tag = tags[i];
-              final colorHex = tag.color ?? '#4D3C77';
-              return ListTile(
-                leading: CircleAvatar(
-                  radius: 16,
-                  backgroundColor: _parseColor(
-                    colorHex,
-                  ).withValues(alpha: 0.15),
-                  child: Icon(
-                    Icons.label,
-                    size: 16,
-                    color: _parseColor(colorHex),
+      body: ContentWidthBox(
+        child: tagsAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('加载失败：$e')),
+          data: (tags) {
+            if (tags.isEmpty) {
+              return const Center(child: Text('暂无标签，点击右下角新增'));
+            }
+            return ListView.builder(
+              itemCount: tags.length,
+              itemBuilder: (context, i) {
+                final tag = tags[i];
+                final colorHex = tag.color ?? '#4D3C77';
+                return ListTile(
+                  leading: CircleAvatar(
+                    radius: 16,
+                    backgroundColor: _parseColor(
+                      colorHex,
+                    ).withValues(alpha: 0.15),
+                    child: Icon(
+                      Icons.label,
+                      size: 16,
+                      color: _parseColor(colorHex),
+                    ),
                   ),
-                ),
-                title: Text(tag.name),
-                subtitle: Text(
-                  '排序 ${tag.sort}${tag.groupId != null ? ' · 分组' : ''}',
-                ),
-                trailing: const Icon(Icons.edit_outlined, size: 18),
-                onTap: () => _showForm(context, ref, tag),
-                onLongPress: () => _delete(context, ref, tag),
-              );
-            },
-          );
-        },
+                  title: Text(tag.name),
+                  subtitle: Text(
+                    '排序 ${tag.sort}${tag.groupId != null ? ' · 分组' : ''}',
+                  ),
+                  trailing: const Icon(Icons.edit_outlined, size: 18),
+                  onTap: () => _showForm(context, ref, tag),
+                  onLongPress: () => _delete(context, ref, tag),
+                );
+              },
+            );
+          },
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showForm(context, ref, null),

@@ -8,6 +8,7 @@ import '../../core/utils/amount.dart';
 import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
 import '../layout/breakpoints.dart';
+import '../tokens/design_tokens.dart';
 import '../widgets/ai_chat_sheet.dart';
 
 /// 统计页：侧边栏分区（宽屏 NavigationRail / 窄屏横向 Tab）+ 日期范围下拉。
@@ -204,7 +205,7 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final wide = constraints.maxWidth >= 640;
+          final wide = constraints.maxWidth >= kSectionBreakpoint;
           return wide ? _buildWide(range) : _buildNarrow(range);
         },
       ),
@@ -554,13 +555,13 @@ class _SummaryCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            _cell(context, '支出', formatYuan(expense), Colors.red.shade400),
-            _cell(context, '收入', formatYuan(income), Colors.green.shade600),
+            _cell(context, '支出', formatYuan(expense), XpSemanticColors.expense),
+            _cell(context, '收入', formatYuan(income), XpSemanticColors.income),
             _cell(
               context,
               '结余',
               formatYuan(balance),
-              balance >= 0 ? Colors.green.shade600 : Colors.red.shade400,
+              balance >= 0 ? XpSemanticColors.income : XpSemanticColors.expense,
             ),
           ],
         ),
@@ -638,11 +639,11 @@ class _CompareCard extends StatelessWidget {
         : pct >= 0
         ? (
             upIsGood ? '↑' : '↑',
-            upIsGood ? Colors.green.shade600 : Colors.red.shade400,
+            upIsGood ? XpSemanticColors.income : XpSemanticColors.income,
           )
         : (
             upIsGood ? '↓' : '↓',
-            upIsGood ? Colors.red.shade400 : Colors.green.shade600,
+            upIsGood ? XpSemanticColors.expense : XpSemanticColors.expense,
           );
     return Row(
       children: [
@@ -1109,7 +1110,7 @@ class _DetailRow extends StatelessWidget {
               fontWeight: FontWeight.w600,
               color: isExpense
                   ? theme.colorScheme.onSurface
-                  : const Color(0xFF30A46C),
+                  : XpSemanticColors.income,
             ),
           ),
         ],
@@ -1789,8 +1790,8 @@ class _TrendCompareCardState extends ConsumerState<_TrendCompareCard> {
                         style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w700,
                           color: totalChange >= 0
-                              ? const Color(0xFFE5484D)
-                              : const Color(0xFF30A46C),
+                              ? XpSemanticColors.expense
+                              : XpSemanticColors.income,
                         ),
                       ),
                     ],
@@ -1864,8 +1865,8 @@ class _CompareRowTile extends StatelessWidget {
                 color: diff == 0
                     ? theme.colorScheme.onSurfaceVariant
                     : up
-                    ? const Color(0xFFE5484D)
-                    : const Color(0xFF30A46C),
+                    ? XpSemanticColors.expense
+                    : XpSemanticColors.income,
               ),
             ),
           ),

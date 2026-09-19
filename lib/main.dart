@@ -40,21 +40,14 @@ class XuPurseApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(currentThemeProvider);
+    // 暗色主题是独立预设(preset_dark):系统暗色时生效它的配置;
+    // 用户自定义主题只在浅色模式生效,不参与暗色(已决策)。
+    final dark = theme.isDark;
     return MaterialApp(
       title: 'XuPurse',
-      theme: buildAppTheme(
-        Brightness.light,
-        theme.seedColor,
-        background: theme.background,
-        cardColor: theme.cardColor,
-      ),
-      darkTheme: buildAppTheme(
-        Brightness.dark,
-        theme.seedColor,
-        background: theme.background,
-        cardColor: theme.cardColor,
-      ),
-      themeMode: ThemeMode.system,
+      theme: buildAppTheme(Brightness.light, theme),
+      darkTheme: buildAppTheme(Brightness.dark, darkThemePreset),
+      themeMode: dark ? ThemeMode.dark : ThemeMode.light,
       home: const MainShell(),
     );
   }
