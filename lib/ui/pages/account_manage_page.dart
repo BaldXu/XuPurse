@@ -8,6 +8,7 @@ import '../../core/utils/icons.dart';
 import '../../data/database/app_database.dart';
 import '../../domain/services/currency_service.dart';
 import '../../state/providers.dart';
+import '../layout/breakpoints.dart';
 
 /// 账户管理页：多选账户 → 合并（可重命名主账户）/ 批量改币种。
 class AccountManagePage extends ConsumerStatefulWidget {
@@ -26,96 +27,98 @@ class _AccountManagePageState extends ConsumerState<AccountManagePage> {
     final accountsAsync = ref.watch(accountsProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('账户管理')),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: Text(
-              '勾选账户后可「合并」或「批量改币种」。合并时保留其中一个账户，'
-              '其余账户的账单/快照等全部转入保留账户。',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+      body: ContentWidthBox(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Text(
+                '勾选账户后可「合并」或「批量改币种」。合并时保留其中一个账户，'
+                '其余账户的账单/快照等全部转入保留账户。',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
               ),
             ),
-          ),
-          Expanded(
-            child: accountsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('加载失败：$e')),
-              data: (accounts) {
-                if (accounts.isEmpty) {
-                  return const Center(child: Text('还没有账户'));
-                }
-                // 名称匹配度高的账户排前面（疑似重复优先），方便观察与合并。
-                final sorted = _sortedBySimilarity(accounts);
-                final suspicious = <String, bool>{
-                  for (final a in sorted) a.id: _maxSimilarity(sorted, a) > 0.4,
-                };
-                return ListView.builder(
-                  itemCount: sorted.length,
-                  itemBuilder: (context, i) {
-                    final a = sorted[i];
-                    final checked = _selected.contains(a.id);
-                    return CheckboxListTile(
-                      value: checked,
-                      onChanged: _busy
-                          ? null
-                          : (v) => setState(() {
-                              if (v == true) {
-                                _selected.add(a.id);
-                              } else {
-                                _selected.remove(a.id);
-                              }
-                            }),
-                      controlAffinity: ListTileControlAffinity.leading,
-                      title: Text(a.name),
-                      subtitle: Text(
-                        '${formatYuan(a.currentBalance)} · ${a.currency}'
-                        '${suspicious[a.id] == true ? ' · 疑似重复' : ''}'
-                        '${a.remark != null && a.remark!.isNotEmpty ? ' · ${a.remark}' : ''}',
-                      ),
-                      secondary: CircleAvatar(
-                        backgroundColor: hexToColor(
-                          a.color,
-                        ).withValues(alpha: 0.15),
-                        foregroundColor: hexToColor(a.color),
-                        child: Icon(resolveIcon(a.icon), size: 20),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-          if (_selected.isNotEmpty)
-            SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: _busy || _selected.length < 2
+            Expanded(
+              child: accountsAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(child: Text('加载失败：$e')),
+                data: (accounts) {
+                  if (accounts.isEmpty) {
+                    return const Center(child: Text('还没有账户'));
+                  }
+                  // 名称匹配度高的账户排前面（疑似重复优先），方便观察与合并。
+                  final sorted = _sortedBySimilarity(accounts);
+                  final suspicious = <String, bool>{
+                    for (final a in sorted)
+                      a.id: _maxSimilarity(sorted, a) > 0.4,
+                  };
+                  return ListView.builder(
+                    itemCount: sorted.length,
+                    itemBuilder: (context, i) {
+                      final a = sorted[i];
+                      final checked = _selected.contains(a.id);
+                      return CheckboxListTile(
+                        value: checked,
+                        onChanged: _busy
                             ? null
-                            : _merge,
-                        icon: const Icon(Icons.merge_type),
-                        label: Text('合并（${_selected.length}）'),
+                            : (v) => setState(() {
+                                  if (v == true) {
+                                    _selected.add(a.id);
+                                  } else {
+                                    _selected.remove(a.id);
+                                  }
+                                }),
+                        controlAffinity: ListTileControlAffinity.leading,
+                        title: Text(a.name),
+                        subtitle: Text(
+                          '${formatYuan(a.currentBalance)} · ${a.currency}'
+                          '${suspicious[a.id] == true ? ' · 疑似重复' : ''}'
+                          '${a.remark != null && a.remark!.isNotEmpty ? ' · ${a.remark}' : ''}',
+                        ),
+                        secondary: CircleAvatar(
+                          backgroundColor: hexToColor(
+                            a.color,
+                          ).withValues(alpha: 0.15),
+                          foregroundColor: hexToColor(a.color),
+                          child: Icon(resolveIcon(a.icon), size: 20),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+            if (_selected.isNotEmpty)
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed:
+                              _busy || _selected.length < 2 ? null : _merge,
+                          icon: const Icon(Icons.merge_type),
+                          label: Text('合并（${_selected.length}）'),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _busy ? null : _changeCurrency,
-                        icon: const Icon(Icons.currency_exchange),
-                        label: const Text('改币种'),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _busy ? null : _changeCurrency,
+                          icon: const Icon(Icons.currency_exchange),
+                          label: const Text('改币种'),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -189,8 +192,8 @@ class _AccountManagePageState extends ConsumerState<AccountManagePage> {
                 Text(
                   '合并后余额以保留账户为准；被合并账户的账单、快照等将全部转移。',
                   style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                  ),
+                        color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                      ),
                 ),
               ],
             ),
@@ -249,9 +252,7 @@ class _AccountManagePageState extends ConsumerState<AccountManagePage> {
     setState(() => _busy = true);
     try {
       final sourceIds = _selected.where((id) => id != targetId).toList();
-      await ref
-          .read(accountServiceProvider)
-          .mergeAccounts(
+      await ref.read(accountServiceProvider).mergeAccounts(
             targetId: targetId!,
             sourceIds: sourceIds,
             newName: nameCtrl.text.trim().isEmpty ? null : nameCtrl.text.trim(),
