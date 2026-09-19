@@ -190,7 +190,10 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage> {
             const SizedBox(height: 12),
             Card(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -236,9 +239,102 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage> {
                 ),
               ),
             ),
+            const SizedBox(height: 24),
+            _buildAppearanceSection(state),
           ],
         ),
       ),
+    );
+  }
+
+  /// 第三层:当前主题外观定制(仅用户自建主题可改,预设只读)。
+  Widget _buildAppearanceSection(ThemeState state) {
+    final theme = state.current;
+    final editable = !theme.isPreset;
+    final scheme = Theme.of(context).colorScheme;
+    final notifier = ref.read(themeProvider.notifier);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('外观定制', style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 4),
+        Text(
+          editable ? '修改实时生效并保存到「${theme.name}」。' : '内置预设不可修改;先保存一个自定义主题再定制。',
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Column(
+              children: [
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('动画'),
+                  subtitle: const Text('页面转场动画'),
+                  trailing: Switch(
+                    value: theme.animationsEnabled,
+                    onChanged: editable
+                        ? (v) => notifier.updateCurrentTheme(
+                            theme.copyWith(animationsEnabled: v),
+                          )
+                        : null,
+                  ),
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('卡片样式'),
+                  trailing: DropdownMenu<XpCardStyle>(
+                    initialSelection: theme.cardStyle,
+                    enabled: editable,
+                    dropdownMenuEntries: const [
+                      DropdownMenuEntry(value: XpCardStyle.filled, label: '填充'),
+                      DropdownMenuEntry(
+                        value: XpCardStyle.outlined,
+                        label: '描边',
+                      ),
+                      DropdownMenuEntry(
+                        value: XpCardStyle.elevated,
+                        label: '浮起',
+                      ),
+                    ],
+                    onSelected: (v) {
+                      if (v != null) {
+                        notifier.updateCurrentTheme(
+                          theme.copyWith(cardStyle: v),
+                        );
+                      }
+                    },
+                  ),
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('卡片圆角'),
+                  subtitle: Text(
+                    theme.cardRadius == null ? '默认 12' : '${theme.cardRadius}',
+                  ),
+                  trailing: SegmentedButton<double>(
+                    selected: {theme.cardRadius ?? 12},
+                    showSelectedIcon: false,
+                    segments: const [
+                      ButtonSegment(value: 8, label: Text('小')),
+                      ButtonSegment(value: 12, label: Text('中')),
+                      ButtonSegment(value: 16, label: Text('大')),
+                    ],
+                    onSelectionChanged: editable
+                        ? (sel) => notifier.updateCurrentTheme(
+                            theme.copyWith(cardRadius: sel.first),
+                          )
+                        : null,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 

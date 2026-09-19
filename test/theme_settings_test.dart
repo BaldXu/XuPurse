@@ -28,6 +28,22 @@ void main() {
   }
 
   Future<void> ensureVisible(WidgetTester tester, Finder finder) async {
+    // 页面加了「外观定制」区块后内容更长:
+    // 元素未挂载时在 ListView 上双向滚动查找(先下后上,位置未知)
+    if (finder.evaluate().isNotEmpty) {
+      await tester.ensureVisible(finder);
+      await tester.pumpAndSettle();
+      return;
+    }
+    final list = find.byType(ListView).first;
+    for (var i = 0; i < 10 && finder.evaluate().isEmpty; i++) {
+      await tester.drag(list, const Offset(0, -300));
+      await tester.pumpAndSettle();
+    }
+    for (var i = 0; i < 10 && finder.evaluate().isEmpty; i++) {
+      await tester.drag(list, const Offset(0, 300));
+      await tester.pumpAndSettle();
+    }
     await tester.ensureVisible(finder);
     await tester.pumpAndSettle();
   }
