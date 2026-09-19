@@ -97,6 +97,22 @@ final minBillTimeProvider = FutureProvider<int?>(
   (ref) => ref.watch(billRepoProvider).minBillTime(),
 );
 
+/// 全库最早数据时间（账单与快照取更早者；趋势页自定义范围下界用）。
+final minDataTimeProvider = FutureProvider<int?>((ref) async {
+  final minBill = await ref.watch(minBillTimeProvider.future);
+  final snaps = ref.watch(snapshotsProvider).value;
+  int? minSnap;
+  if (snaps != null && snaps.isNotEmpty) {
+    minSnap = snaps.fold<int?>(
+      null,
+      (m, s) => m == null || s.timestamp < m ? s.timestamp : m,
+    );
+  }
+  if (minBill == null) return minSnap;
+  if (minSnap == null) return minBill;
+  return minBill < minSnap ? minBill : minSnap;
+});
+
 /// 首页账单流（时间倒序；范围 = 自定义范围，或「本月往前 months 个月 ~ 今天」）
 final billsProvider = StreamProvider<List<Bill>>((ref) {
   final type = switch (ref.watch(homeTypeFilterProvider)) {

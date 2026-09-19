@@ -1,3 +1,4 @@
+import '../../core/constants/enums.dart';
 import '../../data/database/app_database.dart';
 
 /// 资产趋势计算（docs/algorithms.md 算法五）。
@@ -89,4 +90,72 @@ List<TrendPoint> buildTrendPoints({
 int dayStart(int ms) {
   final dt = DateTime.fromMillisecondsSinceEpoch(ms);
   return DateTime(dt.year, dt.month, dt.day).millisecondsSinceEpoch;
+}
+
+/// 趋势图粒度。
+enum TrendGranularity { day, week, month }
+
+extension TrendGranularityLabel on TrendGranularity {
+  String get label => switch (this) {
+    TrendGranularity.day => '日',
+    TrendGranularity.week => '周',
+    TrendGranularity.month => '月',
+  };
+}
+
+/// 将日序列聚合为周（周一起）/月序列，每桶取**期末值**（快照是时点数、
+/// 累计净额是累计值，均应取桶内最后一天）；day 粒度原样返回。
+List<TrendPoint> aggregateTrendPoints(
+  List<TrendPoint> daily,
+  TrendGranularity g,
+) {
+  if (g == TrendGranularity.day || daily.isEmpty) return daily;
+  int bucketKey(int dayMs) {
+    final dt = DateTime.fromMillisecondsSinceEpoch(dayMs);
+    return g == TrendGranularity.month
+        ? DateTime(dt.year, dt.month, 1).millisecondsSinceEpoch
+        : // 周桶：回退到本周周一
+          DateTime(
+            dt.year,
+            dt.month,
+            dt.day - (dt.weekday - 1),
+          ).millisecondsSinceEpoch;
+  }
+
+  // daily 升序，后写覆盖即为期末值
+  final buckets = <int, TrendPoint>{};
+  for (final p in daily) {
+    buckets[bucketKey(p.day)] = p;
+  }
+  final keys = buckets.keys.toList()..sort();
+  return [for (final k in keys) buckets[k]!];
+}
+
+/// 期间内**逐日累计收支净额**曲线（收入-支出累加；仅 expense/income，
+/// 转账与「不计入收支」由调用方的 listByRange 口径保证排除）。
+///
+/// 注意：导入场景可能只有余额快照而无完整流水，本曲线与资产曲线
+/// 可能对不上，属预期（口径为记账流水）。
+List<TrendPoint> buildCumulativeNetPoints(
+  List<Bill> bills, {
+  int? start,
+  int? end,
+}) {
+  final dayNet = <int, int>{};
+  for (final b in bills) {
+    if (b.type == BillType.transfer.name) continue;
+    if (start != null && b.time < start) continue;
+    if (end != null && b.time >= end) continue;
+    final d = dayStart(b.time);
+    final signed = b.type == BillType.income.name ? b.amount : -b.amount;
+    dayNet[d] = (dayNet[d] ?? 0) + signed;
+  }
+  final days = dayNet.keys.toList()..sort();
+  var acc = 0;
+  final points = <TrendPoint>[];
+  for (final d in days) {
+    acc += dayNet[d]!;
+    points.add(TrendPoint(d, acc));
+  }
+  return points;
 }
