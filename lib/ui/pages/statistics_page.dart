@@ -11,6 +11,47 @@ import '../layout/breakpoints.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/ai_chat_sheet.dart';
 
+/// 账单数据版本号:任何账单变化(记账、导入、调账、删除、清空、切换账本)
+/// 都会 bump,统计页各分区 watch 它以及时重跑查询,不再依赖 IndexedStack
+/// 重建或手动切换日期范围。
+final statsDataVersionProvider = StreamProvider<int>((ref) {
+  var version = 0;
+  return ref
+      .watch(billRepoProvider)
+      .watchAll()
+      .map((_) => ++version);
+});
+
+/// 统计分区刷新 mixin:watch [statsDataVersionProvider],数据变化时回调
+/// [onDataVersionChanged],分区重跑自己的查询。与 didUpdateWidget(日期范围)
+/// 正交,两者都触发重载。
+@optionalTypeArgs
+mixin _StatsSectionRefresh<W extends ConsumerStatefulWidget>
+    on ConsumerState<W> {
+  int? _lastVersion;
+
+  void onDataVersionChanged();
+
+  @override
+  void initState() {
+    super.initState();
+    // initState 里不能 ref.listen,改用首帧后订阅
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _lastVersion = ref.read(statsDataVersionProvider).value;
+      ref.listenManual(statsDataVersionProvider, (prev, next) {
+        final v = next.value;
+        if (v != null && _lastVersion != null && v != _lastVersion) {
+          _lastVersion = v;
+          onDataVersionChanged();
+        } else if (v != null) {
+          _lastVersion = v;
+        }
+      });
+    });
+  }
+}
+
 /// 统计页：侧边栏分区（宽屏 NavigationRail / 窄屏横向 Tab）+ 日期范围下拉。
 ///
 /// 分区：
@@ -450,7 +491,8 @@ class _OverviewData {
   final double days;
 }
 
-class _OverviewSectionState extends ConsumerState<_OverviewSection> {
+class _OverviewSectionState extends ConsumerState<_OverviewSection>
+    with _StatsSectionRefresh {
   late Future<_OverviewData> _future;
 
   @override
@@ -465,6 +507,11 @@ class _OverviewSectionState extends ConsumerState<_OverviewSection> {
     if (oldWidget.start != widget.start || oldWidget.end != widget.end) {
       _future = _load();
     }
+  }
+
+  @override
+  void onDataVersionChanged() {
+    _future = _load();
   }
 
   Future<_OverviewData> _load() async {
@@ -736,7 +783,8 @@ class _CategorySection extends ConsumerStatefulWidget {
   ConsumerState<_CategorySection> createState() => _CategorySectionState();
 }
 
-class _CategorySectionState extends ConsumerState<_CategorySection> {
+class _CategorySectionState extends ConsumerState<_CategorySection>
+    with _StatsSectionRefresh {
   late Future<_CategoryData> _future;
 
   @override
@@ -751,6 +799,11 @@ class _CategorySectionState extends ConsumerState<_CategorySection> {
     if (oldWidget.start != widget.start || oldWidget.end != widget.end) {
       _future = _load();
     }
+  }
+
+  @override
+  void onDataVersionChanged() {
+    _future = _load();
   }
 
   Future<_CategoryData> _load() async {
@@ -1398,7 +1451,8 @@ class _TrendSection extends ConsumerStatefulWidget {
   ConsumerState<_TrendSection> createState() => _TrendSectionState();
 }
 
-class _TrendSectionState extends ConsumerState<_TrendSection> {
+class _TrendSectionState extends ConsumerState<_TrendSection>
+    with _StatsSectionRefresh {
   late Future<_TrendData> _future;
   _Granularity _granularity = _Granularity.week;
 
@@ -1417,6 +1471,11 @@ class _TrendSectionState extends ConsumerState<_TrendSection> {
       _granularity = _granularityFor(widget.start, widget.end);
       _future = _load();
     }
+  }
+
+  @override
+  void onDataVersionChanged() {
+    _future = _load();
   }
 
   Future<_TrendData> _load() async {
@@ -1846,10 +1905,14 @@ class _CompareRowTile extends StatelessWidget {
           Expanded(
             child: Text(row.name, style: theme.textTheme.bodyMedium),
           ),
-          Text(
-            '${formatYuan(row.previous)} → ${formatYuan(row.current)}',
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          Flexible(
+            child: Text(
+              '${formatYuan(row.previous)} → ${formatYuan(row.current)}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
           const SizedBox(width: 8),
@@ -1905,7 +1968,8 @@ class _BudgetSection extends ConsumerStatefulWidget {
   ConsumerState<_BudgetSection> createState() => _BudgetSectionState();
 }
 
-class _BudgetSectionState extends ConsumerState<_BudgetSection> {
+class _BudgetSectionState extends ConsumerState<_BudgetSection>
+    with _StatsSectionRefresh {
   late Future<List<_BudgetExec>> _future;
 
   @override
@@ -1920,6 +1984,11 @@ class _BudgetSectionState extends ConsumerState<_BudgetSection> {
     if (oldWidget.start != widget.start || oldWidget.end != widget.end) {
       _future = _load();
     }
+  }
+
+  @override
+  void onDataVersionChanged() {
+    _future = _load();
   }
 
   Future<List<_BudgetExec>> _load() async {
@@ -2074,7 +2143,8 @@ class _TagData {
   final List<Tag> tags;
 }
 
-class _TagSectionState extends ConsumerState<_TagSection> {
+class _TagSectionState extends ConsumerState<_TagSection>
+    with _StatsSectionRefresh {
   late Future<_TagData> _future;
 
   @override
@@ -2089,6 +2159,11 @@ class _TagSectionState extends ConsumerState<_TagSection> {
     if (oldWidget.start != widget.start || oldWidget.end != widget.end) {
       _future = _load();
     }
+  }
+
+  @override
+  void onDataVersionChanged() {
+    _future = _load();
   }
 
   Future<_TagData> _load() async {

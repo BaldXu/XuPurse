@@ -66,6 +66,10 @@ class BillRepository {
   Future<List<Bill>> getAll() =>
       (_db.select(_db.bills)..orderBy([(t) => OrderingTerm.asc(t.time)])).get();
 
+  /// 全部账单流(时间升序;搜索页等需要全量数据响应式刷新的场景)。
+  Stream<List<Bill>> watchAll() =>
+      (_db.select(_db.bills)..orderBy([(t) => OrderingTerm.asc(t.time)])).watch();
+
   Future<List<Bill>> getByIds(List<String> ids) =>
       (_db.select(_db.bills)..where((t) => t.id.isIn(ids))).get();
 

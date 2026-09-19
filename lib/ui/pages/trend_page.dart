@@ -8,6 +8,7 @@ import '../../domain/services/trend_service.dart';
 import '../../state/providers.dart';
 import '../layout/breakpoints.dart';
 import '../widgets/bill_tile.dart' show kExpenseColor, kIncomeColor;
+import 'statistics_page.dart' show statsDataVersionProvider;
 
 /// 趋势页：资产趋势（快照聚合，算法五）+ 单账户余额趋势 + 累计收支净额。
 ///
@@ -446,17 +447,53 @@ class _CumulativeNetCard extends ConsumerStatefulWidget {
 class _CumulativeNetCardState extends ConsumerState<_CumulativeNetCard> {
   Future<List<TrendPoint>>? _future;
   ({int start, int? end})? _lastRange;
+  ProviderSubscription<int>? _dataSub;
+
+  @override
+  void initState() {
+    super.initState();
+    // 订阅账单 watch 流:数据变化时重算(与范围变化正交)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      var version = 0;
+      _dataSub = ref.listenManual(
+        statsDataVersionProvider.select((async) => async.valueOrNull ?? -1),
+        (prev, next) {
+          final v = next;
+          if (v < 0 || v == version) return;
+          version = v;
+          if (!mounted) return;
+          final range = widget.range;
+          _lastRange = range;
+          setState(() => _future = _loadFor(range));
+        },
+      );
+    });
+  }
+
+  Future<List<TrendPoint>> _loadFor(({int start, int? end}) range) {
+    final end = range.end ?? DateTime.now().millisecondsSinceEpoch;
+    return ref
+        .read(billRepoProvider)
+        .listByRange(range.start, end)
+        .then(
+          (bills) =>
+              buildCumulativeNetPoints(bills, start: range.start, end: end),
+        );
+  }
+
+  @override
+  void dispose() {
+    _dataSub?.close();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final range = widget.range;
-    if (_lastRange != range) {
+    if (_lastRange != range || _future == null) {
       _lastRange = range;
-      final end = range.end ?? DateTime.now().millisecondsSinceEpoch;
-      _future = ref
-          .read(billRepoProvider)
-          .listByRange(range.start, end)
-          .then((bills) => buildCumulativeNetPoints(bills, start: range.start, end: end));
+      _future = _loadFor(range);
     }
     return Card(
       child: Padding(

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/enums.dart';
 import '../../core/utils/ids.dart';
 import '../../data/database/app_database.dart';
+import '../layout/breakpoints.dart';
 import '../../state/providers.dart';
 
 /// 分类管理页（两级树；支出/收入/转账 三 tab）。
@@ -26,10 +27,12 @@ class CategoryManagePage extends ConsumerWidget {
             ],
           ),
         ),
-        body: TabBarView(
-          children: [
-            for (final type in BillType.values) _CategoryList(type: type),
-          ],
+        body: ContentWidthBox(
+          child: TabBarView(
+            children: [
+              for (final type in BillType.values) _CategoryList(type: type),
+            ],
+          ),
         ),
         floatingActionButton: FloatingActionButton.extended(
           onPressed: () => showModalBottomSheet<void>(

@@ -381,25 +381,26 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     );
     if (ok == true && context.mounted) {
       await ref.read(billServiceProvider).deleteBill(bill.id);
-      ref.read(_revisionProvider.notifier).state++;
+      // drift watch 流会自动刷新列表,无需手动 bump revision
     }
   }
 }
 
 /// 全量账单（时间升序；搜索在内存过滤）。
-/// 账单数据变更时通过 [_revisionProvider] 触发重查。
-final _revisionProvider = StateProvider<int>((ref) => 0);
+/// 账单数据变更时通过 drift watch 流自动触发重查(记账/导入/删除均实时刷新)。
 
-final _allBillsProvider = FutureProvider<List<Bill>>((ref) {
-  ref.watch(_revisionProvider);
-  return ref.watch(billRepoProvider).getAll();
-});
+final _allBillsProvider = StreamProvider<List<Bill>>(
+  (ref) => ref.watch(billRepoProvider).watchAll(),
+);
 
 /// 全部账单-标签关联（搜索需按标签名过滤时一次性取数）。
 final _allBillTagsProvider =
-    FutureProvider<List<({String billId, String tagId})>>((ref) {
-      ref.watch(_revisionProvider);
-      return ref.watch(billRepoProvider).allBillTags();
+    StreamProvider<List<({String billId, String tagId})>>((ref) {
+      final tagRepo = ref.watch(billRepoProvider);
+      // 依赖账单流:账单删除时 drift 会重发关联查询(简单起见跟随 bills 表事件)
+      return tagRepo
+          .watchAll()
+          .asyncMap((_) => tagRepo.allBillTags());
     });
 
 // ---------- 搜索结果分析视图 ----------

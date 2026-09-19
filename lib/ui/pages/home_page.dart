@@ -41,104 +41,114 @@ class HomePage extends ConsumerWidget {
           children: [
             // 月汇总卡
             Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _SummaryCell(
-                        label: '本月支出',
-                        value: formatYuan(summary.expense),
-                        color: kExpenseColor,
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _SummaryCell(
+                          label: '本月支出',
+                          value: formatYuan(summary.expense),
+                          color: kExpenseColor,
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: _SummaryCell(
-                        label: '本月收入',
-                        value: formatYuan(summary.income),
-                        color: kIncomeColor,
+                      Expanded(
+                        child: _SummaryCell(
+                          label: '本月收入',
+                          value: formatYuan(summary.income),
+                          color: kIncomeColor,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          // 第二行：类型过滤 + 日期范围选择
-          _FilterBar(
-            onPickRange: () => _pickCustomRange(context, ref),
-            onResetRange: () {
-              ref.read(homeCustomRangeProvider.notifier).state = null;
-              ref.read(homeMonthsProvider.notifier).state = 1;
-            },
-          ),
-          Expanded(
-            child: billsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('加载失败：$e')),
-              data: (bills) {
-                if (bills.isEmpty) {
-                  return const _EmptyHint();
-                }
-                return NotificationListener<ScrollNotification>(
-                  onNotification: (n) {
-                    // 自定义范围下整段已加载，无需分页
-                    if (ref.read(homeCustomRangeProvider) != null) {
-                      return false;
-                    }
-                    // 接近底部时多加载一个月
-                    if (n is ScrollEndNotification &&
-                        n.metrics.extentAfter < 200) {
-                      ref.read(homeMonthsProvider.notifier).state += 1;
-                    }
-                    return false;
-                  },
-                  child: ListView.builder(
-                    padding: const EdgeInsets.only(bottom: 96),
-                    itemCount: bills.length,
-                    itemBuilder: (context, i) {
-                      final bill = bills[i];
-                      int dayOf(Bill b) {
-                        final dt = DateTime.fromMillisecondsSinceEpoch(b.time);
-                        return DateTime(
-                          dt.year,
-                          dt.month,
-                          dt.day,
-                        ).millisecondsSinceEpoch;
-                      }
-
-                      final showHeader =
-                          i == 0 || dayOf(bill) != dayOf(bills[i - 1]);
-                      return Column(
-                        key: ValueKey(bill.id),
-                        children: [
-                          // 组与组之间的分隔线（组头自带日期）
-                          if (showHeader && i > 0)
-                            const Divider(height: 1, indent: 16, endIndent: 16),
-                          if (showHeader)
-                            _DayHeaderFor(bills: bills, index: i)
-                          else
-                            const Divider(height: 1, indent: 16, endIndent: 16),
-                          BillTile(
-                            bill: bill,
-                            onTap: () =>
-                                BookkeepingSheet.show(context, bill: bill),
-                            onLongPress: () =>
-                                _confirmDelete(context, ref, bill),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                );
+            // 第二行：类型过滤 + 日期范围选择
+            _FilterBar(
+              onPickRange: () => _pickCustomRange(context, ref),
+              onResetRange: () {
+                ref.read(homeCustomRangeProvider.notifier).state = null;
+                ref.read(homeMonthsProvider.notifier).state = 1;
               },
             ),
-          ),
+            Expanded(
+              child: billsAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(child: Text('加载失败：$e')),
+                data: (bills) {
+                  if (bills.isEmpty) {
+                    return const _EmptyHint();
+                  }
+                  return NotificationListener<ScrollNotification>(
+                    onNotification: (n) {
+                      // 自定义范围下整段已加载，无需分页
+                      if (ref.read(homeCustomRangeProvider) != null) {
+                        return false;
+                      }
+                      // 接近底部时多加载一个月
+                      if (n is ScrollEndNotification &&
+                          n.metrics.extentAfter < 200) {
+                        ref.read(homeMonthsProvider.notifier).state += 1;
+                      }
+                      return false;
+                    },
+                    child: ListView.builder(
+                      padding: const EdgeInsets.only(bottom: 96),
+                      itemCount: bills.length,
+                      itemBuilder: (context, i) {
+                        final bill = bills[i];
+                        int dayOf(Bill b) {
+                          final dt = DateTime.fromMillisecondsSinceEpoch(
+                            b.time,
+                          );
+                          return DateTime(
+                            dt.year,
+                            dt.month,
+                            dt.day,
+                          ).millisecondsSinceEpoch;
+                        }
+
+                        final showHeader =
+                            i == 0 || dayOf(bill) != dayOf(bills[i - 1]);
+                        return Column(
+                          key: ValueKey(bill.id),
+                          children: [
+                            // 组与组之间的分隔线（组头自带日期）
+                            if (showHeader && i > 0)
+                              const Divider(
+                                height: 1,
+                                indent: 16,
+                                endIndent: 16,
+                              ),
+                            if (showHeader)
+                              _DayHeaderFor(bills: bills, index: i)
+                            else
+                              const Divider(
+                                height: 1,
+                                indent: 16,
+                                endIndent: 16,
+                              ),
+                            BillTile(
+                              bill: bill,
+                              onTap: () =>
+                                  BookkeepingSheet.show(context, bill: bill),
+                              onLongPress: () =>
+                                  _confirmDelete(context, ref, bill),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
           ],
         ),
       ),
@@ -235,8 +245,9 @@ class _FilterBar extends ConsumerWidget {
       }
     } else {
       final s = DateTime.fromMillisecondsSinceEpoch(custom.start);
-      final e = DateTime.fromMillisecondsSinceEpoch(custom.end)
-          .subtract(const Duration(days: 1));
+      final e = DateTime.fromMillisecondsSinceEpoch(
+        custom.end,
+      ).subtract(const Duration(days: 1));
       String f(DateTime d) =>
           '${d.year}/${d.month.toString().padLeft(2, '0')}/${d.day.toString().padLeft(2, '0')}';
       rangeLabel = '${f(s)} ~ ${f(e)}';
@@ -279,46 +290,51 @@ class _FilterBar extends ConsumerWidget {
             ),
           ),
           const SizedBox(width: 8),
-          // 日期范围按钮
-          ActionChip(
-            avatar: Icon(
-              Icons.date_range_outlined,
-              size: 18,
-              color: custom != null ? colorScheme.onPrimary : null,
+          // 日期范围按钮（ Flexible 防长文案在窄屏溢出）
+          Flexible(
+            child: ActionChip(
+              avatar: Icon(
+                Icons.date_range_outlined,
+                size: 18,
+                color: custom != null ? colorScheme.onPrimary : null,
+              ),
+              label: Text(
+                rangeLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              backgroundColor: custom != null ? colorScheme.primary : null,
+              labelStyle: TextStyle(
+                color: custom != null ? colorScheme.onPrimary : null,
+                fontSize: 12,
+              ),
+              visualDensity: VisualDensity.compact,
+              onPressed: custom != null
+                  ? () => showDialog<void>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('日期范围'),
+                        content: Text('当前：$rangeLabel'),
+                        actions: [
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              onResetRange();
+                            },
+                            child: const Text('恢复默认（本月）'),
+                          ),
+                          FilledButton(
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              onPickRange();
+                            },
+                            child: const Text('重新选择'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : onPickRange,
             ),
-            label: Text(rangeLabel),
-            backgroundColor:
-                custom != null ? colorScheme.primary : null,
-            labelStyle: TextStyle(
-              color: custom != null ? colorScheme.onPrimary : null,
-              fontSize: 12,
-            ),
-            visualDensity: VisualDensity.compact,
-            onPressed: custom != null
-                ? () => showDialog<void>(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text('日期范围'),
-                      content: Text('当前：$rangeLabel'),
-                      actions: [
-                        TextButton(
-                          onPressed: () {
-                            Navigator.pop(ctx);
-                            onResetRange();
-                          },
-                          child: const Text('恢复默认（本月）'),
-                        ),
-                        FilledButton(
-                          onPressed: () {
-                            Navigator.pop(ctx);
-                            onPickRange();
-                          },
-                          child: const Text('重新选择'),
-                        ),
-                      ],
-                    ),
-                  )
-                : onPickRange,
           ),
         ],
       ),

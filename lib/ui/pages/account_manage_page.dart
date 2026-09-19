@@ -211,6 +211,7 @@ class _AccountManagePageState extends ConsumerState<AccountManagePage> {
         ),
       ),
     );
+    nameCtrl.dispose();
 
     if (confirmed != true || !mounted) return;
     // 二次确认：保留方与任一被合并方余额均非 0 且最后活跃时间接近（30 天内），

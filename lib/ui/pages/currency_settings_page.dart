@@ -142,6 +142,7 @@ class CurrencySettingsPage extends ConsumerWidget {
         ],
       ),
     );
+    ctrl.dispose();
     if (action == null || !context.mounted) return;
     if (action == '__reset__') {
       await service.setOverride(code, 0);

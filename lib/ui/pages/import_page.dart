@@ -222,6 +222,9 @@ class _ImportPageState extends ConsumerState<ImportPage> {
           .read(importServiceProvider)
           .write(preview, mergeMap: mergeMap, mode: mode);
       if (!mounted) return;
+      // 导入可能写入更早的账单/快照,失效时间下界缓存(首页/统计/趋势自定义范围用)
+      ref.invalidate(minBillTimeProvider);
+      ref.invalidate(minDataTimeProvider);
       setState(() {
         _result = result;
         _importing = false;

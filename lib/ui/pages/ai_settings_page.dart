@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/ai/ai_config.dart';
 import '../../domain/ai/ai_service.dart';
+import '../layout/breakpoints.dart';
 import '../tokens/design_tokens.dart';
 
 /// AI 设置页：多配置管理（新增/编辑/删除/启用停用/切换当前）+ 连通性测试。
@@ -16,7 +17,7 @@ class AiSettingsPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('AI 设置')),
-      body: ContentWidthBoxForSettings(
+      body: ContentWidthBox(
         child: aiState.configs.isEmpty
             ? _EmptyConfigHint(onAdd: () => _edit(context, ref, null))
             : ListView(
@@ -36,8 +37,7 @@ class AiSettingsPage extends ConsumerWidget {
                       onTap: () => notifier.select(config.id),
                       onEdit: () => _edit(context, ref, config),
                       onDelete: () => _confirmDelete(context, ref, config),
-                      onToggleEnabled: (v) =>
-                          notifier.setEnabled(config.id, v),
+                      onToggleEnabled: (v) => notifier.setEnabled(config.id, v),
                     ),
                   const SizedBox(height: 8),
                   OutlinedButton.icon(
@@ -46,10 +46,7 @@ class AiSettingsPage extends ConsumerWidget {
                     label: const Text('新增配置'),
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    '隐私说明',
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
+                  Text('隐私说明', style: Theme.of(context).textTheme.titleSmall),
                   const SizedBox(height: 4),
                   Text(
                     'API Key 仅保存在本机（浏览器本地存储），不会上传到除所配置 '
@@ -107,25 +104,6 @@ class AiSettingsPage extends ConsumerWidget {
     if (ok == true && context.mounted) {
       await ref.read(aiConfigProvider.notifier).remove(config.id);
     }
-  }
-}
-
-/// 设置页内容限宽（桌面宽屏居中；复用全局断点逻辑但避免循环依赖，本地实现）。
-class ContentWidthBoxForSettings extends StatelessWidget {
-  const ContentWidthBoxForSettings({super.key, required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    if (width < 800) return child;
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 720),
-        child: child,
-      ),
-    );
   }
 }
 
@@ -313,7 +291,9 @@ class _AiConfigEditPageState extends ConsumerState<_AiConfigEditPage> {
     _baseUrl = TextEditingController(text: e?.baseUrl ?? '');
     _apiKey = TextEditingController(text: e?.apiKey ?? '');
     _model = TextEditingController(text: e?.model ?? '');
-    _temperature = TextEditingController(text: (e?.temperature ?? 0.7).toString());
+    _temperature = TextEditingController(
+      text: (e?.temperature ?? 0.7).toString(),
+    );
     _maxTokens = TextEditingController(text: (e?.maxTokens ?? 2048).toString());
     if (!_isEditing) {
       _baseUrl.text = _protocol.defaultBaseUrl;
@@ -334,10 +314,8 @@ class _AiConfigEditPageState extends ConsumerState<_AiConfigEditPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_isEditing ? '编辑配置' : '新增配置'),
-      ),
-      body: ContentWidthBoxForSettings(
+      appBar: AppBar(title: Text(_isEditing ? '编辑配置' : '新增配置')),
+      body: ContentWidthBox(
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
@@ -503,7 +481,9 @@ class _AiConfigEditPageState extends ConsumerState<_AiConfigEditPage> {
 
   Future<void> _test() async {
     final config = _collect();
-    if (config.baseUrl.isEmpty || config.apiKey.isEmpty || config.model.isEmpty) {
+    if (config.baseUrl.isEmpty ||
+        config.apiKey.isEmpty ||
+        config.model.isEmpty) {
       setState(() => _testResult = '请先填写 Base URL、API Key 和模型名称');
       return;
     }
@@ -516,7 +496,9 @@ class _AiConfigEditPageState extends ConsumerState<_AiConfigEditPage> {
       if (mounted) setState(() => _testResult = 'ok');
     } catch (e) {
       if (mounted) {
-        setState(() => _testResult = e.toString().replaceFirst('Exception: ', ''));
+        setState(
+          () => _testResult = e.toString().replaceFirst('Exception: ', ''),
+        );
       }
     } finally {
       if (mounted) setState(() => _testing = false);

@@ -55,10 +55,11 @@ class _BudgetWithUsage {
   final int spent;
 }
 
-final _budgetsWithUsageProvider = StreamProvider<List<_BudgetWithUsage>>((
-  ref,
+final _budgetsWithUsageProvider = StreamProvider<List<_BudgetWithUsage>>((ref,
 ) async* {
   final db = ref.watch(dbProvider);
+  // bills 表变化(记账/删除/导入)先等一次账单流事件再重算,保证进度实时更新
+  await for (final _ in ref.watch(billRepoProvider).watchAll()) {}
   await for (final budgets in ref.watch(budgetRepoProvider).watchAll()) {
     final items = <_BudgetWithUsage>[];
     for (final b in budgets) {
