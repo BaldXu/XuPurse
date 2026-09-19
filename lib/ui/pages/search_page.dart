@@ -398,9 +398,7 @@ final _allBillTagsProvider =
     StreamProvider<List<({String billId, String tagId})>>((ref) {
       final tagRepo = ref.watch(billRepoProvider);
       // 依赖账单流:账单删除时 drift 会重发关联查询(简单起见跟随 bills 表事件)
-      return tagRepo
-          .watchAll()
-          .asyncMap((_) => tagRepo.allBillTags());
+      return tagRepo.watchAll().asyncMap((_) => tagRepo.allBillTags());
     });
 
 // ---------- 搜索结果分析视图 ----------
@@ -421,6 +419,22 @@ class _AnalysisView extends ConsumerStatefulWidget {
 class _AnalysisViewState extends ConsumerState<_AnalysisView> {
   _FocusType _focus = _FocusType.expense;
   bool _byMonth = false;
+  late Future<List<({String billId, String tagId})>> _billTagsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _billTagsFuture = ref.read(billRepoProvider).allBillTags();
+  }
+
+  @override
+  void didUpdateWidget(covariant _AnalysisView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // bills 引用变化(父级重新过滤)时重取标签关联
+    if (!identical(oldWidget.bills, widget.bills)) {
+      _billTagsFuture = ref.read(billRepoProvider).allBillTags();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -428,8 +442,11 @@ class _AnalysisViewState extends ConsumerState<_AnalysisView> {
     final cats = _categorySums(widget.bills, _focus);
     final tags = ref.watch(tagsProvider).valueOrNull ?? const <Tag>[];
     return FutureBuilder<List<({String billId, String tagId})>>(
-      future: ref.read(billRepoProvider).allBillTags(),
+      future: _billTagsFuture,
       builder: (context, snap) {
+        if (snap.hasError) {
+          return Center(child: Text('加载失败：${snap.error}'));
+        }
         final billTags = snap.data ?? const <({String billId, String tagId})>[];
         final tagCounts = _tagCounts(widget.bills, billTags);
         return ListView(

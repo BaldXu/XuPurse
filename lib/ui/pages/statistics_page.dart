@@ -2032,6 +2032,9 @@ class _BudgetSectionState extends ConsumerState<_BudgetSection>
         if (snap.connectionState != ConnectionState.done) {
           return const Center(child: CircularProgressIndicator());
         }
+        if (snap.hasError) {
+          return Center(child: Text('加载失败：${snap.error}'));
+        }
         final items = snap.data ?? const <_BudgetExec>[];
         if (items.isEmpty) {
           return const Card(

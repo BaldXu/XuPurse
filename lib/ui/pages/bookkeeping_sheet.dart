@@ -378,7 +378,16 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
   /// 分类网格（一级分类；有子分类时选中后展开二级行）
   Widget _buildCategoryBody() {
     final type = _type == BillType.expense ? BillType.expense : BillType.income;
-    final all = ref.watch(categoriesProvider).value ?? const <Category>[];
+    final categoriesAsync = ref.watch(categoriesProvider);
+    if (categoriesAsync.isLoading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+    final all = categoriesAsync.value ?? const <Category>[];
     final parents = all
         .where((c) => c.type == type.name && c.parentId == null)
         .toList();
@@ -459,7 +468,16 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
 
   /// 转账主体：转出/转入账户选择 + 手续费
   Widget _buildTransferBody(ColorScheme scheme) {
-    final accounts = ref.watch(accountsProvider).value ?? const <Account>[];
+    final accountsAsync = ref.watch(accountsProvider);
+    if (accountsAsync.isLoading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+    final accounts = accountsAsync.value ?? const <Account>[];
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(

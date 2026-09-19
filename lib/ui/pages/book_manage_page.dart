@@ -15,6 +15,13 @@ class BookManagePage extends ConsumerStatefulWidget {
 
 class _BookManagePageState extends ConsumerState<BookManagePage> {
   int _revision = 0;
+  late Future<List<Book>> _booksFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _booksFuture = _loadBooks();
+  }
 
   Future<List<Book>> _loadBooks() async {
     final mgr = ref.read(databaseManagerProvider);
@@ -38,6 +45,7 @@ class _BookManagePageState extends ConsumerState<BookManagePage> {
     await mgr.switchBook(bookId);
     _refreshProviders();
     setState(() => _revision++);
+    _booksFuture = _loadBooks();
     if (mounted) {
       ScaffoldMessenger.of(
         context,
@@ -80,6 +88,7 @@ class _BookManagePageState extends ConsumerState<BookManagePage> {
     await mgr.createBook(name: name);
     _refreshProviders();
     setState(() => _revision++);
+    _booksFuture = _loadBooks();
   }
 
   Future<void> _deleteBook(Book book) async {
@@ -114,6 +123,7 @@ class _BookManagePageState extends ConsumerState<BookManagePage> {
     }
     _refreshProviders();
     setState(() => _revision++);
+    _booksFuture = _loadBooks();
   }
 
   @override
@@ -123,10 +133,13 @@ class _BookManagePageState extends ConsumerState<BookManagePage> {
       appBar: AppBar(title: const Text('账本管理')),
       body: ContentWidthBox(
         child: FutureBuilder<List<Book>>(
-          future: _loadBooks(),
+          future: _booksFuture,
           builder: (context, snap) {
             if (snap.connectionState != ConnectionState.done) {
               return const Center(child: CircularProgressIndicator());
+            }
+            if (snap.hasError) {
+              return Center(child: Text('加载失败：${snap.error}'));
             }
             final books = snap.data ?? const <Book>[];
             if (books.isEmpty) {
