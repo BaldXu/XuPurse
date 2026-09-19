@@ -6,7 +6,7 @@ import '../../core/utils/amount.dart';
 import '../../data/database/app_database.dart';
 import '../../domain/services/trend_service.dart';
 import '../../state/providers.dart';
-import '../layout/breakpoints.dart';
+import '../layout/xp_page_scaffold_mixin.dart';
 import '../widgets/bill_tile.dart' show kExpenseColor, kIncomeColor;
 import 'statistics_page.dart' show statsDataVersionProvider;
 
@@ -32,11 +32,15 @@ extension _RangeLabel on _Range {
   };
 }
 
-class _TrendPageState extends ConsumerState<TrendPage> {
+class _TrendPageState extends ConsumerState<TrendPage>
+    with XpPageScaffold<TrendPage> {
   _Range _range = _Range.all;
   TrendGranularity _granularity = TrendGranularity.week;
   ({int start, int end})? _custom;
   String? _accountId; // 单账户趋势选择；null = 全部账户
+
+  @override
+  double get xpMaxWidth => 960;
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +65,7 @@ class _TrendPageState extends ConsumerState<TrendPage> {
     final range = _resolveRange(minDataTime);
     final selectedAccount = accounts.where((a) => a.id == _accountId).toList();
 
-    return Scaffold(
+    return buildXpScaffold(
       appBar: AppBar(title: const Text('趋势')),
       body: snapsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -80,73 +84,69 @@ class _TrendPageState extends ConsumerState<TrendPage> {
 
           return _TrendPageScope(
             granularity: _granularity,
-            child: ContentWidthBox(
-              maxWidth: 960,
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-            children: [
-              _FilterBar(
-                range: _range,
-                granularity: _granularity,
-                custom: _custom,
-                onRangeChanged: (r) {
-                  setState(() {
-                    _range = r;
-                    if (r == _Range.custom && _custom == null) {
-                      _pickCustomRange(minDataTime);
-                    }
-                  });
-                },
-                onGranularityChanged: (g) => setState(() => _granularity = g),
-                onPickCustom: () => _pickCustomRange(minDataTime),
-              ),
-              const SizedBox(height: 16),
-              // 当前总资产 + 期间变化
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '¥ ${formatYuan(total)}',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+              children: [
+                _FilterBar(
+                  range: _range,
+                  granularity: _granularity,
+                  custom: _custom,
+                  onRangeChanged: (r) {
+                    setState(() {
+                      _range = r;
+                      if (r == _Range.custom && _custom == null) {
+                        _pickCustomRange(minDataTime);
+                      }
+                    });
+                  },
+                  onGranularityChanged: (g) => setState(() => _granularity = g),
+                  onPickCustom: () => _pickCustomRange(minDataTime),
+                ),
+                const SizedBox(height: 16),
+                // 当前总资产 + 期间变化
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '¥ ${formatYuan(total)}',
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
                     ),
-                  ),
-                  if (points.length >= 2) ...[
-                    const SizedBox(width: 12),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: _ChangeText(
-                        change: points.last.value - points.first.value,
-                        suffix: '（期间）',
+                    if (points.length >= 2) ...[
+                      const SizedBox(width: 12),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: _ChangeText(
+                          change: points.last.value - points.first.value,
+                          suffix: '（期间）',
+                        ),
                       ),
-                    ),
+                    ],
                   ],
-                ],
-              ),
-              const SizedBox(height: 16),
-              if (points.isEmpty)
-                const _EmptyHint()
-              else
-                SizedBox(height: 220, child: _TrendChart(points: points)),
-              const SizedBox(height: 24),
-              // 单账户余额趋势
-              _AccountTrendCard(
-                accounts: accounts
-                    .where((a) => a.enabled && assetIds.contains(a.id))
-                    .toList(),
-                selectedId: _accountId,
-                onSelected: (id) => setState(() => _accountId = id),
-                range: range,
-                granularity: _granularity,
-                accountName: selectedAccount.isEmpty
-                    ? null
-                    : selectedAccount.first.name,
-              ),
-              const SizedBox(height: 24),
-              // 累计收支净额
-              _CumulativeNetCard(range: range),
-            ],
-              ),
+                ),
+                const SizedBox(height: 16),
+                if (points.isEmpty)
+                  const _EmptyHint()
+                else
+                  SizedBox(height: 220, child: _TrendChart(points: points)),
+                const SizedBox(height: 24),
+                // 单账户余额趋势
+                _AccountTrendCard(
+                  accounts: accounts
+                      .where((a) => a.enabled && assetIds.contains(a.id))
+                      .toList(),
+                  selectedId: _accountId,
+                  onSelected: (id) => setState(() => _accountId = id),
+                  range: range,
+                  granularity: _granularity,
+                  accountName: selectedAccount.isEmpty
+                      ? null
+                      : selectedAccount.first.name,
+                ),
+                const SizedBox(height: 24),
+                // 累计收支净额
+                _CumulativeNetCard(range: range),
+              ],
             ),
           );
         },
@@ -170,9 +170,13 @@ class _TrendPageState extends ConsumerState<TrendPage> {
         start: minDataTime ?? 0,
         end: today.millisecondsSinceEpoch + 86400000,
       ),
-      _Range.custom => _custom != null
-          ? (start: _custom!.start, end: _custom!.end)
-          : (start: minDataTime ?? 0, end: today.millisecondsSinceEpoch + 86400000),
+      _Range.custom =>
+        _custom != null
+            ? (start: _custom!.start, end: _custom!.end)
+            : (
+                start: minDataTime ?? 0,
+                end: today.millisecondsSinceEpoch + 86400000,
+              ),
     };
   }
 
@@ -194,9 +198,7 @@ class _TrendPageState extends ConsumerState<TrendPage> {
           ? null
           : DateTimeRange(
               start: DateTime.fromMillisecondsSinceEpoch(_custom!.start),
-              end: DateTime.fromMillisecondsSinceEpoch(
-                _custom!.end - 86400000,
-              ),
+              end: DateTime.fromMillisecondsSinceEpoch(_custom!.end - 86400000),
             ),
       helpText: '选择趋势日期范围',
       saveText: '确定',
@@ -232,9 +234,7 @@ class _ChangeText extends StatelessWidget {
     final color = change >= 0 ? kIncomeColor : kExpenseColor;
     return Text(
       '${change >= 0 ? '+' : '-'}${formatYuan(change.abs())}$suffix',
-      style: Theme.of(
-        context,
-      ).textTheme.bodyMedium?.copyWith(color: color),
+      style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: color),
     );
   }
 }
@@ -273,9 +273,7 @@ class _FilterBar extends StatelessWidget {
           children: [
             SegmentedButton<_Range>(
               showSelectedIcon: false,
-              style: const ButtonStyle(
-                visualDensity: VisualDensity.compact,
-              ),
+              style: const ButtonStyle(visualDensity: VisualDensity.compact),
               segments: _Range.values
                   .map((r) => ButtonSegment(value: r, label: Text(r.label)))
                   .toList(),
@@ -303,13 +301,9 @@ class _FilterBar extends StatelessWidget {
             Text('粒度', style: theme.textTheme.labelMedium),
             SegmentedButton<TrendGranularity>(
               showSelectedIcon: false,
-              style: const ButtonStyle(
-                visualDensity: VisualDensity.compact,
-              ),
+              style: const ButtonStyle(visualDensity: VisualDensity.compact),
               segments: TrendGranularity.values
-                  .map(
-                    (g) => ButtonSegment(value: g, label: Text(g.label)),
-                  )
+                  .map((g) => ButtonSegment(value: g, label: Text(g.label)))
                   .toList(),
               selected: {granularity},
               onSelectionChanged: (s) => onGranularityChanged(s.first),
@@ -413,9 +407,7 @@ class _AccountTrendCard extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(vertical: 24),
                     child: Center(
                       child: Text(
-                        accountName == null
-                            ? '选择账户查看余额趋势'
-                            : '该账户在所选范围内暂无快照',
+                        accountName == null ? '选择账户查看余额趋势' : '该账户在所选范围内暂无快照',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ),
@@ -503,9 +495,9 @@ class _CumulativeNetCardState extends ConsumerState<_CumulativeNetCard> {
           children: [
             Text(
               '累计收支净额',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
             ),
             Text(
               '口径为记账流水（收入-支出累加，不含转账与「不计入收支」）；'
@@ -578,10 +570,7 @@ class _CumulativeNetCardState extends ConsumerState<_CumulativeNetCard> {
 
 /// 向下传递当前粒度的 InheritedWidget。
 class _TrendPageScope extends InheritedWidget {
-  const _TrendPageScope({
-    required this.granularity,
-    required super.child,
-  });
+  const _TrendPageScope({required this.granularity, required super.child});
 
   final TrendGranularity granularity;
 

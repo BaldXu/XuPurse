@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/enums.dart';
 import '../../data/import/import_models.dart';
 import '../../state/providers.dart';
-import '../layout/breakpoints.dart';
+import '../layout/xp_page_scaffold_mixin.dart';
 
 /// 数据导入页（一木 / 昼虎 / 钱迹）。
 ///
@@ -18,7 +18,8 @@ class ImportPage extends ConsumerStatefulWidget {
   ConsumerState<ImportPage> createState() => _ImportPageState();
 }
 
-class _ImportPageState extends ConsumerState<ImportPage> {
+class _ImportPageState extends ConsumerState<ImportPage>
+    with XpPageScaffold<ImportPage> {
   ImportSource? _source;
   PlatformFile? _file;
   ImportPreview? _preview;
@@ -34,10 +35,9 @@ class _ImportPageState extends ConsumerState<ImportPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return buildXpScaffold(
       appBar: AppBar(title: const Text('数据导入')),
-      body: ContentWidthBox(
-        child: _result != null
+      body: _result != null
           ? _buildResult()
           : ListView(
               padding: const EdgeInsets.all(16),
@@ -64,7 +64,6 @@ class _ImportPageState extends ConsumerState<ImportPage> {
                 ],
               ],
             ),
-        ),
     );
   }
 

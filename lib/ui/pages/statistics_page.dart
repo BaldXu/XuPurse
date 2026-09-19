@@ -10,16 +10,14 @@ import '../../state/providers.dart';
 import '../layout/breakpoints.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/ai_chat_sheet.dart';
+import '../widgets/xp_sheet.dart';
 
 /// 账单数据版本号:任何账单变化(记账、导入、调账、删除、清空、切换账本)
 /// 都会 bump,统计页各分区 watch 它以及时重跑查询,不再依赖 IndexedStack
 /// 重建或手动切换日期范围。
 final statsDataVersionProvider = StreamProvider<int>((ref) {
   var version = 0;
-  return ref
-      .watch(billRepoProvider)
-      .watchAll()
-      .map((_) => ++version);
+  return ref.watch(billRepoProvider).watchAll().map((_) => ++version);
 });
 
 /// 统计分区刷新 mixin:watch [statsDataVersionProvider],数据变化时回调
@@ -553,7 +551,7 @@ class _OverviewSectionState extends ConsumerState<_OverviewSection>
       future: _future,
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
+          return const XpLoading();
         }
         if (snap.hasError) {
           return Center(child: Text('加载失败：${snap.error}'));
@@ -832,7 +830,7 @@ class _CategorySectionState extends ConsumerState<_CategorySection>
       future: _future,
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
+          return const XpLoading();
         }
         if (snap.hasError) {
           return Center(child: Text('加载失败：${snap.error}'));
@@ -855,11 +853,7 @@ class _CategorySectionState extends ConsumerState<_CategorySection>
               categories: d.categories,
             ),
             const SizedBox(height: 16),
-            _CategoryRankCard(
-              start: widget.start,
-              end: widget.end,
-              data: d,
-            ),
+            _CategoryRankCard(start: widget.start, end: widget.end, data: d),
           ],
         );
       },
@@ -968,15 +962,14 @@ class _CategoryRankCardState extends ConsumerState<_CategoryRankCard> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (sheetCtx) =>
-          _CategoryDetailSheet(
-            start: widget.start,
-            end: widget.end,
-            type: _type,
-            topCategoryId: topCategoryId,
-            title: name,
-            data: widget.data,
-          ),
+      builder: (sheetCtx) => _CategoryDetailSheet(
+        start: widget.start,
+        end: widget.end,
+        type: _type,
+        topCategoryId: topCategoryId,
+        title: name,
+        data: widget.data,
+      ),
     );
   }
 }
@@ -1066,7 +1059,7 @@ class _CategoryDetailSheetState extends ConsumerState<_CategoryDetailSheet> {
                 future: _future,
                 builder: (context, snap) {
                   if (snap.connectionState != ConnectionState.done) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const XpLoading();
                   }
                   if (snap.hasError) {
                     return Center(child: Text('加载失败：${snap.error}'));
@@ -1095,7 +1088,10 @@ class _CategoryDetailSheetState extends ConsumerState<_CategoryDetailSheet> {
                         );
                       }
                       final b = bills[i - 1];
-                      return _DetailRow(bill: b, categories: widget.data.categories);
+                      return _DetailRow(
+                        bill: b,
+                        categories: widget.data.categories,
+                      );
                     },
                   );
                 },
@@ -1217,9 +1213,7 @@ class _RankTile extends StatelessWidget {
               decoration: BoxDecoration(color: color, shape: BoxShape.circle),
             ),
             const SizedBox(width: 8),
-            Expanded(
-              child: Text(name, style: theme.textTheme.bodyMedium),
-            ),
+            Expanded(child: Text(name, style: theme.textTheme.bodyMedium)),
             Text(
               formatYuan(amount),
               style: theme.textTheme.bodyMedium?.copyWith(
@@ -1494,7 +1488,7 @@ class _TrendSectionState extends ConsumerState<_TrendSection>
       future: _future,
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
+          return const XpLoading();
         }
         if (snap.hasError) {
           return Center(child: Text('加载失败：${snap.error}'));
@@ -1515,10 +1509,7 @@ class _TrendSectionState extends ConsumerState<_TrendSection>
               },
             ),
             const SizedBox(height: 16),
-            _TrendCompareCard(
-              start: widget.start,
-              end: widget.end,
-            ),
+            _TrendCompareCard(start: widget.start, end: widget.end),
           ],
         );
       },
@@ -1760,17 +1751,20 @@ class _TrendCompareCardState extends ConsumerState<_TrendCompareCard> {
 
     // 合并所有出现过的顶级分类（当前或上个区间）
     final allKeys = <String>{...curAgg.keys, ...prevAgg.keys};
-    final rows = <_CompareRow>[
-      for (final k in allKeys)
-        _CompareRow(
-          categoryId: k,
-          name: byId[k]?.name ?? '未知分类',
-          current: curAgg[k] ?? 0,
-          previous: prevAgg[k] ?? 0,
-        ),
-    ]..sort((a, b) => (b.current - b.previous).abs().compareTo(
-          (a.current - a.previous).abs(),
-        ));
+    final rows =
+        <_CompareRow>[
+          for (final k in allKeys)
+            _CompareRow(
+              categoryId: k,
+              name: byId[k]?.name ?? '未知分类',
+              current: curAgg[k] ?? 0,
+              previous: prevAgg[k] ?? 0,
+            ),
+        ]..sort(
+          (a, b) => (b.current - b.previous).abs().compareTo(
+            (a.current - a.previous).abs(),
+          ),
+        );
     return _TrendCompareData(rows: rows, spanMs: span);
   }
 
@@ -1781,10 +1775,7 @@ class _TrendCompareCardState extends ConsumerState<_TrendCompareCard> {
       future: _future,
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
-          return const SizedBox(
-            height: 120,
-            child: Center(child: CircularProgressIndicator()),
-          );
+          return const SizedBox(height: 120, child: XpLoading());
         }
         if (snap.hasError) {
           return Card(
@@ -1902,9 +1893,7 @@ class _CompareRowTile extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          Expanded(
-            child: Text(row.name, style: theme.textTheme.bodyMedium),
-          ),
+          Expanded(child: Text(row.name, style: theme.textTheme.bodyMedium)),
           Flexible(
             child: Text(
               '${formatYuan(row.previous)} → ${formatYuan(row.current)}',
@@ -1919,9 +1908,7 @@ class _CompareRowTile extends StatelessWidget {
           SizedBox(
             width: 74,
             child: Text(
-              diff == 0
-                  ? '持平'
-                  : '${up ? '+' : '-'}${formatYuan(diff.abs())}',
+              diff == 0 ? '持平' : '${up ? '+' : '-'}${formatYuan(diff.abs())}',
               textAlign: TextAlign.right,
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w700,
@@ -2030,7 +2017,7 @@ class _BudgetSectionState extends ConsumerState<_BudgetSection>
       future: _future,
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
+          return const XpLoading();
         }
         if (snap.hasError) {
           return Center(child: Text('加载失败：${snap.error}'));
@@ -2183,7 +2170,7 @@ class _TagSectionState extends ConsumerState<_TagSection>
       future: _future,
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
+          return const XpLoading();
         }
         if (snap.hasError) {
           return Center(child: Text('加载失败：${snap.error}'));
