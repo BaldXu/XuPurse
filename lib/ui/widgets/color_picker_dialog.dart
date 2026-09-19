@@ -34,10 +34,13 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
     super.initState();
     final hsv = HSVColor.fromColor(widget.initial);
     _hue = hsv.hue;
-    _sv = Offset(hsv.saturation, hsv.value);
+    // 面板布局:顶=最亮(v=1) 底=黑(v=0),故 dy 存储时翻转
+    _sv = Offset(hsv.saturation, 1 - hsv.value);
   }
 
-  Color get _color => HSVColor.fromAHSV(1, _hue, _sv.dx, _sv.dy).toColor();
+  /// dy 在面板中「上=0 下=1」,而 HSV 明度「v=1 亮 / v=0 黑」,需 1-dy 还原
+  Color get _color =>
+      HSVColor.fromAHSV(1, _hue, _sv.dx, 1 - _sv.dy).toColor();
 
   @override
   Widget build(BuildContext context) {
