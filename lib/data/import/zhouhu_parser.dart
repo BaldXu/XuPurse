@@ -1,4 +1,4 @@
-import 'package:sqlite3/sqlite3.dart';
+import 'package:sqlite3/common.dart';
 
 import 'db_reader.dart';
 
@@ -40,7 +40,7 @@ String _toCamelCase(String key) {
   );
 }
 
-List<Map<String, Object?>> _queryAndMap(Database db, String sql) {
+List<Map<String, Object?>> _queryAndMap(CommonDatabase db, String sql) {
   return [
     for (final row in queryRows(db, sql))
       row.map((k, v) => MapEntry(_toCamelCase(k), v)),
@@ -48,7 +48,7 @@ List<Map<String, Object?>> _queryAndMap(Database db, String sql) {
 }
 
 /// 读取昼虎记账导出的 .db 文件。
-ZhouhuParsedData parseZhouhuDB(Database db) {
+ZhouhuParsedData parseZhouhuDB(CommonDatabase db) {
   return ZhouhuParsedData(
     accountBooks: _queryAndMap(db, 'SELECT * FROM account_book'),
     accounts: _queryAndMap(db, 'SELECT * FROM account'),

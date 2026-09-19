@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/constants/enums.dart';
 import '../data/database/app_database.dart';
 import '../data/database/database_manager.dart';
 import '../data/import/import_service.dart';
@@ -75,14 +76,52 @@ final baseCurrencyProvider = FutureProvider<String>((ref) async {
 
 // ---------- 数据流 ----------
 
-/// 首页账单加载条数（懒加载：滚动到底 +50）
-final billsLimitProvider = StateProvider<int>((ref) => 50);
+/// 首页明细类型过滤
+enum HomeTypeFilter { all, expense, income }
 
-/// 首页账单流（时间倒序分页）
+/// 首页明细类型过滤（全部 / 支出 / 收入）
+final homeTypeFilterProvider = StateProvider<HomeTypeFilter>(
+  (ref) => HomeTypeFilter.all,
+);
+
+/// 首页默认模式下已加载的月份数（1 = 本月；上拉每次 +1 个月）
+final homeMonthsProvider = StateProvider<int>((ref) => 1);
+
+/// 首页自定义日期范围（毫秒，end 为排他上界）；null = 默认「本月 + 上拉逐月加载」
+final homeCustomRangeProvider = StateProvider<({int start, int end})?>(
+  (ref) => null,
+);
+
+/// 最早账单时间（毫秒，无账单为 null；首页日期选择器的下界）
+final minBillTimeProvider = FutureProvider<int?>(
+  (ref) => ref.watch(billRepoProvider).minBillTime(),
+);
+
+/// 首页账单流（时间倒序；范围 = 自定义范围，或「本月往前 months 个月 ~ 今天」）
 final billsProvider = StreamProvider<List<Bill>>((ref) {
+  final type = switch (ref.watch(homeTypeFilterProvider)) {
+    HomeTypeFilter.all => null,
+    HomeTypeFilter.expense => BillType.expense,
+    HomeTypeFilter.income => BillType.income,
+  };
+  final months = ref.watch(homeMonthsProvider);
+  final custom = ref.watch(homeCustomRangeProvider);
+  final now = DateTime.now();
+  final int start;
+  final int end;
+  if (custom != null) {
+    start = custom.start;
+    end = custom.end;
+  } else {
+    start = DateTime(
+      now.year,
+      now.month - (months - 1),
+    ).millisecondsSinceEpoch;
+    end = DateTime(now.year, now.month, now.day + 1).millisecondsSinceEpoch;
+  }
   return ref
       .watch(billRepoProvider)
-      .watchPage(limit: ref.watch(billsLimitProvider));
+      .watchPage(limit: 1000000, type: type, start: start, end: end);
 });
 
 /// 全部分类（账单列表展示分类名/图标用）

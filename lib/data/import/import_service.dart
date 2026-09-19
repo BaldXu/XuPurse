@@ -31,7 +31,7 @@ class ImportService {
     required Uint8List bytes,
     String fileName = '',
   }) async {
-    final parsed = _parse(source, bytes);
+    final parsed = await _parse(source, bytes);
     final idMapper = IdMapper(_db, source);
     await idMapper.loadAll();
     final ctx = MapperContext(
@@ -487,8 +487,8 @@ class ImportService {
 }
 
 /// 解析 .db 字节流（读取完立即释放连接）。
-Object _parse(ImportSource source, Uint8List bytes) {
-  final db = openDatabaseFromBytes(bytes);
+Future<Object> _parse(ImportSource source, Uint8List bytes) async {
+  final db = await openDatabaseFromBytes(bytes);
   try {
     return switch (source) {
       ImportSource.yimu => parseYimuDB(db),

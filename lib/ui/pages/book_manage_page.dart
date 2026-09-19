@@ -25,7 +25,10 @@ class _BookManagePageState extends ConsumerState<BookManagePage> {
   void _refreshProviders() {
     ref.invalidate(dbProvider);
     ref.invalidate(baseCurrencyProvider);
-    ref.read(billsLimitProvider.notifier).state = 50;
+    ref.invalidate(minBillTimeProvider);
+    ref.read(homeMonthsProvider.notifier).state = 1;
+    ref.read(homeTypeFilterProvider.notifier).state = HomeTypeFilter.all;
+    ref.read(homeCustomRangeProvider.notifier).state = null;
   }
 
   Future<void> _switchBook(String bookId) async {

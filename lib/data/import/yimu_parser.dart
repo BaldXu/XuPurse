@@ -1,4 +1,4 @@
-import 'package:sqlite3/sqlite3.dart';
+import 'package:sqlite3/common.dart';
 
 import 'db_reader.dart';
 
@@ -38,7 +38,7 @@ class YimuParsedData {
 }
 
 /// 读取一木记账导出的 .db 文件。
-YimuParsedData parseYimuDB(Database db) {
+YimuParsedData parseYimuDB(CommonDatabase db) {
   return YimuParsedData(
     accountBooks: queryRows(
       db,

@@ -8,7 +8,10 @@ import '../widgets/bill_tile.dart';
 import 'bookkeeping_sheet.dart';
 import 'search_page.dart';
 
-/// 首页：月汇总卡 + 账单流（按天分组、滚动懒加载、点按编辑、长按删除）。
+/// 首页：月汇总卡 + 过滤栏（类型/日期范围）+ 账单流。
+///
+/// 默认展示本月；上拉到底逐月加载更早数据（每次一个月）。
+/// 选择自定义日期范围后一次性展示该范围（不再逐月加载）。
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
 
@@ -17,7 +20,6 @@ class HomePage extends ConsumerWidget {
     final billsAsync = ref.watch(billsProvider);
     final summary =
         ref.watch(monthSummaryProvider).value ?? (expense: 0, income: 0);
-    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -64,7 +66,14 @@ class HomePage extends ConsumerWidget {
               ),
             ),
           ),
-          Text('账单明细', style: textTheme.titleSmall),
+          // 第二行：类型过滤 + 日期范围选择
+          _FilterBar(
+            onPickRange: () => _pickCustomRange(context, ref),
+            onResetRange: () {
+              ref.read(homeCustomRangeProvider.notifier).state = null;
+              ref.read(homeMonthsProvider.notifier).state = 1;
+            },
+          ),
           Expanded(
             child: billsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -75,10 +84,14 @@ class HomePage extends ConsumerWidget {
                 }
                 return NotificationListener<ScrollNotification>(
                   onNotification: (n) {
-                    // 接近底部时追加加载条数（懒加载）
+                    // 自定义范围下整段已加载，无需分页
+                    if (ref.read(homeCustomRangeProvider) != null) {
+                      return false;
+                    }
+                    // 接近底部时多加载一个月
                     if (n is ScrollEndNotification &&
                         n.metrics.extentAfter < 200) {
-                      ref.read(billsLimitProvider.notifier).state += 50;
+                      ref.read(homeMonthsProvider.notifier).state += 1;
                     }
                     return false;
                   },
@@ -133,6 +146,38 @@ class HomePage extends ConsumerWidget {
     );
   }
 
+  /// 弹出日期范围选择（下界 = 最早账单日，上界 = 今天）。
+  Future<void> _pickCustomRange(BuildContext context, WidgetRef ref) async {
+    final minT = await ref.read(minBillTimeProvider.future);
+    if (!context.mounted) return;
+    final now = DateTime.now();
+    final first = minT == null
+        ? now.subtract(const Duration(days: 365 * 5))
+        : DateTime.fromMillisecondsSinceEpoch(minT);
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(first.year, first.month, first.day),
+      lastDate: now,
+      initialDateRange: null,
+      helpText: '选择明细日期范围',
+      saveText: '确定',
+    );
+    if (picked == null) return;
+    if (!context.mounted) return;
+    ref.read(homeCustomRangeProvider.notifier).state = (
+      start: DateTime(
+        picked.start.year,
+        picked.start.month,
+        picked.start.day,
+      ).millisecondsSinceEpoch,
+      end: DateTime(
+        picked.end.year,
+        picked.end.month,
+        picked.end.day + 1,
+      ).millisecondsSinceEpoch,
+    );
+  }
+
   Future<void> _confirmDelete(
     BuildContext context,
     WidgetRef ref,
@@ -158,6 +203,122 @@ class HomePage extends ConsumerWidget {
     if (ok == true && context.mounted) {
       await ref.read(billServiceProvider).deleteBill(bill.id);
     }
+  }
+}
+
+/// 第二行过滤栏：类型选择（全部/支出/收入）+ 日期范围按钮。
+class _FilterBar extends ConsumerWidget {
+  const _FilterBar({required this.onPickRange, required this.onResetRange});
+
+  final VoidCallback onPickRange;
+  final VoidCallback onResetRange;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final filter = ref.watch(homeTypeFilterProvider);
+    final custom = ref.watch(homeCustomRangeProvider);
+    final colorScheme = Theme.of(context).colorScheme;
+
+    String rangeLabel;
+    if (custom == null) {
+      final months = ref.watch(homeMonthsProvider);
+      final now = DateTime.now();
+      if (months <= 1) {
+        rangeLabel = '本月';
+      } else {
+        final start = DateTime(now.year, now.month - (months - 1));
+        rangeLabel = '${start.year}/${start.month} ~ 今';
+      }
+    } else {
+      final s = DateTime.fromMillisecondsSinceEpoch(custom.start);
+      final e = DateTime.fromMillisecondsSinceEpoch(custom.end)
+          .subtract(const Duration(days: 1));
+      String f(DateTime d) =>
+          '${d.year}/${d.month.toString().padLeft(2, '0')}/${d.day.toString().padLeft(2, '0')}';
+      rangeLabel = '${f(s)} ~ ${f(e)}';
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Row(
+        children: [
+          // 类型过滤（全部 / 支出 / 收入）
+          Expanded(
+            child: SegmentedButton<HomeTypeFilter>(
+              segments: const [
+                ButtonSegment(
+                  value: HomeTypeFilter.all,
+                  label: Text('全部'),
+                  icon: Icon(Icons.receipt_long_outlined),
+                ),
+                ButtonSegment(
+                  value: HomeTypeFilter.expense,
+                  label: Text('支出'),
+                  icon: Icon(Icons.south_west),
+                ),
+                ButtonSegment(
+                  value: HomeTypeFilter.income,
+                  label: Text('收入'),
+                  icon: Icon(Icons.north_east),
+                ),
+              ],
+              selected: {filter},
+              showSelectedIcon: false,
+              style: const ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onSelectionChanged: (selection) {
+                ref.read(homeTypeFilterProvider.notifier).state =
+                    selection.first;
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          // 日期范围按钮
+          ActionChip(
+            avatar: Icon(
+              Icons.date_range_outlined,
+              size: 18,
+              color: custom != null ? colorScheme.onPrimary : null,
+            ),
+            label: Text(rangeLabel),
+            backgroundColor:
+                custom != null ? colorScheme.primary : null,
+            labelStyle: TextStyle(
+              color: custom != null ? colorScheme.onPrimary : null,
+              fontSize: 12,
+            ),
+            visualDensity: VisualDensity.compact,
+            onPressed: custom != null
+                ? () => showDialog<void>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('日期范围'),
+                      content: Text('当前：$rangeLabel'),
+                      actions: [
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            onResetRange();
+                          },
+                          child: const Text('恢复默认（本月）'),
+                        ),
+                        FilledButton(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            onPickRange();
+                          },
+                          child: const Text('重新选择'),
+                        ),
+                      ],
+                    ),
+                  )
+                : onPickRange,
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -265,10 +426,10 @@ class _EmptyHint extends StatelessWidget {
             color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
           ),
           const SizedBox(height: 12),
-          Text('还没有账单', style: Theme.of(context).textTheme.titleMedium),
+          Text('该范围内还没有账单', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 4),
           Text(
-            '点击右下角 + 记下第一笔吧',
+            '点击右下角 + 记一笔，或调整上方的筛选条件',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: colorScheme.onSurfaceVariant,
             ),

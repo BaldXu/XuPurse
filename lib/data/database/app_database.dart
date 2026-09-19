@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
-import 'package:drift/native.dart' show NativeDatabase;
+import 'package:drift/native.dart'
+    if (dart.library.js_interop) 'native_web_stub.dart' show NativeDatabase;
 import 'package:drift_flutter/drift_flutter.dart';
 
 import 'tables.dart';
@@ -30,8 +31,15 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   /// 生产环境：按账本 ID 建连（Web 端自动走 WASM/IndexedDB）。
-  factory AppDatabase.forBook(String bookId) =>
-      AppDatabase(driftDatabase(name: 'book-$bookId'));
+  factory AppDatabase.forBook(String bookId) => AppDatabase(
+        driftDatabase(
+          name: 'book-$bookId',
+          web: DriftWebOptions(
+            sqlite3Wasm: Uri.parse('sqlite3.wasm'),
+            driftWorker: Uri.parse('drift_worker.js'),
+          ),
+        ),
+      );
 
   /// 测试环境：内存数据库。
   factory AppDatabase.memory() => AppDatabase(NativeDatabase.memory());
