@@ -1399,10 +1399,12 @@ class _TrendSection extends ConsumerStatefulWidget {
 
 class _TrendSectionState extends ConsumerState<_TrendSection> {
   late Future<_TrendData> _future;
+  _Granularity _granularity = _Granularity.week;
 
   @override
   void initState() {
     super.initState();
+    _granularity = _granularityFor(widget.start, widget.end);
     _future = _load();
   }
 
@@ -1410,6 +1412,8 @@ class _TrendSectionState extends ConsumerState<_TrendSection> {
   void didUpdateWidget(covariant _TrendSection oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.start != widget.start || oldWidget.end != widget.end) {
+      // 范围变化：重置为自适应默认粒度，并重新加载
+      _granularity = _granularityFor(widget.start, widget.end);
       _future = _load();
     }
   }
@@ -1418,10 +1422,9 @@ class _TrendSectionState extends ConsumerState<_TrendSection> {
     final bills = await ref
         .read(billRepoProvider)
         .listByRange(widget.start, widget.end, type: BillType.expense);
-    final granularity = _granularityFor(widget.start, widget.end);
     return _TrendData(
-      granularity: granularity,
-      points: _aggregateTrend(bills, granularity: granularity),
+      granularity: _granularity,
+      points: _aggregateTrend(bills, granularity: _granularity),
     );
   }
 
@@ -1443,6 +1446,18 @@ class _TrendSectionState extends ConsumerState<_TrendSection> {
             _TrendCard(
               title: _granularityLabel(d.granularity),
               points: d.points,
+              granularity: _granularity,
+              onGranularityChanged: (g) {
+                setState(() {
+                  _granularity = g;
+                  _future = _load();
+                });
+              },
+            ),
+            const SizedBox(height: 16),
+            _TrendCompareCard(
+              start: widget.start,
+              end: widget.end,
             ),
           ],
         );
@@ -1458,12 +1473,19 @@ class _TrendData {
   final List<({String label, int amount})> points;
 }
 
-/// 支出趋势卡片（柱状图，按日/周/月粒度聚合）。
+/// 支出趋势卡片（柱状图，按日/周/月粒度聚合；支持手动切换粒度）。
 class _TrendCard extends StatelessWidget {
-  const _TrendCard({required this.title, required this.points});
+  const _TrendCard({
+    required this.title,
+    required this.points,
+    required this.granularity,
+    required this.onGranularityChanged,
+  });
 
   final String title;
   final List<({String label, int amount})> points;
+  final _Granularity granularity;
+  final ValueChanged<_Granularity> onGranularityChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1480,14 +1502,16 @@ class _TrendCard extends StatelessWidget {
       0,
       (m, p) => p.amount > m ? p.amount : m,
     );
+    final theme = Theme.of(context);
     final groups = <BarChartGroupData>[
       for (var i = 0; i < n; i++)
         BarChartGroupData(
           x: i,
           barRods: [
             BarChartRodData(
-              toY: points[i].amount / (maxAmount > 0 ? maxAmount : 1),
-              color: Theme.of(context).colorScheme.primary,
+              // 直接用真实金额（万分之元），悬浮框/坐标才是真实数值
+              toY: points[i].amount.toDouble(),
+              color: theme.colorScheme.primary,
               width: 6,
             ),
           ],
@@ -1499,7 +1523,31 @@ class _TrendCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: Theme.of(context).textTheme.titleSmall),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                SegmentedButton<_Granularity>(
+                  showSelectedIcon: false,
+                  style: const ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  segments: const [
+                    ButtonSegment(value: _Granularity.day, label: Text('日')),
+                    ButtonSegment(value: _Granularity.week, label: Text('周')),
+                    ButtonSegment(value: _Granularity.month, label: Text('月')),
+                  ],
+                  selected: {granularity},
+                  onSelectionChanged: (s) => onGranularityChanged(s.first),
+                ),
+              ],
+            ),
             const SizedBox(height: 12),
             SizedBox(
               height: 160,
@@ -1530,7 +1578,7 @@ class _TrendCard extends StatelessWidget {
                             padding: const EdgeInsets.only(top: 6),
                             child: Text(
                               points[i].label,
-                              style: Theme.of(context).textTheme.labelSmall,
+                              style: theme.textTheme.labelSmall,
                             ),
                           );
                         },
@@ -1538,14 +1586,40 @@ class _TrendCard extends StatelessWidget {
                     ),
                   ),
                   alignment: BarChartAlignment.spaceAround,
+                  // 悬浮提示：白底 + 灰边 + 真实金额
+                  barTouchData: BarTouchData(
+                    touchTooltipData: BarTouchTooltipData(
+                      getTooltipColor: (_) => Colors.white,
+                      tooltipBorder: BorderSide(
+                        color: theme.colorScheme.outline,
+                      ),
+                      tooltipPadding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                        final i = group.x.toInt();
+                        if (i < 0 || i >= points.length) return null;
+                        final p = points[i];
+                        return BarTooltipItem(
+                          '${p.label}\n¥ ${formatYuan(p.amount)}',
+                          TextStyle(
+                            color: theme.colorScheme.onSurface,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                 ),
               ),
             ),
             const SizedBox(height: 4),
             Text(
               '峰值 ${formatYuan(maxAmount)}',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -1553,6 +1627,259 @@ class _TrendCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 一级分类环比卡：当前区间 vs 上一区间，各一级分类支出金额浮动。
+class _TrendCompareCard extends ConsumerStatefulWidget {
+  const _TrendCompareCard({required this.start, required this.end});
+
+  final int start;
+  final int end;
+
+  @override
+  ConsumerState<_TrendCompareCard> createState() => _TrendCompareCardState();
+}
+
+class _TrendCompareCardState extends ConsumerState<_TrendCompareCard> {
+  late Future<_TrendCompareData> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TrendCompareCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.start != widget.start || oldWidget.end != widget.end) {
+      _future = _load();
+    }
+  }
+
+  Future<_TrendCompareData> _load() async {
+    final repo = ref.read(billRepoProvider);
+    final span = widget.end - widget.start;
+    final prevStart = widget.start - span;
+    final prevEnd = widget.start;
+
+    final curBills = await repo.listByRange(
+      widget.start,
+      widget.end,
+      type: BillType.expense,
+    );
+    final prevBills = await repo.listByRange(
+      prevStart,
+      prevEnd,
+      type: BillType.expense,
+    );
+    final categories = await ref.read(categoryRepoProvider).getAll();
+    final byId = {for (final c in categories) c.id: c};
+
+    // 上溯到一级分类
+    String topId(String id) {
+      var cur = id;
+      final seen = <String>{};
+      while (true) {
+        final c = byId[cur];
+        if (c == null || c.parentId == null || !seen.add(cur)) return cur;
+        cur = c.parentId!;
+      }
+    }
+
+    final curAgg = <String, int>{};
+    for (final b in curBills) {
+      final t = topId(b.categoryId);
+      curAgg[t] = (curAgg[t] ?? 0) + b.amount;
+    }
+    final prevAgg = <String, int>{};
+    for (final b in prevBills) {
+      final t = topId(b.categoryId);
+      prevAgg[t] = (prevAgg[t] ?? 0) + b.amount;
+    }
+
+    // 合并所有出现过的顶级分类（当前或上个区间）
+    final allKeys = <String>{...curAgg.keys, ...prevAgg.keys};
+    final rows = <_CompareRow>[
+      for (final k in allKeys)
+        _CompareRow(
+          categoryId: k,
+          name: byId[k]?.name ?? '未知分类',
+          current: curAgg[k] ?? 0,
+          previous: prevAgg[k] ?? 0,
+        ),
+    ]..sort((a, b) => (b.current - b.previous).abs().compareTo(
+          (a.current - a.previous).abs(),
+        ));
+    return _TrendCompareData(rows: rows, spanMs: span);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return FutureBuilder<_TrendCompareData>(
+      future: _future,
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return const SizedBox(
+            height: 120,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (snap.hasError) {
+          return Card(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Center(child: Text('加载失败：${snap.error}')),
+            ),
+          );
+        }
+        final d = snap.data!;
+        if (d.rows.isEmpty) {
+          return const Card(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: Text('本时段暂无支出')),
+            ),
+          );
+        }
+        final totalChange = d.rows.fold<int>(
+          0,
+          (s, r) => s + (r.current - r.previous),
+        );
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '分类环比',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '与上一周期（${_spanLabel(d.spanMs)}）对比，各一级分类支出浮动',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                for (final row in d.rows) _CompareRowTile(row: row),
+                const SizedBox(height: 8),
+                const Divider(height: 1),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '合计变动',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        totalChange >= 0
+                            ? '+${formatYuan(totalChange)}'
+                            : '-${formatYuan(totalChange.abs())}',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: totalChange >= 0
+                              ? const Color(0xFFE5484D)
+                              : const Color(0xFF30A46C),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _TrendCompareData {
+  const _TrendCompareData({required this.rows, required this.spanMs});
+
+  final List<_CompareRow> rows;
+  final int spanMs;
+}
+
+class _CompareRow {
+  const _CompareRow({
+    required this.categoryId,
+    required this.name,
+    required this.current,
+    required this.previous,
+  });
+
+  final String categoryId;
+  final String name;
+  final int current;
+  final int previous;
+
+  int get diff => current - previous;
+}
+
+class _CompareRowTile extends StatelessWidget {
+  const _CompareRowTile({required this.row});
+
+  final _CompareRow row;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final diff = row.diff;
+    final up = diff >= 0;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(row.name, style: theme.textTheme.bodyMedium),
+          ),
+          Text(
+            '${formatYuan(row.previous)} → ${formatYuan(row.current)}',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 74,
+            child: Text(
+              diff == 0
+                  ? '持平'
+                  : '${up ? '+' : '-'}${formatYuan(diff.abs())}',
+              textAlign: TextAlign.right,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: diff == 0
+                    ? theme.colorScheme.onSurfaceVariant
+                    : up
+                    ? const Color(0xFFE5484D)
+                    : const Color(0xFF30A46C),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _spanLabel(int spanMs) {
+  final days = spanMs / 86400000;
+  if (days >= 360) return '${(days / 365).round()}年';
+  if (days >= 30) return '${(days / 30).round()}个月';
+  return '${days.round()}天';
 }
 
 // ---------------------------------------------------------------------------
