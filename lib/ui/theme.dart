@@ -11,6 +11,28 @@ import 'tokens/design_tokens.dart';
 /// - 卡片:样式(filled/outlined/elevated)+ 圆角由主题统一定制,页面不得绕过。
 /// - 动画:pageTransitionsTheme / 弹窗等由 animationsEnabled 控制
 ///   (系统 reduce-motion 时在 main 层强制关闭)。
+/// 关闭转场动画时的零时长 builder(Flutter SDK 无 NoTransition 内建实现)。
+class _ZeroTransitionPageTransitionsBuilder extends PageTransitionsBuilder {
+  const _ZeroTransitionPageTransitionsBuilder();
+
+  @override
+  Duration get transitionDuration => Duration.zero;
+
+  @override
+  Duration get reverseTransitionDuration => Duration.zero;
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T>? route,
+    BuildContext? context,
+    Animation<double> animation,
+    Animation<double>? secondaryAnimation,
+    Widget child,
+  ) {
+    return child;
+  }
+}
+
 ThemeData buildAppTheme(
   Brightness brightness,
   AppTheme theme, {
@@ -90,7 +112,7 @@ ThemeData buildAppTheme(
         for (final platform in TargetPlatform.values)
           platform: animOn
               ? const ZoomPageTransitionsBuilder()
-              : const FadeUpwardsPageTransitionsBuilder(),
+              : const _ZeroTransitionPageTransitionsBuilder(),
       },
     ),
   );
