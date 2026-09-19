@@ -6,54 +6,60 @@ import '../../core/utils/ids.dart';
 import '../../data/database/app_database.dart';
 import '../../domain/services/currency_service.dart';
 import '../../state/providers.dart';
-import '../layout/breakpoints.dart';
+import '../layout/xp_page_scaffold_mixin.dart';
+import '../widgets/xp_sheet.dart';
+import '../widgets/xp_snack.dart';
 
 /// 标签管理页（列表 + 新增/编辑/删除）。
-class TagManagePage extends ConsumerWidget {
+class TagManagePage extends ConsumerStatefulWidget {
   const TagManagePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TagManagePage> createState() => _TagManagePageState();
+}
+
+class _TagManagePageState extends ConsumerState<TagManagePage>
+    with XpPageScaffold<TagManagePage> {
+  @override
+  Widget build(BuildContext context) {
     final tagsAsync = ref.watch(tagsProvider);
-    return Scaffold(
+    return buildXpScaffold(
       appBar: AppBar(title: const Text('标签管理')),
-      body: ContentWidthBox(
-        child: tagsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('加载失败：$e')),
-          data: (tags) {
-            if (tags.isEmpty) {
-              return const Center(child: Text('暂无标签，点击右下角新增'));
-            }
-            return ListView.builder(
-              itemCount: tags.length,
-              itemBuilder: (context, i) {
-                final tag = tags[i];
-                final colorHex = tag.color ?? '#4D3C77';
-                return ListTile(
-                  leading: CircleAvatar(
-                    radius: 16,
-                    backgroundColor: _parseColor(
-                      colorHex,
-                    ).withValues(alpha: 0.15),
-                    child: Icon(
-                      Icons.label,
-                      size: 16,
-                      color: _parseColor(colorHex),
-                    ),
+      body: tagsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('加载失败：$e')),
+        data: (tags) {
+          if (tags.isEmpty) {
+            return const Center(child: Text('暂无标签，点击右下角新增'));
+          }
+          return ListView.builder(
+            itemCount: tags.length,
+            itemBuilder: (context, i) {
+              final tag = tags[i];
+              final colorHex = tag.color ?? '#4D3C77';
+              return ListTile(
+                leading: CircleAvatar(
+                  radius: 16,
+                  backgroundColor: _parseColor(
+                    colorHex,
+                  ).withValues(alpha: 0.15),
+                  child: Icon(
+                    Icons.label,
+                    size: 16,
+                    color: _parseColor(colorHex),
                   ),
-                  title: Text(tag.name),
-                  subtitle: Text(
-                    '排序 ${tag.sort}${tag.groupId != null ? ' · 分组' : ''}',
-                  ),
-                  trailing: const Icon(Icons.edit_outlined, size: 18),
-                  onTap: () => _showForm(context, ref, tag),
-                  onLongPress: () => _delete(context, ref, tag),
-                );
-              },
-            );
-          },
-        ),
+                ),
+                title: Text(tag.name),
+                subtitle: Text(
+                  '排序 ${tag.sort}${tag.groupId != null ? ' · 分组' : ''}',
+                ),
+                trailing: const Icon(Icons.edit_outlined, size: 18),
+                onTap: () => _showForm(context, ref, tag),
+                onLongPress: () => _delete(context, ref, tag),
+              );
+            },
+          );
+        },
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showForm(context, ref, null),
@@ -72,24 +78,14 @@ class TagManagePage extends ConsumerWidget {
   }
 
   Future<void> _delete(BuildContext context, WidgetRef ref, Tag tag) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('删除标签'),
-        content: Text('确定删除「${tag.name}」？关联账单上的标签将同步移除。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
+    final confirmed = await confirmXpDialog(
+      context,
+      title: '删除标签',
+      content: '确定删除「${tag.name}」？关联账单上的标签将同步移除。',
+      confirmLabel: '删除',
+      danger: true,
     );
-    if (confirmed == true && context.mounted) {
+    if (confirmed && context.mounted) {
       await ref.read(tagRepoProvider).delete(tag.id);
     }
   }
@@ -238,9 +234,7 @@ class _TagFormSheetState extends ConsumerState<_TagFormSheet> {
   Future<void> _save() async {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('标签名称不能为空')));
+      showXpSnack(context, '标签名称不能为空', error: true);
       return;
     }
     setState(() => _saving = true);
@@ -276,9 +270,7 @@ class _TagFormSheetState extends ConsumerState<_TagFormSheet> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('保存失败：$e')));
+      showXpSnack(context, '保存失败：$e', error: true);
     }
   }
 }

@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/utils/amount.dart';
 import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
-import '../layout/breakpoints.dart';
+import '../layout/xp_page_scaffold_mixin.dart';
 import '../widgets/bill_tile.dart';
+import '../widgets/xp_empty_state.dart';
+import '../widgets/xp_sheet.dart';
 import 'bookkeeping_sheet.dart';
 import 'search_page.dart';
 
@@ -13,16 +15,22 @@ import 'search_page.dart';
 ///
 /// 默认展示本月；上拉到底逐月加载更早数据（每次一个月）。
 /// 选择自定义日期范围后一次性展示该范围（不再逐月加载）。
-class HomePage extends ConsumerWidget {
+class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends ConsumerState<HomePage>
+    with XpPageScaffold<HomePage> {
+  @override
+  Widget build(BuildContext context) {
     final billsAsync = ref.watch(billsProvider);
     final summary =
         ref.watch(monthSummaryProvider).value ?? (expense: 0, income: 0);
 
-    return Scaffold(
+    return buildXpScaffold(
       appBar: AppBar(
         title: const Text('XuPurse'),
         actions: [
@@ -35,122 +43,123 @@ class HomePage extends ConsumerWidget {
           ),
         ],
       ),
-      // 宽屏限宽居中，窄屏铺满（手机版式不变）
-      body: ContentWidthBox(
-        child: Column(
-          children: [
-            // 月汇总卡
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 14,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _SummaryCell(
-                          label: '本月支出',
-                          value: formatYuan(summary.expense),
-                          color: kExpenseColor,
-                        ),
+      body: Column(
+        children: [
+          // 月汇总卡
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _SummaryCell(
+                        label: '本月支出',
+                        value: formatYuan(summary.expense),
+                        color: kExpenseColor,
                       ),
-                      Expanded(
-                        child: _SummaryCell(
-                          label: '本月收入',
-                          value: formatYuan(summary.income),
-                          color: kIncomeColor,
-                        ),
+                    ),
+                    Expanded(
+                      child: _SummaryCell(
+                        label: '本月收入',
+                        value: formatYuan(summary.income),
+                        color: kIncomeColor,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
-            // 第二行：类型过滤 + 日期范围选择
-            _FilterBar(
-              onPickRange: () => _pickCustomRange(context, ref),
-              onResetRange: () {
-                ref.read(homeCustomRangeProvider.notifier).state = null;
-                ref.read(homeMonthsProvider.notifier).state = 1;
+          ),
+          // 第二行：类型过滤 + 日期范围选择
+          _FilterBar(
+            onPickRange: () => _pickCustomRange(context, ref),
+            onResetRange: () {
+              ref.read(homeCustomRangeProvider.notifier).state = null;
+              ref.read(homeMonthsProvider.notifier).state = 1;
+            },
+          ),
+          Expanded(
+            child: billsAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('加载失败：$e')),
+              data: (bills) {
+                if (bills.isEmpty) {
+                  return const XpEmptyState(
+                    icon: Icons.receipt_long_outlined,
+                    title: '该范围内还没有账单',
+                    message: '点击右下角 + 记一笔，或调整上方的筛选条件',
+                  );
+                }
+                return NotificationListener<ScrollNotification>(
+                  onNotification: (n) {
+                    // 自定义范围下整段已加载，无需分页
+                    if (ref.read(homeCustomRangeProvider) != null) {
+                      return false;
+                    }
+                    // 接近底部时多加载一个月
+                    if (n is ScrollEndNotification &&
+                        n.metrics.extentAfter < 200) {
+                      ref.read(homeMonthsProvider.notifier).state += 1;
+                    }
+                    return false;
+                  },
+                  child: ListView.builder(
+                    padding: const EdgeInsets.only(bottom: 96),
+                    itemCount: bills.length,
+                    itemBuilder: (context, i) {
+                      final bill = bills[i];
+                      int dayOf(Bill b) {
+                        final dt = DateTime.fromMillisecondsSinceEpoch(
+                          b.time,
+                        );
+                        return DateTime(
+                          dt.year,
+                          dt.month,
+                          dt.day,
+                        ).millisecondsSinceEpoch;
+                      }
+
+                      final showHeader =
+                          i == 0 || dayOf(bill) != dayOf(bills[i - 1]);
+                      return Column(
+                        key: ValueKey(bill.id),
+                        children: [
+                          // 组与组之间的分隔线（组头自带日期）
+                          if (showHeader && i > 0)
+                            const Divider(
+                              height: 1,
+                              indent: 16,
+                              endIndent: 16,
+                            ),
+                          if (showHeader)
+                            _DayHeaderFor(bills: bills, index: i)
+                          else
+                            const Divider(
+                              height: 1,
+                              indent: 16,
+                              endIndent: 16,
+                            ),
+                          BillTile(
+                            bill: bill,
+                            onTap: () =>
+                                BookkeepingSheet.show(context, bill: bill),
+                            onLongPress: () =>
+                                _confirmDelete(context, ref, bill),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                );
               },
             ),
-            Expanded(
-              child: billsAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('加载失败：$e')),
-                data: (bills) {
-                  if (bills.isEmpty) {
-                    return const _EmptyHint();
-                  }
-                  return NotificationListener<ScrollNotification>(
-                    onNotification: (n) {
-                      // 自定义范围下整段已加载，无需分页
-                      if (ref.read(homeCustomRangeProvider) != null) {
-                        return false;
-                      }
-                      // 接近底部时多加载一个月
-                      if (n is ScrollEndNotification &&
-                          n.metrics.extentAfter < 200) {
-                        ref.read(homeMonthsProvider.notifier).state += 1;
-                      }
-                      return false;
-                    },
-                    child: ListView.builder(
-                      padding: const EdgeInsets.only(bottom: 96),
-                      itemCount: bills.length,
-                      itemBuilder: (context, i) {
-                        final bill = bills[i];
-                        int dayOf(Bill b) {
-                          final dt = DateTime.fromMillisecondsSinceEpoch(
-                            b.time,
-                          );
-                          return DateTime(
-                            dt.year,
-                            dt.month,
-                            dt.day,
-                          ).millisecondsSinceEpoch;
-                        }
-
-                        final showHeader =
-                            i == 0 || dayOf(bill) != dayOf(bills[i - 1]);
-                        return Column(
-                          key: ValueKey(bill.id),
-                          children: [
-                            // 组与组之间的分隔线（组头自带日期）
-                            if (showHeader && i > 0)
-                              const Divider(
-                                height: 1,
-                                indent: 16,
-                                endIndent: 16,
-                              ),
-                            if (showHeader)
-                              _DayHeaderFor(bills: bills, index: i)
-                            else
-                              const Divider(
-                                height: 1,
-                                indent: 16,
-                                endIndent: 16,
-                              ),
-                            BillTile(
-                              bill: bill,
-                              onTap: () =>
-                                  BookkeepingSheet.show(context, bill: bill),
-                              onLongPress: () =>
-                                  _confirmDelete(context, ref, bill),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         tooltip: '记一笔',
@@ -197,24 +206,14 @@ class HomePage extends ConsumerWidget {
     WidgetRef ref,
     Bill bill,
   ) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('删除账单'),
-        content: const Text('删除后余额与快照将同步回滚，确定删除？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
+    final ok = await confirmXpDialog(
+      context,
+      title: '删除账单',
+      content: '删除后余额与快照将同步回滚，确定删除？',
+      confirmLabel: '删除',
+      danger: true,
     );
-    if (ok == true && context.mounted) {
+    if (ok && context.mounted) {
       await ref.read(billServiceProvider).deleteBill(bill.id);
     }
   }
@@ -310,28 +309,26 @@ class _FilterBar extends ConsumerWidget {
               ),
               visualDensity: VisualDensity.compact,
               onPressed: custom != null
-                  ? () => showDialog<void>(
+                  ? () => showXpDialog<void>(
                       context: context,
-                      builder: (ctx) => AlertDialog(
-                        title: const Text('日期范围'),
-                        content: Text('当前：$rangeLabel'),
-                        actions: [
-                          TextButton(
-                            onPressed: () {
-                              Navigator.pop(ctx);
-                              onResetRange();
-                            },
-                            child: const Text('恢复默认（本月）'),
-                          ),
-                          FilledButton(
-                            onPressed: () {
-                              Navigator.pop(ctx);
-                              onPickRange();
-                            },
-                            child: const Text('重新选择'),
-                          ),
-                        ],
-                      ),
+                      title: '日期范围',
+                      content: '当前：$rangeLabel',
+                      actions: [
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            onResetRange();
+                          },
+                          child: const Text('恢复默认（本月）'),
+                        ),
+                        FilledButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            onPickRange();
+                          },
+                          child: const Text('重新选择'),
+                        ),
+                      ],
                     )
                   : onPickRange,
             ),
@@ -421,37 +418,6 @@ class _DayHeaderFor extends ConsumerWidget {
             '支 ${formatYuan(expense)}  收 ${formatYuan(income)}',
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 空账单引导。
-class _EmptyHint extends StatelessWidget {
-  const _EmptyHint();
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.receipt_long_outlined,
-            size: 56,
-            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-          ),
-          const SizedBox(height: 12),
-          Text('该范围内还没有账单', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 4),
-          Text(
-            '点击右下角 + 记一笔，或调整上方的筛选条件',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
             ),
           ),
         ],

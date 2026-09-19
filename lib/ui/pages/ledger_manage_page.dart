@@ -5,18 +5,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/utils/amount.dart';
 import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
-import '../layout/breakpoints.dart';
+import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
 
 /// 业务记录页：借贷 / 报销 / 退款 / 分期 四 tab（只读列表 + 删除）。
-class LedgerManagePage extends ConsumerWidget {
+class LedgerManagePage extends ConsumerStatefulWidget {
   const LedgerManagePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LedgerManagePage> createState() => _LedgerManagePageState();
+}
+
+class _LedgerManagePageState extends ConsumerState<LedgerManagePage>
+    with XpPageScaffold<LedgerManagePage> {
+  @override
+  Widget build(BuildContext context) {
     return DefaultTabController(
       length: 4,
-      child: Scaffold(
+      child: buildXpScaffold(
         appBar: AppBar(
           title: const Text('业务记录'),
           bottom: const TabBar(
@@ -28,15 +34,13 @@ class LedgerManagePage extends ConsumerWidget {
             ],
           ),
         ),
-        body: ContentWidthBox(
-          child: const TabBarView(
-            children: [
-              _LendList(),
-              _ReimbursementList(),
-              _RefundList(),
-              _InstalmentList(),
-            ],
-          ),
+        body: const TabBarView(
+          children: [
+            _LendList(),
+            _ReimbursementList(),
+            _RefundList(),
+            _InstalmentList(),
+          ],
         ),
       ),
     );
@@ -68,8 +72,9 @@ class _LendList extends ConsumerWidget {
           itemBuilder: (context, i) {
             final l = lends[i];
             final isLend = l.type == 'lend';
-            final color =
-                isLend ? XpSemanticColors.expense : XpSemanticColors.income;
+            final color = isLend
+                ? XpSemanticColors.expense
+                : XpSemanticColors.income;
             return ListTile(
               leading: Icon(
                 isLend ? Icons.north_east : Icons.south_west,

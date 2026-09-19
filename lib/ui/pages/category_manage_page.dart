@@ -5,18 +5,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/enums.dart';
 import '../../core/utils/ids.dart';
 import '../../data/database/app_database.dart';
-import '../layout/breakpoints.dart';
+import '../layout/xp_page_scaffold_mixin.dart';
+import '../widgets/xp_sheet.dart';
+import '../widgets/xp_snack.dart';
 import '../../state/providers.dart';
 
 /// 分类管理页（两级树；支出/收入/转账 三 tab）。
-class CategoryManagePage extends ConsumerWidget {
+class CategoryManagePage extends ConsumerStatefulWidget {
   const CategoryManagePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CategoryManagePage> createState() => _CategoryManagePageState();
+}
+
+class _CategoryManagePageState extends ConsumerState<CategoryManagePage>
+    with XpPageScaffold<CategoryManagePage> {
+  @override
+  Widget build(BuildContext context) {
     return DefaultTabController(
       length: 3,
-      child: Scaffold(
+      child: buildXpScaffold(
         appBar: AppBar(
           title: const Text('分类管理'),
           bottom: const TabBar(
@@ -27,12 +35,10 @@ class CategoryManagePage extends ConsumerWidget {
             ],
           ),
         ),
-        body: ContentWidthBox(
-          child: TabBarView(
-            children: [
-              for (final type in BillType.values) _CategoryList(type: type),
-            ],
-          ),
+        body: TabBarView(
+          children: [
+            for (final type in BillType.values) _CategoryList(type: type),
+          ],
         ),
         floatingActionButton: FloatingActionButton.extended(
           onPressed: () => showModalBottomSheet<void>(
@@ -109,36 +115,22 @@ class _CategoryList extends ConsumerWidget {
         : 0;
     if (childrenCount > 0) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('请先删除该分类下的子分类')));
+        showXpSnack(context, '请先删除该分类下的子分类', error: true);
       }
       return;
     }
     final billCount = await ref.read(billRepoProvider).countByCategoryId(c.id);
     if (!context.mounted) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('删除分类'),
-        content: Text(
-          billCount > 0
-              ? '该分类下还有 $billCount 笔账单，删除后账单将失去分类归属，确定删除？'
-              : '确定删除「${c.name}」？',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
+    final confirmed = await confirmXpDialog(
+      context,
+      title: '删除分类',
+      content: billCount > 0
+          ? '该分类下还有 $billCount 笔账单，删除后账单将失去分类归属，确定删除？'
+          : '确定删除「${c.name}」？',
+      confirmLabel: '删除',
+      danger: true,
     );
-    if (confirmed == true && context.mounted) {
+    if (confirmed && context.mounted) {
       await ref.read(categoryRepoProvider).delete(c.id);
     }
   }
@@ -344,9 +336,7 @@ class _CategoryFormSheetState extends ConsumerState<CategoryFormSheet> {
   Future<void> _save() async {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('分类名称不能为空')));
+      showXpSnack(context, '分类名称不能为空', error: true);
       return;
     }
     setState(() => _saving = true);
@@ -388,9 +378,7 @@ class _CategoryFormSheetState extends ConsumerState<CategoryFormSheet> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('保存失败：$e')));
+      showXpSnack(context, '保存失败：$e', error: true);
     }
   }
 }

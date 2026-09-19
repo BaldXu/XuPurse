@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../layout/breakpoints.dart';
+import '../layout/xp_page_scaffold_mixin.dart';
 import 'about_page.dart';
 import 'ai_settings_page.dart';
 import 'book_manage_page.dart';
@@ -9,20 +10,25 @@ import 'settings_page.dart';
 import 'theme_settings_page.dart';
 
 /// 我的页：设置 / 账本管理 / 数据管理 / 主题外观 / 应用信息。
-class MinePage extends StatelessWidget {
+class MinePage extends ConsumerStatefulWidget {
   const MinePage({super.key});
 
   @override
+  ConsumerState<MinePage> createState() => _MinePageState();
+}
+
+class _MinePageState extends ConsumerState<MinePage>
+    with XpPageScaffold<MinePage> {
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return buildXpScaffold(
       appBar: AppBar(title: const Text('我的')),
       // 宽屏限宽居中，窄屏铺满（手机版式不变）
-      body: ContentWidthBox(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-          children: [
-            const SizedBox(height: 8),
-            _GroupCard(
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+        children: [
+          const SizedBox(height: 8),
+          _GroupCard(
             children: [
               _Entry(
                 icon: Icons.settings_outlined,
@@ -62,8 +68,7 @@ class MinePage extends StatelessWidget {
               ),
             ],
           ),
-          ],
-        ),
+        ],
       ),
     );
   }

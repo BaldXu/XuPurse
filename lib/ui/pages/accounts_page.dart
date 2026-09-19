@@ -7,7 +7,7 @@ import '../../core/utils/app_colors.dart';
 import '../../core/utils/icons.dart';
 import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
-import '../layout/breakpoints.dart';
+import '../layout/xp_page_scaffold_mixin.dart';
 import '../widgets/adjust_sheet.dart';
 import 'account_detail_page.dart';
 import 'account_form_sheet.dart';
@@ -15,15 +15,21 @@ import 'account_manage_page.dart';
 import 'trend_page.dart';
 
 /// 资产页：总资产卡 + 三类账户分组列表。
-class AccountsPage extends ConsumerWidget {
+class AccountsPage extends ConsumerStatefulWidget {
   const AccountsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AccountsPage> createState() => _AccountsPageState();
+}
+
+class _AccountsPageState extends ConsumerState<AccountsPage>
+    with XpPageScaffold<AccountsPage> {
+  @override
+  Widget build(BuildContext context) {
     final accountsAsync = ref.watch(accountsProvider);
     final total = ref.watch(totalAssetsProvider).value ?? 0;
 
-    return Scaffold(
+    return buildXpScaffold(
       appBar: AppBar(
         title: const Text('资产'),
         actions: [
@@ -42,10 +48,8 @@ class AccountsPage extends ConsumerWidget {
           ),
         ],
       ),
-      // 宽屏限宽居中，窄屏铺满（手机版式不变）
-      body: ContentWidthBox(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
         children: [
           // 总资产卡
           Card(
@@ -160,7 +164,6 @@ class AccountsPage extends ConsumerWidget {
             },
           ),
         ],
-        ),
       ),
     );
   }

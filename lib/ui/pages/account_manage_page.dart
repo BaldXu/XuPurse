@@ -8,7 +8,9 @@ import '../../core/utils/icons.dart';
 import '../../data/database/app_database.dart';
 import '../../domain/services/currency_service.dart';
 import '../../state/providers.dart';
-import '../layout/breakpoints.dart';
+import '../layout/xp_page_scaffold_mixin.dart';
+import '../widgets/xp_sheet.dart';
+import '../widgets/xp_snack.dart';
 
 /// 账户管理页：多选账户 → 合并（可重命名主账户）/ 批量改币种。
 class AccountManagePage extends ConsumerStatefulWidget {
@@ -18,107 +20,106 @@ class AccountManagePage extends ConsumerStatefulWidget {
   ConsumerState<AccountManagePage> createState() => _AccountManagePageState();
 }
 
-class _AccountManagePageState extends ConsumerState<AccountManagePage> {
+class _AccountManagePageState extends ConsumerState<AccountManagePage>
+    with XpPageScaffold<AccountManagePage> {
   final Set<String> _selected = {};
   bool _busy = false;
 
   @override
   Widget build(BuildContext context) {
     final accountsAsync = ref.watch(accountsProvider);
-    return Scaffold(
+    return buildXpScaffold(
       appBar: AppBar(title: const Text('账户管理')),
-      body: ContentWidthBox(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-              child: Text(
-                '勾选账户后可「合并」或「批量改币种」。合并时保留其中一个账户，'
-                '其余账户的账单/快照等全部转入保留账户。',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Text(
+              '勾选账户后可「合并」或「批量改币种」。合并时保留其中一个账户，'
+              '其余账户的账单/快照等全部转入保留账户。',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
-            Expanded(
-              child: accountsAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('加载失败：$e')),
-                data: (accounts) {
-                  if (accounts.isEmpty) {
-                    return const Center(child: Text('还没有账户'));
-                  }
-                  // 名称匹配度高的账户排前面（疑似重复优先），方便观察与合并。
-                  final sorted = _sortedBySimilarity(accounts);
-                  final suspicious = <String, bool>{
-                    for (final a in sorted)
-                      a.id: _maxSimilarity(sorted, a) > 0.4,
-                  };
-                  return ListView.builder(
-                    itemCount: sorted.length,
-                    itemBuilder: (context, i) {
-                      final a = sorted[i];
-                      final checked = _selected.contains(a.id);
-                      return CheckboxListTile(
-                        value: checked,
-                        onChanged: _busy
+          ),
+          Expanded(
+            child: accountsAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('加载失败：$e')),
+              data: (accounts) {
+                if (accounts.isEmpty) {
+                  return const Center(child: Text('还没有账户'));
+                }
+                // 名称匹配度高的账户排前面（疑似重复优先），方便观察与合并。
+                final sorted = _sortedBySimilarity(accounts);
+                final suspicious = <String, bool>{
+                  for (final a in sorted) a.id: _maxSimilarity(sorted, a) > 0.4,
+                };
+                return ListView.builder(
+                  itemCount: sorted.length,
+                  itemBuilder: (context, i) {
+                    final a = sorted[i];
+                    final checked = _selected.contains(a.id);
+                    return CheckboxListTile(
+                      value: checked,
+                      onChanged: _busy
+                          ? null
+                          : (v) => setState(() {
+                              if (v == true) {
+                                _selected.add(a.id);
+                              } else {
+                                _selected.remove(a.id);
+                              }
+                            }),
+                      controlAffinity: ListTileControlAffinity.leading,
+                      title: Text(a.name),
+                      subtitle: Text(
+                        '${formatYuan(a.currentBalance)} · ${a.currency}'
+                        '${suspicious[a.id] == true ? ' · 疑似重复' : ''}'
+                        '${a.remark != null && a.remark!.isNotEmpty ? ' · ${a.remark}' : ''}',
+                      ),
+                      secondary: CircleAvatar(
+                        backgroundColor: hexToColor(
+                          a.color,
+                        ).withValues(alpha: 0.15),
+                        foregroundColor: hexToColor(a.color),
+                        child: Icon(resolveIcon(a.icon), size: 20),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          if (_selected.isNotEmpty)
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: _busy || _selected.length < 2
                             ? null
-                            : (v) => setState(() {
-                                  if (v == true) {
-                                    _selected.add(a.id);
-                                  } else {
-                                    _selected.remove(a.id);
-                                  }
-                                }),
-                        controlAffinity: ListTileControlAffinity.leading,
-                        title: Text(a.name),
-                        subtitle: Text(
-                          '${formatYuan(a.currentBalance)} · ${a.currency}'
-                          '${suspicious[a.id] == true ? ' · 疑似重复' : ''}'
-                          '${a.remark != null && a.remark!.isNotEmpty ? ' · ${a.remark}' : ''}',
-                        ),
-                        secondary: CircleAvatar(
-                          backgroundColor: hexToColor(
-                            a.color,
-                          ).withValues(alpha: 0.15),
-                          foregroundColor: hexToColor(a.color),
-                          child: Icon(resolveIcon(a.icon), size: 20),
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-            if (_selected.isNotEmpty)
-              SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed:
-                              _busy || _selected.length < 2 ? null : _merge,
-                          icon: const Icon(Icons.merge_type),
-                          label: Text('合并（${_selected.length}）'),
-                        ),
+                            : _merge,
+                        icon: const Icon(Icons.merge_type),
+                        label: Text('合并（${_selected.length}）'),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _busy ? null : _changeCurrency,
-                          icon: const Icon(Icons.currency_exchange),
-                          label: const Text('改币种'),
-                        ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _busy ? null : _changeCurrency,
+                        icon: const Icon(Icons.currency_exchange),
+                        label: const Text('改币种'),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }
@@ -148,68 +149,66 @@ class _AccountManagePageState extends ConsumerState<AccountManagePage> {
     }
     final nameCtrl = TextEditingController();
 
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showXpDialog<bool>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('合并账户'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('选择保留的账户（其余账户将并入它；默认选中最后活跃最新的账户）：'),
-                const SizedBox(height: 8),
-                RadioGroup<String>(
-                  groupValue: targetId,
-                  onChanged: (v) => setDialogState(() => targetId = v),
-                  child: Column(
-                    children: [
-                      for (final a in selected)
-                        RadioListTile<String>(
-                          value: a.id,
-                          title: Text(a.name),
-                          subtitle: Text(
-                            '${formatYuan(a.currentBalance)} · 最后活跃 '
-                            '${_fmtActive(lastActive[a.id])}',
-                          ),
-                          dense: true,
+      title: '合并账户',
+      contentWidget: StatefulBuilder(
+        builder: (ctx, setDialogState) => SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('选择保留的账户（其余账户将并入它；默认选中最后活跃最新的账户）：'),
+              const SizedBox(height: 8),
+              RadioGroup<String>(
+                groupValue: targetId,
+                onChanged: (v) => setDialogState(() => targetId = v),
+                child: Column(
+                  children: [
+                    for (final a in selected)
+                      RadioListTile<String>(
+                        value: a.id,
+                        title: Text(a.name),
+                        subtitle: Text(
+                          '${formatYuan(a.currentBalance)} · 最后活跃 '
+                          '${_fmtActive(lastActive[a.id])}',
                         ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: '合并后名称（可选，留空保留原名）',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '合并后余额以保留账户为准；被合并账户的账单、快照等将全部转移。',
-                  style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                        dense: true,
                       ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(
+                  labelText: '合并后名称（可选，留空保留原名）',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '合并后余额以保留账户为准；被合并账户的账单、快照等将全部转移。',
+                style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('合并'),
-            ),
-          ],
         ),
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('合并'),
+        ),
+      ],
     );
     nameCtrl.dispose();
 
@@ -227,33 +226,24 @@ class _AccountManagePageState extends ConsumerState<AccountManagePage> {
               closeWindow,
     );
     if (risky) {
-      final ok = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('确认合并？'),
-          content: const Text(
+      final ok = await confirmXpDialog(
+        context,
+        title: '确认合并？',
+        content:
             '保留账户与被合并账户的余额均非 0，且最后活跃时间接近（30 天内），'
             '它们可能是两个真实账户而非同一账户的重复数据。确定仍要合并吗？',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('仍要合并'),
-            ),
-          ],
-        ),
+        confirmLabel: '仍要合并',
+        danger: true,
       );
-      if (ok != true || !mounted) return;
+      if (!ok || !mounted) return;
     }
 
     setState(() => _busy = true);
     try {
       final sourceIds = _selected.where((id) => id != targetId).toList();
-      await ref.read(accountServiceProvider).mergeAccounts(
+      await ref
+          .read(accountServiceProvider)
+          .mergeAccounts(
             targetId: targetId!,
             sourceIds: sourceIds,
             newName: nameCtrl.text.trim().isEmpty ? null : nameCtrl.text.trim(),
@@ -263,15 +253,11 @@ class _AccountManagePageState extends ConsumerState<AccountManagePage> {
         _busy = false;
         _selected.clear();
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('账户合并完成')));
+      showXpSnack(context, '账户合并完成');
     } catch (e) {
       if (!mounted) return;
       setState(() => _busy = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('合并失败：$e')));
+      showXpSnack(context, '合并失败：$e', error: true);
     }
   }
 
@@ -318,34 +304,32 @@ class _AccountManagePageState extends ConsumerState<AccountManagePage> {
   Future<void> _changeCurrency() async {
     final codes = CurrencyService.supportedCodes;
     var code = 'CNY';
-    final confirmed = await showDialog<String>(
+    final confirmed = await showXpDialog<String>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('批量修改币种'),
-          content: DropdownButtonFormField<String>(
-            initialValue: code,
-            decoration: const InputDecoration(
-              labelText: '币种',
-              border: OutlineInputBorder(),
-            ),
-            items: [
-              for (final c in codes) DropdownMenuItem(value: c, child: Text(c)),
-            ],
-            onChanged: (v) => setDialogState(() => code = v ?? code),
+      title: '批量修改币种',
+      contentWidget: StatefulBuilder(
+        builder: (ctx, setDialogState) => DropdownButtonFormField<String>(
+          initialValue: code,
+          decoration: const InputDecoration(
+            labelText: '币种',
+            border: OutlineInputBorder(),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, code),
-              child: const Text('确定'),
-            ),
+          items: [
+            for (final c in codes) DropdownMenuItem(value: c, child: Text(c)),
           ],
+          onChanged: (v) => setDialogState(() => code = v ?? code),
         ),
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, code),
+          child: const Text('确定'),
+        ),
+      ],
     );
     if (confirmed == null || !mounted) return;
     final count = _selected.length;
@@ -359,15 +343,11 @@ class _AccountManagePageState extends ConsumerState<AccountManagePage> {
         _busy = false;
         _selected.clear();
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('已将 $count 个账户改为 $confirmed')));
+      showXpSnack(context, '已将 $count 个账户改为 $confirmed');
     } catch (e) {
       if (!mounted) return;
       setState(() => _busy = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('修改失败：$e')));
+      showXpSnack(context, '修改失败：$e', error: true);
     }
   }
 }

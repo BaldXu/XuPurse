@@ -7,32 +7,37 @@ import '../../core/utils/amount.dart';
 import '../../core/utils/ids.dart';
 import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
-import '../layout/breakpoints.dart';
+import '../layout/xp_page_scaffold_mixin.dart';
+import '../widgets/xp_snack.dart';
 
 /// 预算管理页（卡片 + 进度 + 表单 + 删除）。
-class BudgetManagePage extends ConsumerWidget {
+class BudgetManagePage extends ConsumerStatefulWidget {
   const BudgetManagePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<BudgetManagePage> createState() => _BudgetManagePageState();
+}
+
+class _BudgetManagePageState extends ConsumerState<BudgetManagePage>
+    with XpPageScaffold<BudgetManagePage> {
+  @override
+  Widget build(BuildContext context) {
     final budgetsAsync = ref.watch(_budgetsWithUsageProvider);
-    return Scaffold(
+    return buildXpScaffold(
       appBar: AppBar(title: const Text('预算管理')),
-      body: ContentWidthBox(
-        child: budgetsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('加载失败：$e')),
-          data: (items) {
-            if (items.isEmpty) {
-              return const Center(child: Text('暂无预算，点击右下角新增'));
-            }
-            return ListView.builder(
-              padding: const EdgeInsets.only(bottom: 96),
-              itemCount: items.length,
-              itemBuilder: (context, i) => _BudgetCard(item: items[i]),
-            );
-          },
-        ),
+      body: budgetsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('加载失败：$e')),
+        data: (items) {
+          if (items.isEmpty) {
+            return const Center(child: Text('暂无预算，点击右下角新增'));
+          }
+          return ListView.builder(
+            padding: const EdgeInsets.only(bottom: 96),
+            itemCount: items.length,
+            itemBuilder: (context, i) => _BudgetCard(item: items[i]),
+          );
+        },
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => showModalBottomSheet<void>(
@@ -55,7 +60,8 @@ class _BudgetWithUsage {
   final int spent;
 }
 
-final _budgetsWithUsageProvider = StreamProvider<List<_BudgetWithUsage>>((ref,
+final _budgetsWithUsageProvider = StreamProvider<List<_BudgetWithUsage>>((
+  ref,
 ) async* {
   final db = ref.watch(dbProvider);
   // bills 表变化(记账/删除/导入)先等一次账单流事件再重算,保证进度实时更新
@@ -326,9 +332,8 @@ class _BudgetFormSheetState extends ConsumerState<BudgetFormSheet> {
   Future<void> _save() async {
     final amountYuan = double.tryParse(_amountCtrl.text.trim());
     if (amountYuan == null || amountYuan <= 0) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('请输入有效的预算金额')));
+      if (!mounted) return;
+      showXpSnack(context, '请输入有效的预算金额', error: true);
       return;
     }
     setState(() => _saving = true);
@@ -389,9 +394,7 @@ class _BudgetFormSheetState extends ConsumerState<BudgetFormSheet> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('保存失败：$e')));
+      showXpSnack(context, '保存失败：$e', error: true);
     }
   }
 }

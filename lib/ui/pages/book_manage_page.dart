@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/database/global_database.dart';
 import '../../state/providers.dart';
-import '../layout/breakpoints.dart';
+import '../layout/xp_page_scaffold_mixin.dart';
+import '../widgets/xp_sheet.dart';
+import '../widgets/xp_snack.dart';
 
 /// 账本管理页：新建 / 切换 / 删除账本（切换后重建数据源）。
 class BookManagePage extends ConsumerStatefulWidget {
@@ -13,7 +15,8 @@ class BookManagePage extends ConsumerStatefulWidget {
   ConsumerState<BookManagePage> createState() => _BookManagePageState();
 }
 
-class _BookManagePageState extends ConsumerState<BookManagePage> {
+class _BookManagePageState extends ConsumerState<BookManagePage>
+    with XpPageScaffold<BookManagePage> {
   int _revision = 0;
   late Future<List<Book>> _booksFuture;
 
@@ -47,40 +50,36 @@ class _BookManagePageState extends ConsumerState<BookManagePage> {
     setState(() => _revision++);
     _booksFuture = _loadBooks();
     if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('已切换账本')));
+      showXpSnack(context, '已切换账本');
     }
   }
 
   Future<void> _createBook() async {
     final ctrl = TextEditingController();
-    final name = await showDialog<String>(
+    final name = await showXpDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('新建账本'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: '账本名称',
-            border: OutlineInputBorder(),
-          ),
+      title: '新建账本',
+      contentWidget: TextField(
+        controller: ctrl,
+        autofocus: true,
+        decoration: const InputDecoration(
+          labelText: '账本名称',
+          border: OutlineInputBorder(),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(
-              ctx,
-              ctrl.text.trim().isEmpty ? null : ctrl.text.trim(),
-            ),
-            child: const Text('创建'),
-          ),
-        ],
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(
+            context,
+            ctrl.text.trim().isEmpty ? null : ctrl.text.trim(),
+          ),
+          child: const Text('创建'),
+        ),
+      ],
     );
     ctrl.dispose();
     if (name == null || !mounted) return;
@@ -92,24 +91,14 @@ class _BookManagePageState extends ConsumerState<BookManagePage> {
   }
 
   Future<void> _deleteBook(Book book) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('删除账本'),
-        content: Text('确定删除「${book.name}」？该账本下全部数据将被清空，且不可恢复。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
+    final ok = await confirmXpDialog(
+      context,
+      title: '删除账本',
+      content: '确定删除「${book.name}」？该账本下全部数据将被清空，且不可恢复。',
+      confirmLabel: '删除',
+      danger: true,
     );
-    if (ok != true || !mounted) return;
+    if (!ok || !mounted) return;
     final mgr = ref.read(databaseManagerProvider);
     await mgr.deleteBook(book.id);
     // 删除当前账本后自动切换到剩余账本（无则新建默认账本），避免无当前账本
@@ -129,52 +118,50 @@ class _BookManagePageState extends ConsumerState<BookManagePage> {
   @override
   Widget build(BuildContext context) {
     final currentId = ref.watch(databaseManagerProvider).currentBookId;
-    return Scaffold(
+    return buildXpScaffold(
       appBar: AppBar(title: const Text('账本管理')),
-      body: ContentWidthBox(
-        child: FutureBuilder<List<Book>>(
-          future: _booksFuture,
-          builder: (context, snap) {
-            if (snap.connectionState != ConnectionState.done) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snap.hasError) {
-              return Center(child: Text('加载失败：${snap.error}'));
-            }
-            final books = snap.data ?? const <Book>[];
-            if (books.isEmpty) {
-              return const Center(child: Text('暂无账本'));
-            }
-            return ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-              itemCount: books.length,
-              itemBuilder: (context, i) {
-                final book = books[i];
-                final isCurrent = book.id == currentId;
-                return Card(
-                  child: ListTile(
-                    leading: Icon(
-                      isCurrent ? Icons.check_circle : Icons.menu_book_outlined,
-                      color: isCurrent
-                          ? Theme.of(context).colorScheme.primary
-                          : null,
-                    ),
-                    title: Text(book.name),
-                    subtitle: Text(
-                      '本位币 ${book.baseCurrency}${isCurrent ? ' · 当前' : ''}',
-                    ),
-                    trailing: IconButton(
-                      tooltip: '删除',
-                      icon: const Icon(Icons.delete_outline),
-                      onPressed: () => _deleteBook(book),
-                    ),
-                    onTap: () => _switchBook(book.id),
+      body: FutureBuilder<List<Book>>(
+        future: _booksFuture,
+        builder: (context, snap) {
+          if (snap.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snap.hasError) {
+            return Center(child: Text('加载失败：${snap.error}'));
+          }
+          final books = snap.data ?? const <Book>[];
+          if (books.isEmpty) {
+            return const Center(child: Text('暂无账本'));
+          }
+          return ListView.builder(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+            itemCount: books.length,
+            itemBuilder: (context, i) {
+              final book = books[i];
+              final isCurrent = book.id == currentId;
+              return Card(
+                child: ListTile(
+                  leading: Icon(
+                    isCurrent ? Icons.check_circle : Icons.menu_book_outlined,
+                    color: isCurrent
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
                   ),
-                );
-              },
-            );
-          },
-        ),
+                  title: Text(book.name),
+                  subtitle: Text(
+                    '本位币 ${book.baseCurrency}${isCurrent ? ' · 当前' : ''}',
+                  ),
+                  trailing: IconButton(
+                    tooltip: '删除',
+                    icon: const Icon(Icons.delete_outline),
+                    onPressed: () => _deleteBook(book),
+                  ),
+                  onTap: () => _switchBook(book.id),
+                ),
+              );
+            },
+          );
+        },
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _createBook,

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../state/theme_provider.dart';
-import '../layout/breakpoints.dart';
+import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/color_picker_dialog.dart';
+import '../widgets/xp_sheet.dart';
+import '../widgets/xp_snack.dart';
 
 /// 主题外观页：
 /// - 预设主题：点按应用；长按用户自建主题出现右上角减号，可删除（内置与当前使用中不可删）。
@@ -17,7 +19,8 @@ class ThemeSettingsPage extends ConsumerStatefulWidget {
   ConsumerState<ThemeSettingsPage> createState() => _ThemeSettingsPageState();
 }
 
-class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage> {
+class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
+    with XpPageScaffold<ThemeSettingsPage> {
   /// 长按后处于「删除态」的主题 id（显示右上角减号）。
   String? _armedDelete;
 
@@ -77,24 +80,14 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage> {
   }
 
   Future<void> _confirmDelete(AppTheme theme) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('删除主题'),
-        content: Text('确定删除自定义主题「${theme.name}」？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
+    final ok = await confirmXpDialog(
+      context,
+      title: '删除主题',
+      content: '确定删除自定义主题「${theme.name}」？',
+      confirmLabel: '删除',
+      danger: true,
     );
-    if (ok != true || !mounted) return;
+    if (!ok || !mounted) return;
     await ref.read(themeProvider.notifier).deleteUserTheme(theme.id);
     if (mounted) setState(() => _armedDelete = null);
   }
@@ -102,7 +95,7 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage> {
   Future<void> _saveCustom() async {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
-      _toast('请输入主题名称');
+      showXpSnack(context, '请输入主题名称', error: true);
       return;
     }
     final id = 'user_${DateTime.now().millisecondsSinceEpoch}';
@@ -124,125 +117,117 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage> {
       _background = null;
       _cardColor = null;
     });
-    _toast('已新增并应用「$name」');
-  }
-
-  void _toast(String msg) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(msg)));
+    showXpSnack(context, '已新增并应用「$name」');
   }
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(themeProvider);
     final scheme = Theme.of(context).colorScheme;
-    return Scaffold(
+    return buildXpScaffold(
       appBar: AppBar(title: const Text('主题外观')),
-      body: ContentWidthBox(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            // ---- 第一层：预设主题 ----
-            Text('预设主题', style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 4),
-            Text(
-              '点按应用；长按用户自建主题可删除（内置与当前使用中的不可删）。',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 20,
-              runSpacing: 20,
-              children: [
-                for (final theme in state.allThemes)
-                  _ThemeBall(
-                    theme: theme,
-                    active: theme.id == state.currentId,
-                    deleteMode: _armedDelete == theme.id,
-                    onTap: () => _select(theme.id),
-                    onLongPress: () {
-                      // 仅用户自建且非当前使用中的主题可进入删除态
-                      if (!theme.isPreset && theme.id != state.currentId) {
-                        setState(() => _armedDelete = theme.id);
-                      }
-                    },
-                    onDelete: () => _confirmDelete(theme),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            const Divider(height: 1),
-            const SizedBox(height: 24),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          // ---- 第一层：预设主题 ----
+          Text('预设主题', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 4),
+          Text(
+            '点按应用；长按用户自建主题可删除（内置与当前使用中的不可删）。',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 20,
+            runSpacing: 20,
+            children: [
+              for (final theme in state.allThemes)
+                _ThemeBall(
+                  theme: theme,
+                  active: theme.id == state.currentId,
+                  deleteMode: _armedDelete == theme.id,
+                  onTap: () => _select(theme.id),
+                  onLongPress: () {
+                    // 仅用户自建且非当前使用中的主题可进入删除态
+                    if (!theme.isPreset && theme.id != state.currentId) {
+                      setState(() => _armedDelete = theme.id);
+                    }
+                  },
+                  onDelete: () => _confirmDelete(theme),
+                ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          const Divider(height: 1),
+          const SizedBox(height: 24),
 
-            // ---- 第二层：自定义主题设置 ----
-            Text('自定义主题', style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 4),
-            Text(
-              '三个颜色项均为单选项：选中后打开取色器，滑动色相 / 饱和度 / 明度'
-              '取色并确认；保存后新增为一个预设主题。',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-            const SizedBox(height: 12),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(
-                      controller: _nameCtrl,
-                      decoration: const InputDecoration(
-                        labelText: '主题名称',
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
+          // ---- 第二层：自定义主题设置 ----
+          Text('自定义主题', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 4),
+          Text(
+            '三个颜色项均为单选项：选中后打开取色器，滑动色相 / 饱和度 / 明度'
+            '取色并确认；保存后新增为一个预设主题。',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 8,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: _nameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: '主题名称',
+                      border: OutlineInputBorder(),
+                      isDense: true,
                     ),
-                    RadioGroup<String>(
-                      groupValue: _editing,
-                      onChanged: (v) {
-                        if (v != null) _pickColor(v);
-                      },
-                      child: Column(
-                        children: [
-                          _colorRow(field: 'seed', label: '主题色', color: _seed),
-                          _colorRow(
-                            field: 'background',
-                            label: '页面背景色',
-                            color: _background,
-                          ),
-                          _colorRow(
-                            field: 'card',
-                            label: '卡片背景色',
-                            color: _cardColor,
-                          ),
-                        ],
-                      ),
+                  ),
+                  RadioGroup<String>(
+                    groupValue: _editing,
+                    onChanged: (v) {
+                      if (v != null) _pickColor(v);
+                    },
+                    child: Column(
+                      children: [
+                        _colorRow(field: 'seed', label: '主题色', color: _seed),
+                        _colorRow(
+                          field: 'background',
+                          label: '页面背景色',
+                          color: _background,
+                        ),
+                        _colorRow(
+                          field: 'card',
+                          label: '卡片背景色',
+                          color: _cardColor,
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: _saveCustom,
-                        icon: const Icon(Icons.add),
-                        label: const Text('保存为预设主题'),
-                      ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: _saveCustom,
+                      icon: const Icon(Icons.add),
+                      label: const Text('保存为预设主题'),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 24),
-            _buildAppearanceSection(state),
-          ],
-        ),
+          ),
+          const SizedBox(height: 24),
+          _buildAppearanceSection(state),
+        ],
       ),
     );
   }
