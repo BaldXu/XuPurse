@@ -51,18 +51,18 @@ void main() {
   testWidgets('点按预设主题可切换', (tester) async {
     final container = await pumpPage(tester);
     expect(container.read(themeProvider).current.id, presetThemes.first.id);
-
+    // 0.1 主题收敛后唯一预设为克莱因蓝:点按幂等应用,不会报错
     await ensureVisible(
       tester,
-      find.byKey(const ValueKey('theme_ball_preset_blue')),
+      find.byKey(const ValueKey('theme_ball_preset_klein')),
     );
-    await tester.tap(find.byKey(const ValueKey('theme_ball_preset_blue')));
+    await tester.tap(find.byKey(const ValueKey('theme_ball_preset_klein')));
     await tester.pumpAndSettle();
 
-    expect(container.read(themeProvider).current.id, 'preset_blue');
+    expect(container.read(themeProvider).current.id, 'preset_klein');
     expect(
       container.read(currentThemeProvider).seedColor,
-      presetThemes[1].seedColor,
+      presetThemes.first.seedColor,
     );
   });
 
@@ -71,8 +71,8 @@ void main() {
 
     await ensureVisible(tester, find.byType(TextField).first);
     await tester.enterText(find.byType(TextField).first, '我的主题');
-    await ensureVisible(tester, find.text('保存为预设主题'));
-    await tester.tap(find.text('保存为预设主题'));
+    await ensureVisible(tester, find.text('保存为自定义主题'));
+    await tester.tap(find.text('保存为自定义主题'));
     await tester.pumpAndSettle();
 
     final state = container.read(themeProvider);
@@ -87,8 +87,8 @@ void main() {
     // 新增一个用户主题
     await ensureVisible(tester, find.byType(TextField).first);
     await tester.enterText(find.byType(TextField).first, '我的主题');
-    await ensureVisible(tester, find.text('保存为预设主题'));
-    await tester.tap(find.text('保存为预设主题'));
+    await ensureVisible(tester, find.text('保存为自定义主题'));
+    await tester.tap(find.text('保存为自定义主题'));
     await tester.pumpAndSettle();
     final userThemeId = container.read(themeProvider).current.id;
     expect(userThemeId, startsWith('user_'));
@@ -96,9 +96,9 @@ void main() {
     // 先切回内置预设（用户主题不再当前，才允许删除）
     await ensureVisible(
       tester,
-      find.byKey(const ValueKey('theme_ball_preset_green')),
+      find.byKey(const ValueKey('theme_ball_preset_klein')),
     );
-    await tester.tap(find.byKey(const ValueKey('theme_ball_preset_green')));
+    await tester.tap(find.byKey(const ValueKey('theme_ball_preset_klein')));
     await tester.pumpAndSettle();
 
     // 内置预设长按不出现减号
@@ -135,8 +135,8 @@ void main() {
 
     await ensureVisible(tester, find.byType(TextField).first);
     await tester.enterText(find.byType(TextField).first, '我的主题');
-    await ensureVisible(tester, find.text('保存为预设主题'));
-    await tester.tap(find.text('保存为预设主题'));
+    await ensureVisible(tester, find.text('保存为自定义主题'));
+    await tester.tap(find.text('保存为自定义主题'));
     await tester.pumpAndSettle();
     final userThemeId = container.read(themeProvider).current.id;
 

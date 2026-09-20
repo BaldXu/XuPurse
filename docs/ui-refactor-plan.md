@@ -56,11 +56,11 @@
 - 涉及：`lib/ui/theme.dart`、`android/app/src/main/AndroidManifest.xml`、`lib/ui/layout/xp_page_scaffold_mixin.dart`、新增 `lib/ui/layout/lazy_indexed_stack.dart`、`lib/ui/pages/main_shell.dart`
 - 验收：Android 15+ 侧滑返回可见预览动画；4 个 tab 首次点入才构建；页面切入有统一淡入。
 
-### 0.4 卡片基类微交互 `[ ]`
+### 0.4 卡片基类微交互 `[x]`
 
 | # | 事项 | 状态 |
 |---|------|------|
-| 1 | `XpCard` 支持 `onTap` 时按压缩放（0.98，`XpMotion.micro` 170ms）+ 阴影减弱，松手回弹 | `[ ]` |
+| 1 | `XpCard` 支持 `onTap` 时按压缩放（0.98，`XpMotion.micro` 170ms）+ 阴影减弱，松手回弹 | `[x]` |
 | 2 | InkWell ripple 与 G2 形状对齐已就绪（`_borderRadiusOf`），无需改 | `[x]` |
 
 - 涉及：`lib/ui/widgets/xp_card.dart`
