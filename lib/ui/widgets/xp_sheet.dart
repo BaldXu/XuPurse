@@ -71,32 +71,3 @@ Future<bool> confirmXpDialog(
   );
   return ok == true;
 }
-
-/// 统一加载指示(供页面 loading 态使用;动画系统接入后可换骨架屏)。
-class XpLoading extends StatelessWidget {
-  const XpLoading({super.key, this.label});
-
-  final String? label;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(),
-          if (label != null) ...[
-            const SizedBox(height: 12),
-            Text(
-              label!,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}

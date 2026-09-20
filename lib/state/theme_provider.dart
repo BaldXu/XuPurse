@@ -57,7 +57,7 @@ class AppTheme {
 
   static Color _color(String hex) {
     final v = int.tryParse(hex.replaceFirst('#', ''));
-    return Color(0xFF000000 | (v ?? 0xFF2F6F4F));
+    return Color(0xFF000000 | (v ?? 0xFF002FA7));
   }
 
   static String _hex(Color c) =>
@@ -126,28 +126,23 @@ class AppTheme {
 }
 
 /// 暗色主题预设(独立于用户自定义体系;系统暗色开关即切换到它)。
+/// 克莱因蓝暗色变体:fromSeed 暗色派生自动提亮 primary、中性色带蓝灰调
+/// (深灰蓝背景),避免纯黑背景,符合设计稿要求。
 const darkThemePreset = AppTheme(
   id: 'preset_dark',
   name: '暗色',
-  seedColor: Color(0xFF7A9E7E),
+  seedColor: Color(0xFF002FA7),
   isDark: true,
 );
 
-/// 内置预设主题（不可删除）。克莱因蓝：浅灰白页面背景 + 白色卡片 + 克莱因蓝主题色。
+/// 内置预设主题（不可删除）：唯一预设「克莱因蓝」，色值对齐 design_tokens §4.1
+/// （页面背景 #F7F8F6 + 白色卡片 + 克莱因蓝主题色）。
 const presetThemes = <AppTheme>[
-  AppTheme(id: 'preset_green', name: '蓝绿', seedColor: Color(0xFF2F6F4F)),
-  AppTheme(id: 'preset_blue', name: '蓝', seedColor: Color(0xFF2F5FA8)),
-  AppTheme(id: 'preset_purple', name: '紫', seedColor: Color(0xFF7C4DBB)),
-  AppTheme(id: 'preset_red', name: '红', seedColor: Color(0xFFB33A3A)),
-  AppTheme(id: 'preset_orange', name: '橙', seedColor: Color(0xFFB06A00)),
-  AppTheme(id: 'preset_teal', name: '青', seedColor: Color(0xFF1E6B7A)),
-  AppTheme(id: 'preset_olive', name: '橄榄', seedColor: Color(0xFF6B7A1E)),
-  AppTheme(id: 'preset_graphite', name: '石墨', seedColor: Color(0xFF3A3A3A)),
   AppTheme(
     id: 'preset_klein',
     name: '克莱因蓝',
     seedColor: Color(0xFF002FA7),
-    background: Color(0xFFF5F6F8), // 浅灰白页面背景
+    background: Color(0xFFF7F8F6), // 页面背景（designDirection §4.1）
     cardColor: Color(0xFFFFFFFF), // 白色卡片背景
   ),
 ];

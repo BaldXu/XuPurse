@@ -39,10 +39,15 @@ ThemeData buildAppTheme(
   bool? animationsEnabled,
 }) {
   final dark = brightness == Brightness.dark || theme.isDark;
-  final scheme = ColorScheme.fromSeed(
+  ColorScheme scheme = ColorScheme.fromSeed(
     seedColor: theme.seedColor,
     brightness: dark ? Brightness.dark : Brightness.light,
   );
+  // fromSeed 会把深色 seed 稀释成 tonal palette；浅色模式下恢复品牌原色
+  // （如克莱因蓝 #002FA7），保证主色纯正。
+  if (!dark && theme.seedColor.computeLuminance() < 0.35) {
+    scheme = scheme.copyWith(primary: theme.seedColor, onPrimary: Colors.white);
+  }
   final animOn = animationsEnabled ?? theme.animationsEnabled;
   // 暗色主题不应用用户的浅色背景/卡色覆盖(暗色 = 独立预设主题,已决策)。
   final background = dark ? null : theme.background;
@@ -52,34 +57,41 @@ ThemeData buildAppTheme(
       ? Typography.material2021().white
       : Typography.material2021().black;
   final fontScale = theme.fontScale;
-  final textTheme = (theme.fontFamily == null && fontScale == 1.0)
-      ? baseTextTheme
-      : baseTextTheme.apply(
-          fontFamily: theme.fontFamily,
-          fontSizeFactor: fontScale,
-        );
+  // 挂载设计排印阶梯，再应用用户字体/缩放（apply 不覆盖 fontFeatures 等字段）。
+  var textTheme = baseTextTheme.merge(
+    const TextTheme(
+      displayLarge: XpTextStyles.display,
+      headlineMedium: XpTextStyles.h1,
+      headlineSmall: XpTextStyles.h3,
+      titleLarge: XpTextStyles.h2,
+    ),
+  );
+  if (theme.fontFamily != null || fontScale != 1.0) {
+    textTheme = textTheme.apply(
+      fontFamily: theme.fontFamily,
+      fontSizeFactor: fontScale,
+    );
+  }
 
   final cardRadius = BorderRadius.circular(theme.cardRadius ?? XpRadius.m);
-  final cardShape = RoundedRectangleBorder(borderRadius: cardRadius);
+  final cardShape = XpShape.smooth(borderRadius: cardRadius);
 
   final CardThemeData cardTheme = switch (theme.cardStyle) {
     XpCardStyle.filled => CardThemeData(
-      elevation: 0,
+      elevation: XpElevation.e0,
       color: cardColor ?? scheme.surfaceContainerHighest.withValues(alpha: 0.5),
       shape: cardShape,
       margin: EdgeInsets.zero,
     ),
     XpCardStyle.outlined => CardThemeData(
-      elevation: 0,
+      elevation: XpElevation.e0,
       color: cardColor ?? scheme.surface,
-      shape: cardShape.copyWith(
-        side: BorderSide(color: scheme.outlineVariant),
-      ),
+      shape: cardShape.copyWith(side: BorderSide(color: scheme.outlineVariant)),
       margin: EdgeInsets.zero,
     ),
     XpCardStyle.elevated => CardThemeData(
-      elevation: 2,
-      shadowColor: scheme.shadow.withValues(alpha: 0.3),
+      elevation: XpElevation.e1,
+      shadowColor: XpElevation.shadow.withValues(alpha: 0.24),
       color: cardColor ?? scheme.surface,
       shape: cardShape,
       margin: EdgeInsets.zero,
@@ -95,11 +107,13 @@ ThemeData buildAppTheme(
     appBarTheme: const AppBarTheme(centerTitle: false),
     cardTheme: cardTheme,
     inputDecorationTheme: InputDecorationTheme(
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(XpRadius.m)),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(XpRadius.s),
+      ),
       isDense: true,
     ),
     dialogTheme: DialogThemeData(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(XpRadius.l)),
+      shape: XpShape.smooth(borderRadius: BorderRadius.circular(XpRadius.l)),
     ),
     bottomSheetTheme: BottomSheetThemeData(
       shape: XpRadius.sheet,

@@ -10,7 +10,7 @@ import '../../state/providers.dart';
 import '../layout/breakpoints.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/ai_chat_sheet.dart';
-import '../widgets/xp_sheet.dart';
+import '../widgets/xp_skeleton.dart';
 
 /// 账单数据版本号:任何账单变化(记账、导入、调账、删除、清空、切换账本)
 /// 都会 bump,统计页各分区 watch 它以及时重跑查询,不再依赖 IndexedStack
@@ -59,6 +59,20 @@ mixin _StatsSectionRefresh<W extends ConsumerStatefulWidget>
 /// - 预算：预算执行进度
 /// - 标签：标签支出 Top
 ///
+/// FutureBuilder 统一淡入门:loading 骨架 ↔ 完成内容 交叉淡变(XpMotion.component)。
+/// key 随 connectionState 变化,AnimatedSwitcher 只在 loading → data/error 时动画。
+Widget _xpFadeGate<T>(AsyncSnapshot<T> snap, Widget Function() build) {
+  return AnimatedSwitcher(
+    duration: XpMotion.component,
+    switchInCurve: XpMotion.easeOut,
+    switchOutCurve: XpMotion.easeIn,
+    child: KeyedSubtree(
+      key: ValueKey<bool>(snap.connectionState == ConnectionState.done),
+      child: build(),
+    ),
+  );
+}
+
 /// 日期范围：本月 / 上月 / 本年 / 去年 / 最近一周 / 自定义（日历，
 /// 可选下界为最早账单时间，上界为今天），全部分区共用同一范围。
 class StatisticsPage extends ConsumerStatefulWidget {
@@ -549,9 +563,9 @@ class _OverviewSectionState extends ConsumerState<_OverviewSection>
   Widget build(BuildContext context) {
     return FutureBuilder<_OverviewData>(
       future: _future,
-      builder: (context, snap) {
+      builder: (context, snap) => _xpFadeGate(snap, () {
         if (snap.connectionState != ConnectionState.done) {
-          return const XpLoading();
+          return const XpSkeletonList();
         }
         if (snap.hasError) {
           return Center(child: Text('加载失败：${snap.error}'));
@@ -577,7 +591,7 @@ class _OverviewSectionState extends ConsumerState<_OverviewSection>
             _DailyCard(expense: d.expense, income: d.income, days: d.days),
           ],
         );
-      },
+      }),
     );
   }
 }
@@ -828,9 +842,9 @@ class _CategorySectionState extends ConsumerState<_CategorySection>
   Widget build(BuildContext context) {
     return FutureBuilder<_CategoryData>(
       future: _future,
-      builder: (context, snap) {
+      builder: (context, snap) => _xpFadeGate(snap, () {
         if (snap.connectionState != ConnectionState.done) {
-          return const XpLoading();
+          return const XpSkeletonList();
         }
         if (snap.hasError) {
           return Center(child: Text('加载失败：${snap.error}'));
@@ -856,7 +870,7 @@ class _CategorySectionState extends ConsumerState<_CategorySection>
             _CategoryRankCard(start: widget.start, end: widget.end, data: d),
           ],
         );
-      },
+      }),
     );
   }
 }
@@ -1057,9 +1071,9 @@ class _CategoryDetailSheetState extends ConsumerState<_CategoryDetailSheet> {
             Expanded(
               child: FutureBuilder<List<Bill>>(
                 future: _future,
-                builder: (context, snap) {
+                builder: (context, snap) => _xpFadeGate(snap, () {
                   if (snap.connectionState != ConnectionState.done) {
-                    return const XpLoading();
+                    return const XpSkeletonList();
                   }
                   if (snap.hasError) {
                     return Center(child: Text('加载失败：${snap.error}'));
@@ -1094,7 +1108,7 @@ class _CategoryDetailSheetState extends ConsumerState<_CategoryDetailSheet> {
                       );
                     },
                   );
-                },
+                }),
               ),
             ),
           ],
@@ -1486,9 +1500,9 @@ class _TrendSectionState extends ConsumerState<_TrendSection>
   Widget build(BuildContext context) {
     return FutureBuilder<_TrendData>(
       future: _future,
-      builder: (context, snap) {
+      builder: (context, snap) => _xpFadeGate(snap, () {
         if (snap.connectionState != ConnectionState.done) {
-          return const XpLoading();
+          return const XpSkeletonList();
         }
         if (snap.hasError) {
           return Center(child: Text('加载失败：${snap.error}'));
@@ -1512,7 +1526,7 @@ class _TrendSectionState extends ConsumerState<_TrendSection>
             _TrendCompareCard(start: widget.start, end: widget.end),
           ],
         );
-      },
+      }),
     );
   }
 }
@@ -1773,9 +1787,15 @@ class _TrendCompareCardState extends ConsumerState<_TrendCompareCard> {
     final theme = Theme.of(context);
     return FutureBuilder<_TrendCompareData>(
       future: _future,
-      builder: (context, snap) {
+      builder: (context, snap) => _xpFadeGate(snap, () {
         if (snap.connectionState != ConnectionState.done) {
-          return const SizedBox(height: 120, child: XpLoading());
+          return const SizedBox(
+            height: 120,
+            child: XpSkeletonList(
+              itemCount: 2,
+              padding: EdgeInsets.symmetric(vertical: XpSpacing.s),
+            ),
+          );
         }
         if (snap.hasError) {
           return Card(
@@ -1851,7 +1871,7 @@ class _TrendCompareCardState extends ConsumerState<_TrendCompareCard> {
             ),
           ),
         );
-      },
+      }),
     );
   }
 }
@@ -2015,9 +2035,9 @@ class _BudgetSectionState extends ConsumerState<_BudgetSection>
   Widget build(BuildContext context) {
     return FutureBuilder<List<_BudgetExec>>(
       future: _future,
-      builder: (context, snap) {
+      builder: (context, snap) => _xpFadeGate(snap, () {
         if (snap.connectionState != ConnectionState.done) {
-          return const XpLoading();
+          return const XpSkeletonList();
         }
         if (snap.hasError) {
           return Center(child: Text('加载失败：${snap.error}'));
@@ -2049,7 +2069,7 @@ class _BudgetSectionState extends ConsumerState<_BudgetSection>
             ),
           ],
         );
-      },
+      }),
     );
   }
 }
@@ -2168,9 +2188,9 @@ class _TagSectionState extends ConsumerState<_TagSection>
   Widget build(BuildContext context) {
     return FutureBuilder<_TagData>(
       future: _future,
-      builder: (context, snap) {
+      builder: (context, snap) => _xpFadeGate(snap, () {
         if (snap.connectionState != ConnectionState.done) {
-          return const XpLoading();
+          return const XpSkeletonList();
         }
         if (snap.hasError) {
           return Center(child: Text('加载失败：${snap.error}'));
@@ -2215,7 +2235,7 @@ class _TagSectionState extends ConsumerState<_TagSection>
             ),
           ],
         );
-      },
+      }),
     );
   }
 

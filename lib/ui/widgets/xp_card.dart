@@ -30,11 +30,15 @@ class XpCard extends StatelessWidget {
   }
 
   static BorderRadius? _borderRadiusOf(ShapeBorder? shape) {
-    final r = shape is RoundedRectangleBorder ? shape.borderRadius : null;
-    if (r is BorderRadius) return r;
-    if (r is BorderRadiusGeometry) {
+    final BorderRadiusGeometry? geometry = switch (shape) {
+      RoundedRectangleBorder s => s.borderRadius,
+      RoundedSuperellipseBorder s => s.borderRadius,
+      _ => null,
+    };
+    if (geometry is BorderRadius) return geometry;
+    if (geometry != null) {
       try {
-        return r.resolve(TextDirection.ltr);
+        return geometry.resolve(TextDirection.ltr);
       } catch (_) {
         return null;
       }

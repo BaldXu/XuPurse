@@ -68,10 +68,9 @@ class BillTile extends ConsumerWidget {
           : Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: Text(
         '$prefix${formatYuan(bill.amount)}',
-        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-          color: color,
-          fontWeight: FontWeight.w600,
-        ),
+        style: Theme.of(context).textTheme.titleSmall
+            ?.copyWith(color: color, fontWeight: FontWeight.w600)
+            .tabular,
       ),
     );
   }
@@ -143,15 +142,22 @@ class _DayHeader extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+      padding: const EdgeInsets.fromLTRB(
+        XpSpacing.l,
+        XpSpacing.m,
+        XpSpacing.l,
+        XpSpacing.xs,
+      ),
       child: Row(
         children: [
           Expanded(child: Text(label, style: textTheme.labelMedium)),
           Text(
             '支 ${formatYuan(expense)}  收 ${formatYuan(income)}',
-            style: textTheme.labelMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+            style: textTheme.labelMedium
+                ?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                )
+                .tabular,
           ),
         ],
       ),

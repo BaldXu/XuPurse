@@ -168,7 +168,7 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
           const SizedBox(height: 4),
           Text(
             '三个颜色项均为单选项：选中后打开取色器，滑动色相 / 饱和度 / 明度'
-            '取色并确认；保存后新增为一个预设主题。',
+            '取色并确认；保存后新增为自定义主题并应用。',
             style: Theme.of(
               context,
             ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
@@ -218,7 +218,7 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
                     child: FilledButton.icon(
                       onPressed: _saveCustom,
                       icon: const Icon(Icons.add),
-                      label: const Text('保存为预设主题'),
+                      label: const Text('保存为自定义主题'),
                     ),
                   ),
                 ],

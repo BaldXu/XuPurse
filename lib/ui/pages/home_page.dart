@@ -5,13 +5,16 @@ import '../../core/utils/amount.dart';
 import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
+import '../tokens/design_tokens.dart';
 import '../widgets/bill_tile.dart';
+import '../widgets/xp_card.dart';
 import '../widgets/xp_empty_state.dart';
 import '../widgets/xp_sheet.dart';
+import '../widgets/xp_skeleton.dart';
 import 'bookkeeping_sheet.dart';
 import 'search_page.dart';
 
-/// 首页：月汇总卡 + 过滤栏（类型/日期范围）+ 账单流。
+/// 首页：Hero 月汇总卡 + 过滤栏（类型/日期范围）+ 按日分组的账单卡流。
 ///
 /// 默认展示本月；上拉到底逐月加载更早数据（每次一个月）。
 /// 选择自定义日期范围后一次性展示该范围（不再逐月加载）。
@@ -29,6 +32,7 @@ class _HomePageState extends ConsumerState<HomePage>
     final billsAsync = ref.watch(billsProvider);
     final summary =
         ref.watch(monthSummaryProvider).value ?? (expense: 0, income: 0);
+    final now = DateTime.now();
 
     return buildXpScaffold(
       appBar: AppBar(
@@ -43,128 +47,133 @@ class _HomePageState extends ConsumerState<HomePage>
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // 月汇总卡
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-            child: Card(
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (n) {
+          // 自定义范围下整段已加载，无需分页
+          if (ref.read(homeCustomRangeProvider) != null) {
+            return false;
+          }
+          // 接近底部时多加载一个月
+          if (n is ScrollEndNotification && n.metrics.extentAfter < 200) {
+            ref.read(homeMonthsProvider.notifier).state += 1;
+          }
+          return false;
+        },
+        child: CustomScrollView(
+          slivers: [
+            // ── Hero：本月汇总（Display 32 大金额，强调靠字重） ──
+            SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
+                padding: const EdgeInsets.fromLTRB(
+                  XpSpacing.l,
+                  XpSpacing.xs,
+                  XpSpacing.l,
+                  XpSpacing.s,
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _SummaryCell(
-                        label: '本月支出',
-                        value: formatYuan(summary.expense),
-                        color: kExpenseColor,
-                      ),
-                    ),
-                    Expanded(
-                      child: _SummaryCell(
-                        label: '本月收入',
-                        value: formatYuan(summary.income),
-                        color: kIncomeColor,
-                      ),
-                    ),
-                  ],
+                child: _SummaryHero(
+                  monthLabel: '${now.month}月 · 本月支出',
+                  expense: summary.expense,
+                  income: summary.income,
                 ),
               ),
             ),
-          ),
-          // 第二行：类型过滤 + 日期范围选择
-          _FilterBar(
-            onPickRange: () => _pickCustomRange(context, ref),
-            onResetRange: () {
-              ref.read(homeCustomRangeProvider.notifier).state = null;
-              ref.read(homeMonthsProvider.notifier).state = 1;
-            },
-          ),
-          Expanded(
-            child: billsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('加载失败：$e')),
+            // ── 过滤栏：类型 + 日期范围 ──
+            SliverToBoxAdapter(
+              child: _FilterBar(
+                onPickRange: () => _pickCustomRange(context, ref),
+                onResetRange: () {
+                  ref.read(homeCustomRangeProvider.notifier).state = null;
+                  ref.read(homeMonthsProvider.notifier).state = 1;
+                },
+              ),
+            ),
+            // ── 账单流 ──
+            billsAsync.when(
+              loading: () => const SliverFillRemaining(
+                hasScrollBody: false,
+                child: XpSkeletonList(),
+              ),
+              error: (e, _) => SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: Text('加载失败：$e')),
+              ),
               data: (bills) {
                 if (bills.isEmpty) {
-                  return const XpEmptyState(
-                    icon: Icons.receipt_long_outlined,
-                    title: '该范围内还没有账单',
-                    message: '点击右下角 + 记一笔，或调整上方的筛选条件',
+                  return const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(
+                      child: XpEmptyState(
+                        icon: Icons.receipt_long_outlined,
+                        title: '该范围内还没有账单',
+                        message: '点击右下角 + 记一笔，或调整上方的筛选条件',
+                      ),
+                    ),
                   );
                 }
-                return NotificationListener<ScrollNotification>(
-                  onNotification: (n) {
-                    // 自定义范围下整段已加载，无需分页
-                    if (ref.read(homeCustomRangeProvider) != null) {
-                      return false;
-                    }
-                    // 接近底部时多加载一个月
-                    if (n is ScrollEndNotification &&
-                        n.metrics.extentAfter < 200) {
-                      ref.read(homeMonthsProvider.notifier).state += 1;
-                    }
-                    return false;
-                  },
-                  child: ListView.builder(
-                    padding: const EdgeInsets.only(bottom: 96),
-                    itemCount: bills.length,
-                    itemBuilder: (context, i) {
-                      final bill = bills[i];
-                      int dayOf(Bill b) {
-                        final dt = DateTime.fromMillisecondsSinceEpoch(
-                          b.time,
-                        );
-                        return DateTime(
-                          dt.year,
-                          dt.month,
-                          dt.day,
-                        ).millisecondsSinceEpoch;
-                      }
-
-                      final showHeader =
-                          i == 0 || dayOf(bill) != dayOf(bills[i - 1]);
-                      return Column(
-                        key: ValueKey(bill.id),
-                        children: [
-                          // 组与组之间的分隔线（组头自带日期）
-                          if (showHeader && i > 0)
-                            const Divider(
-                              height: 1,
-                              indent: 16,
-                              endIndent: 16,
-                            ),
-                          if (showHeader)
-                            _DayHeaderFor(bills: bills, index: i)
-                          else
-                            const Divider(
-                              height: 1,
-                              indent: 16,
-                              endIndent: 16,
-                            ),
-                          BillTile(
-                            bill: bill,
-                            onTap: () =>
-                                BookkeepingSheet.show(context, bill: bill),
-                            onLongPress: () =>
-                                _confirmDelete(context, ref, bill),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                );
+                return _buildBillSliver(context, ref, bills);
               },
             ),
-          ),
-        ],
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         tooltip: '记一笔',
         onPressed: () => BookkeepingSheet.show(context),
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  /// 按日分组，每组一张卡片（组头含当日小计，分组时顺带累计）。
+  Widget _buildBillSliver(
+    BuildContext context,
+    WidgetRef ref,
+    List<Bill> bills,
+  ) {
+    final sections = <_DaySection>[];
+    for (final bill in bills) {
+      final dt = DateTime.fromMillisecondsSinceEpoch(bill.time);
+      final dayStart = DateTime(
+        dt.year,
+        dt.month,
+        dt.day,
+      ).millisecondsSinceEpoch;
+      if (sections.isEmpty || sections.last.dayStart != dayStart) {
+        sections.add(
+          _DaySection(
+            dayStart: dayStart,
+            day: DateTime(dt.year, dt.month, dt.day),
+            bills: [bill],
+          ),
+        );
+      } else {
+        sections.last.bills.add(bill);
+      }
+      final s = sections.last;
+      if (bill.type == 'expense') s.expense += bill.amount;
+      if (bill.type == 'income') s.income += bill.amount;
+    }
+
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(
+        XpSpacing.l,
+        XpSpacing.xs,
+        XpSpacing.l,
+        96,
+      ),
+      sliver: SliverList.builder(
+        itemCount: sections.length,
+        itemBuilder: (context, i) {
+          final section = sections[i];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: XpSpacing.m),
+            child: _DayGroupCard(
+              section: section,
+              onTapBill: (bill) => BookkeepingSheet.show(context, bill: bill),
+              onLongPressBill: (bill) => _confirmDelete(context, ref, bill),
+            ),
+          );
+        },
       ),
     );
   }
@@ -219,6 +228,133 @@ class _HomePageState extends ConsumerState<HomePage>
   }
 }
 
+/// "12345.60" → "12,345.60"（整数部分千分位，仅展示用）。
+String _grouped(String raw) {
+  final parts = raw.split('.');
+  final digits = parts[0];
+  final buf = StringBuffer();
+  for (var i = 0; i < digits.length; i++) {
+    buf.write(digits[i]);
+    final remain = digits.length - 1 - i;
+    if (remain > 0 && remain % 3 == 0) buf.write(',');
+  }
+  return parts.length > 1 ? '${buf.toString()}.${parts[1]}' : buf.toString();
+}
+
+/// Hero 月汇总卡：大金额（Display 32/w700 tabular）+ 支收小计行。
+/// 语义色只点缀圆点与小计，主金额用主文字色——强调靠字重，不靠颜色。
+class _SummaryHero extends StatelessWidget {
+  const _SummaryHero({
+    required this.monthLabel,
+    required this.expense,
+    required this.income,
+  });
+
+  final String monthLabel;
+  final int expense;
+  final int income;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return XpCard(
+      padding: const EdgeInsets.all(XpSpacing.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            monthLabel,
+            style: textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: XpSpacing.xs),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                '¥',
+                style: textTheme.headlineSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(width: XpSpacing.xs),
+              Text(
+                _grouped(formatYuan(expense)),
+                style: textTheme.displayLarge
+                    ?.copyWith(fontWeight: FontWeight.w700)
+                    .tabular,
+              ),
+            ],
+          ),
+          const SizedBox(height: XpSpacing.m),
+          Row(
+            children: [
+              _LegendItem(
+                color: XpSemanticColors.expense,
+                label: '支出',
+                value: _grouped(formatYuan(expense)),
+              ),
+              const SizedBox(width: XpSpacing.l),
+              _LegendItem(
+                color: XpSemanticColors.income,
+                label: '收入',
+                value: _grouped(formatYuan(income)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 小计图例：语义色圆点 + 标签 + 语义色金额。
+class _LegendItem extends StatelessWidget {
+  const _LegendItem({
+    required this.color,
+    required this.label,
+    required this.value,
+  });
+
+  final Color color;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: XpSpacing.s),
+        Text(
+          label,
+          style: textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(width: XpSpacing.xs),
+        Text(
+          value,
+          style: textTheme.bodyMedium
+              ?.copyWith(color: color, fontWeight: FontWeight.w600)
+              .tabular,
+        ),
+      ],
+    );
+  }
+}
+
 /// 第二行过滤栏：类型选择（全部/支出/收入）+ 日期范围按钮。
 class _FilterBar extends ConsumerWidget {
   const _FilterBar({required this.onPickRange, required this.onResetRange});
@@ -253,34 +389,28 @@ class _FilterBar extends ConsumerWidget {
     }
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      padding: const EdgeInsets.fromLTRB(
+        XpSpacing.l,
+        0,
+        XpSpacing.l,
+        XpSpacing.m,
+      ),
       child: Row(
         children: [
           // 类型过滤（全部 / 支出 / 收入）
           Expanded(
             child: SegmentedButton<HomeTypeFilter>(
               segments: const [
-                ButtonSegment(
-                  value: HomeTypeFilter.all,
-                  label: Text('全部'),
-                  icon: Icon(Icons.receipt_long_outlined),
-                ),
-                ButtonSegment(
-                  value: HomeTypeFilter.expense,
-                  label: Text('支出'),
-                  icon: Icon(Icons.south_west),
-                ),
-                ButtonSegment(
-                  value: HomeTypeFilter.income,
-                  label: Text('收入'),
-                  icon: Icon(Icons.north_east),
-                ),
+                ButtonSegment(value: HomeTypeFilter.all, label: Text('全部')),
+                ButtonSegment(value: HomeTypeFilter.expense, label: Text('支出')),
+                ButtonSegment(value: HomeTypeFilter.income, label: Text('收入')),
               ],
               selected: {filter},
               showSelectedIcon: false,
               style: const ButtonStyle(
                 visualDensity: VisualDensity.compact,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: WidgetStatePropertyAll(StadiumBorder()),
               ),
               onSelectionChanged: (selection) {
                 ref.read(homeTypeFilterProvider.notifier).state =
@@ -288,7 +418,7 @@ class _FilterBar extends ConsumerWidget {
               },
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: XpSpacing.s),
           // 日期范围按钮（ Flexible 防长文案在窄屏溢出）
           Flexible(
             child: ActionChip(
@@ -303,9 +433,8 @@ class _FilterBar extends ConsumerWidget {
                 overflow: TextOverflow.ellipsis,
               ),
               backgroundColor: custom != null ? colorScheme.primary : null,
-              labelStyle: TextStyle(
+              labelStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
                 color: custom != null ? colorScheme.onPrimary : null,
-                fontSize: 12,
               ),
               visualDensity: VisualDensity.compact,
               onPressed: custom != null
@@ -339,87 +468,93 @@ class _FilterBar extends ConsumerWidget {
   }
 }
 
-/// 月汇总单元格。
-class _SummaryCell extends StatelessWidget {
-  const _SummaryCell({
-    required this.label,
-    required this.value,
-    required this.color,
+/// 单日账单分组数据（分组遍历时顺带累计当日小计）。
+class _DaySection {
+  _DaySection({required this.dayStart, required this.day, required this.bills});
+
+  final int dayStart;
+  final DateTime day;
+  final List<Bill> bills;
+  int expense = 0;
+  int income = 0;
+}
+
+/// 日组卡：组头（日期 + 当日小计）+ 当日账单行。
+class _DayGroupCard extends StatelessWidget {
+  const _DayGroupCard({
+    required this.section,
+    required this.onTapBill,
+    required this.onLongPressBill,
   });
 
-  final String label;
-  final String value;
-  final Color color;
+  final _DaySection section;
+  final void Function(Bill bill) onTapBill;
+  final void Function(Bill bill) onLongPressBill;
+
+  static const _weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: textTheme.labelMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: textTheme.titleLarge?.copyWith(
-            color: color,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// 组头（当日小计）。为复用 BillDayGroups 的统计口径，这里内联轻量实现。
-class _DayHeaderFor extends ConsumerWidget {
-  const _DayHeaderFor({required this.bills, required this.index});
-
-  final List<Bill> bills;
-  final int index;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final dt = DateTime.fromMillisecondsSinceEpoch(bills[index].time);
-    final dayStart = DateTime(dt.year, dt.month, dt.day).millisecondsSinceEpoch;
-    final dayEnd = DateTime(
-      dt.year,
-      dt.month,
-      dt.day + 1,
-    ).millisecondsSinceEpoch;
-    var expense = 0;
-    var income = 0;
-    for (final b in bills) {
-      if (b.time < dayStart || b.time >= dayEnd) continue;
-      if (b.type == 'expense') expense += b.amount;
-      if (b.type == 'income') income += b.amount;
-    }
-
-    const weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
     final now = DateTime.now();
+    final d = section.day;
     final isToday =
-        now.year == dt.year && now.month == dt.month && now.day == dt.day;
+        now.year == d.year && now.month == d.month && now.day == d.day;
     final label =
-        '${dt.month}月${dt.day}日 ${weekdays[dt.weekday - 1]}${isToday ? ' · 今天' : ''}';
+        '${d.month}月${d.day}日 ${_weekdays[d.weekday - 1]}${isToday ? ' · 今天' : ''}';
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      child: Row(
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    // 只展示非零项，避免「收 0.00」这类占位噪音
+    final parts = <String>[
+      if (section.expense > 0) '支 ${_grouped(formatYuan(section.expense))}',
+      if (section.income > 0) '收 ${_grouped(formatYuan(section.income))}',
+    ];
+
+    return XpCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Text(label, style: Theme.of(context).textTheme.labelMedium),
-          ),
-          Text(
-            '支 ${formatYuan(expense)}  收 ${formatYuan(income)}',
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              XpSpacing.l,
+              XpSpacing.m,
+              XpSpacing.l,
+              XpSpacing.xs,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    style: textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (parts.isNotEmpty)
+                  Text(
+                    parts.join(' · '),
+                    style: textTheme.bodySmall
+                        ?.copyWith(color: colorScheme.onSurfaceVariant)
+                        .tabular,
+                  ),
+              ],
             ),
           ),
+          for (var i = 0; i < section.bills.length; i++) ...[
+            if (i > 0)
+              const Divider(
+                height: 1,
+                indent: XpSpacing.l,
+                endIndent: XpSpacing.l,
+              ),
+            BillTile(
+              bill: section.bills[i],
+              onTap: () => onTapBill(section.bills[i]),
+              onLongPress: () => onLongPressBill(section.bills[i]),
+            ),
+          ],
         ],
       ),
     );

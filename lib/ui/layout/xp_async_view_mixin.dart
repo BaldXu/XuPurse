@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../tokens/design_tokens.dart';
 import '../widgets/xp_empty_state.dart';
-import '../widgets/xp_sheet.dart';
+import '../widgets/xp_skeleton.dart';
 
 /// 异步视图 mixin:统一 AsyncValue 的 loading / error / 空 列表渲染。
 ///
@@ -10,7 +11,9 @@ import '../widgets/xp_sheet.dart';
 /// ```dart
 /// xpWhen(context, asyncValue, data: (items) => ListView(...));
 /// ```
-/// loading 统一转圈、error 统一「加载失败+重试」、空数据统一 XpEmptyState。
+/// loading 统一骨架屏(可用 [XpAsyncView.loading] 换自定义占位)、
+/// error 统一「加载失败+重试」、空数据统一 XpEmptyState;
+/// loading → 数据 由 AnimatedSwitcher 做淡入(XpMotion.component)。
 mixin XpAsyncView<T extends StatefulWidget> on State<T> {
   Widget xpWhen<V>(
     BuildContext context,
@@ -20,23 +23,49 @@ mixin XpAsyncView<T extends StatefulWidget> on State<T> {
     bool Function(V)? isEmpty,
     WidgetBuilder? empty,
     VoidCallback? onRetry,
+    WidgetBuilder? loading,
   }) {
-    return async.when(
-      loading: () => const XpLoading(),
-      error: (e, st) =>
-          (error != null)
+    return AnimatedSwitcher(
+      duration: XpMotion.component,
+      switchInCurve: XpMotion.easeOut,
+      switchOutCurve: XpMotion.easeIn,
+      // 顶部对齐:列表骨架 → 列表内容 交叉淡变时内容不居中跳动。
+      layoutBuilder: (currentChild, previousChildren) => Stack(
+        alignment: Alignment.topCenter,
+        children: [...previousChildren, if (currentChild != null) currentChild],
+      ),
+      child: KeyedSubtree(
+        key: ValueKey<String>(_branchOf(async)),
+        child: async.when(
+          loading: () =>
+              (loading != null) ? loading(context) : const XpSkeletonList(),
+          error: (e, st) => (error != null)
               ? error(e, st)
               : _defaultError(context, e, onRetry: onRetry),
-      data: (v) {
-        if (isEmpty != null && isEmpty(v) && empty != null) {
-          return empty(context);
-        }
-        return data(v);
-      },
+          data: (v) {
+            if (isEmpty != null && isEmpty(v) && empty != null) {
+              return empty(context);
+            }
+            return data(v);
+          },
+        ),
+      ),
     );
   }
 
-  Widget _defaultError(BuildContext context, Object e, {VoidCallback? onRetry}) {
+  /// 分支标识:与 AsyncValue.when 默认渲染逻辑对齐
+  /// (有值优先,重建刷新时保持旧数据的 loading 不误标为 loading)。
+  static String _branchOf<V>(AsyncValue<V> async) {
+    if (async.hasValue) return 'data';
+    if (async.hasError) return 'error';
+    return 'loading';
+  }
+
+  Widget _defaultError(
+    BuildContext context,
+    Object e, {
+    VoidCallback? onRetry,
+  }) {
     final scheme = Theme.of(context).colorScheme;
     return Center(
       child: Column(

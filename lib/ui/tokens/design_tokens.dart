@@ -1,31 +1,69 @@
 import 'package:flutter/material.dart';
 
-/// XuPurse 设计 token:圆角 / 间距 / 语义色 / 动画。
+/// XuPurse 设计 token —— 「明亮光感极简」设计语言（docs/designDirection.md）。
 ///
-/// 全项目 UI 常量唯一来源;页面禁止再写裸 radius / 硬编码语义色。
-/// 主题可定制维度(卡片圆角、动画时长等)在 P2 主题模型中引用这里的默认值。
+/// 全项目 UI 常量唯一来源；页面禁止再写裸 radius / 硬编码语义色。
+/// 主题可定制维度（卡片圆角、动画时长等）在主题模型中引用这里的默认值。
+
+/// 品牌色：克莱因蓝（International Klein Blue）。
+abstract final class XpBrandColors {
+  /// 品牌主色
+  static const Color primary = Color(0xFF002FA7);
+
+  /// 主色深阶（hover / pressed）
+  static const Color primaryDeep = Color(0xFF00226E);
+
+  /// 主色柔和底（约 8%，选中态背景）
+  static const Color primarySoft = Color(0x14002FA7);
+
+  /// 品牌蓝上的前景
+  static const Color onPrimary = Color(0xFFFFFFFF);
+}
+
+/// 圆角四档：c12 / s14 / m20 / l28（G2 连续曲率，见 [XpShape]）。
 abstract final class XpRadius {
-  /// 小圆角(chip、小按钮)
-  static const double s = 8;
+  /// 小控件圆角（迷你按钮、开关轨道）
+  static const double c = 12;
 
-  /// 中圆角(卡片、输入框、按钮)——项目默认圆角
-  static const double m = 12;
+  /// 小圆角（chip、输入框）
+  static const double s = 14;
 
-  /// 大圆角(大面板)
-  static const double l = 16;
+  /// 中圆角（卡片、按钮）——项目默认圆角
+  static const double m = 20;
 
-  /// 胶囊/底部弹窗顶部
-  static const double pill = 20;
+  /// 大圆角（大面板、弹窗、sheet 顶部）
+  static const double l = 28;
+
+  /// 胶囊（全圆）
+  static const double pill = 999;
 
   static final BorderRadius card = BorderRadius.circular(m);
 
-  /// 底部弹窗顶部圆角 shape
-  static final RoundedRectangleBorder sheet = RoundedRectangleBorder(
-    borderRadius: BorderRadius.vertical(top: Radius.circular(pill)),
+  /// 底部弹窗顶部圆角 shape（G2 连续曲率）
+  static final RoundedSuperellipseBorder sheet = RoundedSuperellipseBorder(
+    borderRadius: BorderRadius.vertical(top: Radius.circular(l)),
   );
 }
 
-/// 间距(4 的倍数)
+/// 形状：G2 连续曲率（superellipse）边框的唯一封装。
+///
+/// Flutter 3.32+ 原生 RoundedSuperellipseBorder；未来换实现只改这里。
+abstract final class XpShape {
+  /// G2 连续曲率圆角边框
+  static RoundedSuperellipseBorder smooth({
+    BorderRadiusGeometry borderRadius = const BorderRadius.all(
+      Radius.circular(XpRadius.m),
+    ),
+    BorderSide side = BorderSide.none,
+  }) => RoundedSuperellipseBorder(borderRadius: borderRadius, side: side);
+
+  /// 默认卡片形状（m20 + G2）
+  static final RoundedSuperellipseBorder card = smooth(
+    borderRadius: XpRadius.card,
+  );
+}
+
+/// 间距（4 的倍数）
 abstract final class XpSpacing {
   static const double xs = 4;
   static const double s = 8;
@@ -34,27 +72,114 @@ abstract final class XpSpacing {
   static const double xl = 24;
 }
 
-/// 语义色:收入 / 支出 / 转账。
+/// 语义色：收入 / 支出 / 转账 / 警示 / 危险。
 ///
-/// 历史来源 bill_tile.dart 常量(2026-09 上提统一);未来主题可覆盖时,
-/// 改为经 ThemeExtension 提供,消费端入口不变。
+/// 历史来源 bill_tile.dart 常量（2026-09 上提统一）；未来主题可覆盖时，
+/// 改为经 ThemeExtension 提供，消费端入口不变。
 abstract final class XpSemanticColors {
-  static const Color expense = Color(0xFFE5484D);
-  static const Color income = Color(0xFF30A46C);
-  static const Color transfer = Color(0xFF6E6E77);
+  /// 支出
+  static const Color expense = Color(0xFFF0645A);
 
-  /// 删除等警示操作(与支出同色系)
-  static const Color danger = expense;
+  /// 收入
+  static const Color income = Color(0xFF20B978);
+
+  /// 转账
+  static const Color transfer = Color(0xFF3E9FE8);
+
+  /// 警示
+  static const Color warning = Color(0xFFE7A92B);
+
+  /// 删除等警示操作（错误红，独立于支出色）
+  static const Color danger = Color(0xFFE05454);
 }
 
-/// 动画时长与曲线
+/// 分层海拔 E0-E3（冷灰蓝色温阴影）。
+abstract final class XpElevation {
+  /// 平面（页面底、分割元素）
+  static const double e0 = 0;
+
+  /// 轻浮（卡片）
+  static const double e1 = 2;
+
+  /// 悬浮（下拉、弹出菜单）
+  static const double e2 = 6;
+
+  /// 模态（弹窗、sheet）
+  static const double e3 = 12;
+
+  /// 阴影色温：主文字色（冷灰蓝黑）
+  static const Color shadow = Color(0xFF18212B);
+}
+
+/// 动效四档：micro / component / container / page。
 abstract final class XpMotion {
-  static const Duration fast = Duration(milliseconds: 150);
-  static const Duration normal = Duration(milliseconds: 250);
-  static const Duration slow = Duration(milliseconds: 350);
-  static const Curve curve = Curves.easeOutCubic;
+  /// 微交互（按压、勾选）
+  static const Duration micro = Duration(milliseconds: 170);
+
+  /// 组件（chip、按钮状态）
+  static const Duration component = Duration(milliseconds: 240);
+
+  /// 容器（卡片展开、sheet）
+  static const Duration container = Duration(milliseconds: 350);
+
+  /// 页面转场
+  static const Duration page = Duration(milliseconds: 400);
+
+  /// 进入一律 easeOut
+  static const Curve easeOut = Curves.easeOutCubic;
+
+  /// 退出一律 easeIn
+  static const Curve easeIn = Curves.easeInCubic;
 }
 
-/// 页内二级断点:宽于此值用页内左右分栏(统计页分区 Rail),否则横向 Tab。
-/// 与 kWideBreakpoint(800,主导航断点)区分:这是内容区内部的分栏阈值。
+/// 排印阶梯：Display 32 / H1 28 / H2 22 / H3 18 / BodyL 16 / Body 14 / Caption 12。
+///
+/// 由 theme.dart 挂载到全局 textTheme；页面优先用 Theme.of(context).textTheme。
+abstract final class XpTextStyles {
+  static const TextStyle display = TextStyle(
+    fontSize: 32,
+    fontWeight: FontWeight.w600,
+    height: 1.2,
+    letterSpacing: -0.5,
+  );
+
+  static const TextStyle h1 = TextStyle(
+    fontSize: 28,
+    fontWeight: FontWeight.w600,
+    height: 1.25,
+    letterSpacing: -0.5,
+  );
+
+  static const TextStyle h2 = TextStyle(
+    fontSize: 22,
+    fontWeight: FontWeight.w600,
+    height: 1.3,
+    letterSpacing: -0.25,
+  );
+
+  static const TextStyle h3 = TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+    height: 1.35,
+  );
+
+  static const TextStyle bodyL = TextStyle(fontSize: 16, height: 1.5);
+
+  static const TextStyle body = TextStyle(fontSize: 14, height: 1.5);
+
+  static const TextStyle caption = TextStyle(
+    fontSize: 12,
+    height: 1.35,
+    letterSpacing: 0.2,
+  );
+}
+
+/// 金额 / 数字排印：等宽数字（tabular figures）——金额强调靠字重，不靠字号。
+extension XpTabularText on TextStyle {
+  TextStyle get tabular =>
+      copyWith(fontFeatures: const [FontFeature.tabularFigures()]);
+}
+
+/// 页内二级断点：宽于此值用页内左右分栏（统计页分区 Rail），否则横向 Tab。
+/// 与 kWideBreakpoint（800，主导航断点）区分：这是内容区内部的分栏阈值。
 const double kSectionBreakpoint = 640;
