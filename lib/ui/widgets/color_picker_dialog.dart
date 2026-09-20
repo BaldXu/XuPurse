@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../tokens/design_tokens.dart';
+
 /// 弹出 PS 风格取色器（色相条 + 饱和度/明度二维面板）。
 /// 确认返回所选颜色；取消返回 null。
 Future<Color?> showColorPickerDialog(
@@ -39,8 +41,7 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
   }
 
   /// dy 在面板中「上=0 下=1」,而 HSV 明度「v=1 亮 / v=0 黑」,需 1-dy 还原
-  Color get _color =>
-      HSVColor.fromAHSV(1, _hue, _sv.dx, 1 - _sv.dy).toColor();
+  Color get _color => HSVColor.fromAHSV(1, _hue, _sv.dx, 1 - _sv.dy).toColor();
 
   @override
   Widget build(BuildContext context) {
@@ -66,17 +67,14 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
                 height: 32,
                 decoration: BoxDecoration(
                   color: _color,
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(XpRadius.s),
                   border: Border.all(
                     color: Theme.of(context).colorScheme.outlineVariant,
                   ),
                 ),
               ),
               const SizedBox(width: 12),
-              Text(
-                _hex(_color),
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
+              Text(_hex(_color), style: Theme.of(context).textTheme.bodyMedium),
             ],
           ),
         ],
@@ -131,7 +129,7 @@ class _SVPanel extends StatelessWidget {
             // 横向：白 → 当前色相全饱和；纵向叠加：透明 → 黑（明度）
             Container(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(XpRadius.s),
                 gradient: LinearGradient(
                   colors: [
                     Colors.white,
@@ -143,7 +141,7 @@ class _SVPanel extends StatelessWidget {
               ),
               child: Container(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(XpRadius.s),
                   gradient: const LinearGradient(
                     colors: [Colors.transparent, Colors.black],
                     begin: Alignment.topCenter,
@@ -211,7 +209,7 @@ class _HueBar extends StatelessWidget {
             Container(
               height: 24,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(XpRadius.m),
                 gradient: const LinearGradient(colors: _colors),
               ),
             ),

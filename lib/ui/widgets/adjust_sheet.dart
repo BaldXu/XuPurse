@@ -18,6 +18,7 @@ class AdjustSheet extends ConsumerStatefulWidget {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      showDragHandle: true,
       builder: (_) => AdjustSheet(account: account),
     );
   }
@@ -51,7 +52,6 @@ class _AdjustSheetState extends ConsumerState<AdjustSheet> {
       padding: EdgeInsets.only(
         left: 16,
         right: 16,
-        top: 16,
         bottom: MediaQuery.of(context).viewInsets.bottom + 16,
       ),
       child: Column(
@@ -65,9 +65,9 @@ class _AdjustSheetState extends ConsumerState<AdjustSheet> {
           const SizedBox(height: 4),
           Text(
             '当前余额 ${formatYuan(widget.account.currentBalance)}',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(color: colorScheme.onSurfaceVariant)
+                .tabular,
           ),
           const SizedBox(height: 12),
           TextField(
@@ -82,17 +82,23 @@ class _AdjustSheetState extends ConsumerState<AdjustSheet> {
               prefixText: '¥ ',
               border: OutlineInputBorder(),
             ),
+            style: Theme.of(context).textTheme.bodyLarge
+                ?.copyWith(fontWeight: FontWeight.w600)
+                .tabular,
             onChanged: (_) => setState(() {}),
           ),
           if (diff != null && diff != 0) ...[
             const SizedBox(height: 8),
             Text(
               '调整差额：${diff > 0 ? '+' : '-'}${formatYuan(diff.abs())}（将生成一笔调账账单）',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: diff > 0
-                    ? XpSemanticColors.income
-                    : XpSemanticColors.expense,
-              ),
+              style: Theme.of(context).textTheme.bodySmall
+                  ?.copyWith(
+                    color: diff > 0
+                        ? XpSemanticColors.income
+                        : XpSemanticColors.expense,
+                    fontWeight: FontWeight.w600,
+                  )
+                  .tabular,
             ),
           ],
           const SizedBox(height: 12),

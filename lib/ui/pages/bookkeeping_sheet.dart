@@ -697,9 +697,10 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
   }
 
   Widget _buildKeyboard(ColorScheme scheme) {
+    // 大号金额输入:Display 32 + tabular 等宽数字,输入时不跳动
     final amountStyle = Theme.of(
       context,
-    ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold);
+    ).textTheme.displayLarge?.copyWith(fontWeight: FontWeight.w700);
     final accCur = _accountCurrencyOf(_accountId);
     final billCur = _effectiveCurrency;
     final input = parseYuanInput(_amountText);
@@ -826,7 +827,11 @@ class _KeyButton extends StatelessWidget {
           onPressed: onTap,
           style: OutlinedButton.styleFrom(
             padding: EdgeInsets.zero,
-            textStyle: const TextStyle(fontSize: 18),
+            textStyle: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
           ),
           child: Text(label),
         ),
@@ -865,6 +870,8 @@ class _CategoryCell extends StatelessWidget {
             decoration: BoxDecoration(
               color: selected ? accent.withValues(alpha: 0.18) : null,
               shape: BoxShape.circle,
+              // 选中态:主题色描边强化,与主题色图标呼应
+              border: selected ? Border.all(color: accent, width: 1.5) : null,
             ),
             child: Icon(resolveIcon(category.icon), size: 24, color: color),
           ),

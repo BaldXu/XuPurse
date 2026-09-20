@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/utils/amount.dart';
 import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
+import '../tokens/design_tokens.dart';
 import 'xp_snack.dart';
 
 /// 手动添加历史快照弹窗（模块 2.4「历史快照」）：输入时间点 + 余额 + 备注，
@@ -18,6 +19,7 @@ class HistoricalSnapshotSheet extends ConsumerStatefulWidget {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      showDragHandle: true,
       builder: (_) => HistoricalSnapshotSheet(account: account),
     );
   }
@@ -101,7 +103,6 @@ class _HistoricalSnapshotSheetState
       padding: EdgeInsets.only(
         left: 16,
         right: 16,
-        top: 16,
         bottom: MediaQuery.of(context).viewInsets.bottom + 16,
       ),
       child: Column(
@@ -132,6 +133,9 @@ class _HistoricalSnapshotSheetState
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
             ],
+            style: Theme.of(context).textTheme.bodyLarge
+                ?.copyWith(fontWeight: FontWeight.w600)
+                .tabular,
             decoration: const InputDecoration(
               labelText: '该时点余额',
               prefixText: '¥ ',

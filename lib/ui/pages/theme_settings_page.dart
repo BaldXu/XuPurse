@@ -98,6 +98,28 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
       showXpSnack(context, '请输入主题名称', error: true);
       return;
     }
+    // 对比度校验：深色背景配浅色主题渲染会导致文字与背景全糊（低对比）。
+    // 深色背景应配深色文字 → 引导走暗色模式，而不是存成浅色主题。
+    final bg = _background;
+    if (bg != null && bg.computeLuminance() < 0.15) {
+      showXpSnack(
+        context,
+        '页面背景过深（浅色主题配深色背景会导致文字与背景糊在一起）。'
+        '请取浅色背景，深色外观请用系统暗色模式。',
+        error: true,
+      );
+      return;
+    }
+    final card = _cardColor;
+    if (card != null && card.computeLuminance() < 0.15) {
+      showXpSnack(
+        context,
+        '卡片背景过深（浅色主题下卡片应为白色/浅色系）。'
+        '请取浅色卡片背景。',
+        error: true,
+      );
+      return;
+    }
     final id = 'user_${DateTime.now().millisecondsSinceEpoch}';
     await ref
         .read(themeProvider.notifier)
@@ -129,11 +151,12 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // ---- 第一层：预设主题 ----
+          // ---- 第一层：预设主题（浅色） ----
           Text('预设主题', style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 4),
           Text(
-            '点按应用；长按用户自建主题可删除（内置与当前使用中的不可删）。',
+            '点按应用；长按用户自建主题可删除（内置与当前使用中的不可删）。'
+            '深色外观由下方「暗色模式」控制，不与浅色主题混排。',
             style: Theme.of(
               context,
             ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
@@ -143,7 +166,7 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
             spacing: 20,
             runSpacing: 20,
             children: [
-              for (final theme in state.allThemes)
+              for (final theme in state.allThemes.where((t) => !t.isDark))
                 _ThemeBall(
                   theme: theme,
                   active: theme.id == state.currentId,
@@ -158,6 +181,31 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
                   onDelete: () => _confirmDelete(theme),
                 ),
             ],
+          ),
+          const SizedBox(height: 24),
+          const Divider(height: 1),
+          const SizedBox(height: 24),
+
+          // ---- 暗色模式（独立分区：跟随系统开关，不占浅色预设位） ----
+          Text('暗色模式', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 4),
+          Text(
+            '跟随系统深色设置自动切换（内置克莱因蓝暗色变体），无需手动选择。',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: ListTile(
+              leading: Icon(
+                darkThemePreset.isDark ? Icons.dark_mode_outlined : null,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              title: const Text('克莱因蓝 · 暗色'),
+              subtitle: const Text('系统开启深色模式时自动生效'),
+              trailing: const Icon(Icons.nightlight_outlined, size: 20),
+            ),
           ),
           const SizedBox(height: 24),
           const Divider(height: 1),

@@ -63,7 +63,9 @@ Future<bool> confirmXpDialog(
         child: Text(cancelLabel),
       ),
       FilledButton(
-        style: danger ? FilledButton.styleFrom(backgroundColor: scheme.error) : null,
+        style: danger
+            ? FilledButton.styleFrom(backgroundColor: scheme.error)
+            : null,
         onPressed: () => Navigator.pop(context, true),
         child: Text(confirmLabel),
       ),

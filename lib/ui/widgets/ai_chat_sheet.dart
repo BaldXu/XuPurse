@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/ai/ai_config.dart';
 import '../../domain/ai/ai_service.dart';
 import '../../domain/ai/stats_context.dart';
+import '../tokens/design_tokens.dart';
 
 /// 统计页 AI 悬浮按钮：已配置 AI 时显示，点击弹出底部聊天窗口。
 class AiFab extends ConsumerWidget {
@@ -58,6 +59,7 @@ class _AiChatSheetState extends ConsumerState<_AiChatSheet> {
     );
     return AiClient.modelSupportsThinking(model);
   }
+
   final _inputCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
 
@@ -118,13 +120,18 @@ class _AiChatSheetState extends ConsumerState<_AiChatSheet> {
 
     // 占位：先记录用户消息，再追加空助手消息滚动到底
     await chat.appendMessage(conv.id, AiMessage(role: 'user', content: text));
-    await chat.appendMessage(conv.id, const AiMessage(role: 'assistant', content: ''));
+    await chat.appendMessage(
+      conv.id,
+      const AiMessage(role: 'assistant', content: ''),
+    );
     _scrollToBottom();
 
     try {
       // 只带当前会话历史（不含占位空消息）
-      final history = _current(ref.read(aiChatProvider))!.messages
-          .sublist(0, _current(ref.read(aiChatProvider))!.messages.length - 1);
+      final history = _current(ref.read(aiChatProvider))!.messages.sublist(
+        0,
+        _current(ref.read(aiChatProvider))!.messages.length - 1,
+      );
 
       // 附带本机统计摘要（仅首次发送时生成，后续复用）
       var systemPrompt = kDefaultSystemPrompt;
@@ -145,7 +152,8 @@ class _AiChatSheetState extends ConsumerState<_AiChatSheet> {
           conv.id,
           AiMessage(
             role: 'assistant',
-            content: '（未收到回复内容：模型可能把全部输出 tokens 用在思考上。'
+            content:
+                '（未收到回复内容：模型可能把全部输出 tokens 用在思考上。'
                 '请在 AI 设置中把「最大输出 tokens」调大，如 4096，或换用非推理模型。）',
             error: 'empty_reply',
           ),
@@ -216,9 +224,7 @@ class _AiChatSheetState extends ConsumerState<_AiChatSheet> {
                 // 思考模式开关（仅对疑似支持思考的模型显示；默认关闭）
                 if (_modelSupportsThinking)
                   IconButton(
-                    tooltip: _thinking
-                        ? '思考模式：开（点击关闭）'
-                        : '思考模式：关（点击开启）',
+                    tooltip: _thinking ? '思考模式：开（点击关闭）' : '思考模式：关（点击开启）',
                     icon: Icon(
                       _thinking ? Icons.psychology : Icons.psychology_outlined,
                       size: 22,
@@ -230,9 +236,7 @@ class _AiChatSheetState extends ConsumerState<_AiChatSheet> {
                   ),
                 // 附带统计数据开关（聚合口径，保护隐私）
                 IconButton(
-                  tooltip: _attachStats
-                      ? '附带统计数据：开（点击关闭）'
-                      : '附带统计数据：关（点击开启）',
+                  tooltip: _attachStats ? '附带统计数据：开（点击关闭）' : '附带统计数据：关（点击开启）',
                   icon: Icon(
                     _attachStats
                         ? Icons.dataset_linked
@@ -354,10 +358,7 @@ class _AiChatSheetState extends ConsumerState<_AiChatSheet> {
             ),
             const Divider(height: 1),
             if (conversations.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(24),
-                child: Text('暂无历史对话'),
-              )
+              const Padding(padding: EdgeInsets.all(24), child: Text('暂无历史对话'))
             else
               Flexible(
                 child: ListView.builder(
@@ -413,11 +414,7 @@ class _ChatEmptyHint extends StatelessWidget {
 
   final ValueChanged<String> onSuggestion;
 
-  static const _suggestions = [
-    '帮我分析这个月的收支情况',
-    '我想制定一个省钱计划',
-    '如何减少不必要的支出？',
-  ];
+  static const _suggestions = ['帮我分析这个月的收支情况', '我想制定一个省钱计划', '如何减少不必要的支出？'];
 
   @override
   Widget build(BuildContext context) {
@@ -481,17 +478,20 @@ class _MessageBubble extends StatelessWidget {
         constraints: BoxConstraints(
           maxWidth: MediaQuery.sizeOf(context).width * 0.75,
         ),
-        decoration: BoxDecoration(
+        decoration: ShapeDecoration(
           color: isUser
               ? theme.colorScheme.primaryContainer
               : isError
               ? theme.colorScheme.errorContainer
               : theme.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(14),
-            topRight: const Radius.circular(14),
-            bottomLeft: Radius.circular(isUser ? 14 : 4),
-            bottomRight: Radius.circular(isUser ? 4 : 14),
+          // G2 平滑圆角对齐卡片语言;收尾角收小形成气泡指向
+          shape: XpShape.smooth(
+            borderRadius: BorderRadius.only(
+              topLeft: const Radius.circular(14),
+              topRight: const Radius.circular(14),
+              bottomLeft: Radius.circular(isUser ? 14 : 4),
+              bottomRight: Radius.circular(isUser ? 4 : 14),
+            ),
           ),
         ),
         child: SelectableText(

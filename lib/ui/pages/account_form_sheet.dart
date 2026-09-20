@@ -8,6 +8,7 @@ import '../../core/utils/amount.dart';
 import '../../core/utils/icons.dart';
 import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
+import '../tokens/design_tokens.dart';
 import '../widgets/xp_snack.dart';
 
 /// 账户表单（新建 / 编辑）。
@@ -20,6 +21,7 @@ class AccountFormSheet extends ConsumerStatefulWidget {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      showDragHandle: true,
       builder: (_) => AccountFormSheet(account: account),
     );
   }
@@ -90,7 +92,6 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
       padding: EdgeInsets.only(
         left: 16,
         right: 16,
-        top: 16,
         bottom: MediaQuery.of(context).viewInsets.bottom + 16,
       ),
       child: SingleChildScrollView(
@@ -171,6 +172,9 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
                 ],
+                style: textTheme.bodyLarge
+                    ?.copyWith(fontWeight: FontWeight.w600)
+                    .tabular,
                 decoration: const InputDecoration(
                   labelText: '初始余额（可选）',
                   prefixText: '¥ ',
