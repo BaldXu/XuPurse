@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../state/theme_provider.dart';
 import '../layout/breakpoints.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/xp_skeleton.dart';
@@ -13,6 +15,10 @@ import '../widgets/xp_skeleton.dart';
 /// 整页 loading:传 `loading: true` 时 body 换为整页骨架 [XpSkeletonPage],
 /// 加载完成后与真实内容做淡入切换(XpMotion.component)。
 /// 块级异步请用 XpAsyncView.xpWhen,不要两者叠加。
+///
+/// 进场:页面内容首次构建时做「淡入 + 上移 8dp」([XpEntrance]),
+/// 动画开关与系统 reduce-motion 由 [XpEntrance] 内部判断。
+/// 无法混入本 mixin 的页面(如 ConsumerWidget)可直接包一层 [XpEntrance]。
 mixin XpPageScaffold<T extends StatefulWidget> on State<T> {
   double get xpMaxWidth => 720;
 
@@ -29,18 +35,74 @@ mixin XpPageScaffold<T extends StatefulWidget> on State<T> {
       floatingActionButton: floatingActionButton,
       bottomNavigationBar: bottomNavigationBar,
       resizeToAvoidBottomInset: resizeToAvoidBottomInset,
-      body: ContentWidthBox(
-        maxWidth: xpMaxWidth,
-        child: AnimatedSwitcher(
-          duration: XpMotion.component,
-          switchInCurve: XpMotion.easeOut,
-          switchOutCurve: XpMotion.easeIn,
-          child: KeyedSubtree(
-            key: ValueKey<bool>(loading),
-            child: loading
-                ? const XpSkeletonPage()
-                : body ?? const SizedBox.shrink(),
+      body: XpEntrance(
+        child: ContentWidthBox(
+          maxWidth: xpMaxWidth,
+          child: AnimatedSwitcher(
+            duration: XpMotion.component,
+            switchInCurve: XpMotion.easeOut,
+            switchOutCurve: XpMotion.easeIn,
+            child: KeyedSubtree(
+              key: ValueKey<bool>(loading),
+              child: loading
+                  ? const XpSkeletonPage()
+                  : body ?? const SizedBox.shrink(),
+            ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 页面进场动画:内容淡入 + 上移 8dp(XpMotion.page),仅首次构建触发
+/// (State 只创建一次,后续 rebuild 不重播)。
+///
+/// 关闭条件:用户设置 animationsEnabled=false,或系统「减少动画」
+/// (MediaQuery.disableAnimationsOf,设置变化时即时响应)。
+class XpEntrance extends StatefulWidget {
+  const XpEntrance({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<XpEntrance> createState() => _XpEntranceState();
+}
+
+class _XpEntranceState extends State<XpEntrance>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: XpMotion.page,
+  )..forward();
+  late final Animation<double> _curve = CurvedAnimation(
+    parent: _controller,
+    curve: XpMotion.easeOut,
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final animOn =
+        ProviderScope.containerOf(
+          context,
+          listen: false,
+        ).read(currentThemeProvider).animationsEnabled &&
+        !MediaQuery.disableAnimationsOf(context);
+    if (!animOn) return widget.child;
+    return AnimatedBuilder(
+      animation: _curve,
+      child: widget.child,
+      builder: (context, child) => FadeTransition(
+        opacity: _curve,
+        child: Transform.translate(
+          offset: Offset(0, 8 * (1 - _curve.value)),
+          child: child,
         ),
       ),
     );

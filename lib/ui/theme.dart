@@ -124,9 +124,13 @@ ThemeData buildAppTheme(
     pageTransitionsTheme: PageTransitionsTheme(
       builders: {
         for (final platform in TargetPlatform.values)
-          platform: animOn
-              ? const ZoomPageTransitionsBuilder()
-              : const _ZeroTransitionPageTransitionsBuilder(),
+          platform: !animOn
+              ? const _ZeroTransitionPageTransitionsBuilder()
+              // Android 走预测性返回(不支持手势的设备由 SDK 回退为
+              // FadeForwards 风格转场);其余平台维持 Zoom。
+              : platform == TargetPlatform.android
+              ? const PredictiveBackPageTransitionsBuilder()
+              : const ZoomPageTransitionsBuilder(),
       },
     ),
   );

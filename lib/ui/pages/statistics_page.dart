@@ -8,6 +8,7 @@ import '../../core/utils/amount.dart';
 import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
 import '../layout/breakpoints.dart';
+import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/ai_chat_sheet.dart';
 import '../widgets/xp_skeleton.dart';
@@ -117,7 +118,8 @@ enum _Granularity { day, week, month }
 String _fmtDate(DateTime d) =>
     '${d.year}/${d.month.toString().padLeft(2, '0')}/${d.day.toString().padLeft(2, '0')}';
 
-class _StatisticsPageState extends ConsumerState<StatisticsPage> {
+class _StatisticsPageState extends ConsumerState<StatisticsPage>
+    with XpPageScaffold {
   _Section _section = _Section.overview;
   _RangePreset _preset = _RangePreset.thisMonth;
   DateTimeRange? _customRange;
@@ -224,7 +226,7 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage> {
   @override
   Widget build(BuildContext context) {
     final range = _range;
-    return Scaffold(
+    return buildXpScaffold(
       appBar: AppBar(
         title: const Text('统计'),
         bottom: PreferredSize(

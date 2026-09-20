@@ -43,15 +43,15 @@
 - 涉及：新增 `lib/ui/widgets/xp_skeleton.dart`、`lib/ui/layout/xp_async_view_mixin.dart`、`lib/ui/layout/xp_page_scaffold_mixin.dart`
 - 验收：冷启动进统计/资产页不再白屏转圈，而是骨架→内容淡入；DevTools 无明显掉帧。
 
-### 0.3 页面基类升级（进入动画 + 预测性返回 + 懒加载）`[ ]`
+### 0.3 页面基类升级（进入动画 + 预测性返回 + 懒加载）`[~]`
 
 | # | 事项 | 状态 |
 |---|------|------|
-| 1 | **预测性返回**：theme.dart 的 `PageTransitionsTheme` Android 分支改用 `PredictiveBackPageTransitionsBuilder`（Flutter 3.35 原生支持）；`animationsEnabled=false` 时仍走 `_ZeroTransition`；其余平台保持 Zoom | `[ ]` |
-| 2 | AndroidManifest 开启 `android:enableOnBackInvokedCallback="true"`（预测性返回手势的系统开关） | `[ ]` |
-| 3 | **进入动画**：页面基类提供统一「内容淡入 + 上移 8dp」进场（`XpMotion.page` 400ms easeOutCubic），仅首次 build 触发；尊重 animationsEnabled 与系统 reduce-motion | `[ ]` |
-| 4 | **懒加载 Shell**：`MainShell` 的 `IndexedStack` 改为懒挂载实现（只 build 已访问过的 tab，访问后 keep-alive），宽/窄布局共用 | `[ ]` |
-| 5 | **退出动画**：依赖系统转场（Predictive Back 自带），不自绘退出；弹层类走 xp_sheet 统一 | `[ ]` |
+| 1 | **预测性返回**：theme.dart 的 `PageTransitionsTheme` Android 分支改用 `PredictiveBackPageTransitionsBuilder`（Flutter 3.35 原生支持）；`animationsEnabled=false` 时仍走 `_ZeroTransition`；其余平台保持 Zoom | `[x]` |
+| 2 | AndroidManifest 开启 `android:enableOnBackInvokedCallback="true"`（预测性返回手势的系统开关） | `[x]` |
+| 3 | **进入动画**：页面基类提供统一「内容淡入 + 上移 8dp」进场（`XpMotion.page` 400ms easeOutCubic），仅首次 build 触发；尊重 animationsEnabled 与系统 reduce-motion | `[x]` |
+| 4 | **懒加载 Shell**：`MainShell` 的 `IndexedStack` 改为懒挂载实现（只 build 已访问过的 tab，访问后 keep-alive），宽/窄布局共用 | `[x]` |
+| 5 | **退出动画**：依赖系统转场（Predictive Back 自带），不自绘退出；弹层类走 xp_sheet 统一 | `[x]` |
 
 - 涉及：`lib/ui/theme.dart`、`android/app/src/main/AndroidManifest.xml`、`lib/ui/layout/xp_page_scaffold_mixin.dart`、新增 `lib/ui/layout/lazy_indexed_stack.dart`、`lib/ui/pages/main_shell.dart`
 - 验收：Android 15+ 侧滑返回可见预览动画；4 个 tab 首次点入才构建；页面切入有统一淡入。
@@ -170,3 +170,4 @@
 - 2026-09-20：计划建立。首页样板已完成；盘点出 4 Tab + 16 二级页 + 7 弹层 + 3 共享组件的工作面；阶段 0/1/2/3 均未开始。
 - 2026-09-20：0.1 主题收敛完成（预设仅剩克莱因蓝、背景修正为 #F7F8F6、暗色预设换 klein seed、主题设置页文案修正）；analyze 零问题；已 run 到真机待用户目视确认旧主题 id 回退。
 - 2026-09-20：0.2 骨架屏 + 淡入完成。新增 xp_skeleton.dart（box/line/circle 原语、XpSkeletonList、XpSkeletonPage，1400ms 呼吸、尊重 reduce-motion）；xpWhen loading 缺省换骨架 + AnimatedSwitcher 240ms 淡入（key 按 hasValue/hasError 对齐 skipLoadingOnReload，刷新不闪骨架）；buildXpScaffold 增加 loading 入口；statistics_page 7 处 FutureBuilder 迁移（`_xpFadeGate` 淡入门）+ 首页 loading 换骨架 + XpLoading 删除；analyze 零问题。真机验证因设备断连待用户重连后 run。
+- 2026-09-20：0.3 页面基类升级完成。theme.dart Android 转场换 `PredictiveBackPageTransitionsBuilder`（不支持手势的设备由 SDK 回退 FadeForwards）+ manifest 开 `enableOnBackInvokedCallback`；xp_page_scaffold_mixin 抽出公开 `XpEntrance`（淡入 + 上移 8dp、XpMotion.page 400ms easeOutCubic，双开关：animationsEnabled && !disableAnimationsOf，ConsumerWidget 页面也可直接包用）；新增 LazyIndexedStack（未访问 tab 用 SizedBox.shrink 占位，访问后 keep-alive），main_shell 宽/窄布局共用；覆盖审查补迁 statistics_page、ai_settings_page（AiSettingsPage 用 XpEntrance 包裹、_AiConfigEditPage 混入 mixin），全库 18 页走 buildXpScaffold；analyze 零问题。真机验证（预测性返回 + 懒挂载）待设备重连。

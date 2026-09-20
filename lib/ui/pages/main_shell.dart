@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../layout/breakpoints.dart';
+import '../layout/lazy_indexed_stack.dart';
 import 'accounts_page.dart';
 import 'home_page.dart';
 import 'mine_page.dart';
@@ -72,7 +73,9 @@ class _MainShellState extends State<MainShell> {
           ],
         ),
         const VerticalDivider(width: 1, thickness: 1),
-        Expanded(child: IndexedStack(index: _index, children: _pages)),
+        Expanded(
+          child: LazyIndexedStack(index: _index, children: _pages),
+        ),
       ],
     );
   }
@@ -80,7 +83,7 @@ class _MainShellState extends State<MainShell> {
   /// 窄屏：现状不变（底部导航栏）。
   Widget _buildNarrow() {
     return Scaffold(
-      body: IndexedStack(index: _index, children: _pages),
+      body: LazyIndexedStack(index: _index, children: _pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),

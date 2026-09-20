@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/ai/ai_config.dart';
 import '../../domain/ai/ai_service.dart';
 import '../layout/breakpoints.dart';
+import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/xp_snack.dart';
 
@@ -18,47 +19,50 @@ class AiSettingsPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('AI 设置')),
-      body: ContentWidthBox(
-        child: aiState.configs.isEmpty
-            ? _EmptyConfigHint(onAdd: () => _edit(context, ref, null))
-            : ListView(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                children: [
-                  Text(
-                    '已保存 ${aiState.configs.length} 份配置，点击卡片切换当前使用',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+      body: XpEntrance(
+        child: ContentWidthBox(
+          child: aiState.configs.isEmpty
+              ? _EmptyConfigHint(onAdd: () => _edit(context, ref, null))
+              : ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                  children: [
+                    Text(
+                      '已保存 ${aiState.configs.length} 份配置，点击卡片切换当前使用',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  for (final config in aiState.configs)
-                    _ConfigCard(
-                      config: config,
-                      isCurrent: aiState.current?.id == config.id,
-                      onTap: () => notifier.select(config.id),
-                      onEdit: () => _edit(context, ref, config),
-                      onDelete: () => _confirmDelete(context, ref, config),
-                      onToggleEnabled: (v) => notifier.setEnabled(config.id, v),
+                    const SizedBox(height: 8),
+                    for (final config in aiState.configs)
+                      _ConfigCard(
+                        config: config,
+                        isCurrent: aiState.current?.id == config.id,
+                        onTap: () => notifier.select(config.id),
+                        onEdit: () => _edit(context, ref, config),
+                        onDelete: () => _confirmDelete(context, ref, config),
+                        onToggleEnabled: (v) =>
+                            notifier.setEnabled(config.id, v),
+                      ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => _edit(context, ref, null),
+                      icon: const Icon(Icons.add),
+                      label: const Text('新增配置'),
                     ),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    onPressed: () => _edit(context, ref, null),
-                    icon: const Icon(Icons.add),
-                    label: const Text('新增配置'),
-                  ),
-                  const SizedBox(height: 16),
-                  Text('隐私说明', style: Theme.of(context).textTheme.titleSmall),
-                  const SizedBox(height: 4),
-                  Text(
-                    'API Key 仅保存在本机（浏览器本地存储），不会上传到除所配置 '
-                    'AI 服务商以外的任何服务器；对话内容仅发送给你所配置的 '
-                    'API 端点；系统提示词内置隐私规矩，限制 AI 索取敏感信息。',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    const SizedBox(height: 16),
+                    Text('隐私说明', style: Theme.of(context).textTheme.titleSmall),
+                    const SizedBox(height: 4),
+                    Text(
+                      'API Key 仅保存在本机（浏览器本地存储），不会上传到除所配置 '
+                      'AI 服务商以外的任何服务器；对话内容仅发送给你所配置的 '
+                      'API 端点；系统提示词内置隐私规矩，限制 AI 索取敏感信息。',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+        ),
       ),
       floatingActionButton: aiState.configs.isEmpty
           ? null
@@ -269,7 +273,8 @@ class _AiConfigEditPage extends ConsumerStatefulWidget {
   ConsumerState<_AiConfigEditPage> createState() => _AiConfigEditPageState();
 }
 
-class _AiConfigEditPageState extends ConsumerState<_AiConfigEditPage> {
+class _AiConfigEditPageState extends ConsumerState<_AiConfigEditPage>
+    with XpPageScaffold {
   late AiProtocol _protocol;
   late TextEditingController _name;
   late TextEditingController _baseUrl;
@@ -314,7 +319,7 @@ class _AiConfigEditPageState extends ConsumerState<_AiConfigEditPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return buildXpScaffold(
       appBar: AppBar(title: Text(_isEditing ? '编辑配置' : '新增配置')),
       body: ContentWidthBox(
         child: ListView(
