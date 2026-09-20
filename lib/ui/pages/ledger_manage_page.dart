@@ -7,6 +7,8 @@ import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
+import '../widgets/xp_empty_state.dart';
+import '../widgets/xp_skeleton.dart';
 
 /// 业务记录页：借贷 / 报销 / 退款 / 分期 四 tab（只读列表 + 删除）。
 class LedgerManagePage extends ConsumerStatefulWidget {
@@ -63,10 +65,15 @@ class _LendList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final lendsAsync = ref.watch(_lendsProvider);
     return lendsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const XpSkeletonList(itemCount: 4),
       error: (e, _) => Center(child: Text('加载失败：$e')),
       data: (lends) {
-        if (lends.isEmpty) return const Center(child: Text('暂无借贷记录'));
+        if (lends.isEmpty) {
+          return const XpEmptyState(
+            icon: Icons.currency_exchange,
+            title: '暂无借贷记录',
+          );
+        }
         return ListView.builder(
           itemCount: lends.length,
           itemBuilder: (context, i) {
@@ -108,10 +115,15 @@ class _ReimbursementList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final itemsAsync = ref.watch(_reimbursementsProvider);
     return itemsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const XpSkeletonList(itemCount: 4),
       error: (e, _) => Center(child: Text('加载失败：$e')),
       data: (items) {
-        if (items.isEmpty) return const Center(child: Text('暂无报销记录'));
+        if (items.isEmpty) {
+          return const XpEmptyState(
+            icon: Icons.assignment_return,
+            title: '暂无报销记录',
+          );
+        }
         return ListView.builder(
           itemCount: items.length,
           itemBuilder: (context, i) {
@@ -142,7 +154,7 @@ class _RefundList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final itemsAsync = ref.watch(_refundsProvider);
     return itemsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const XpSkeletonList(itemCount: 4),
       error: (e, _) => Center(child: Text('加载失败：$e')),
       data: (items) {
         if (items.isEmpty) return const Center(child: Text('暂无退款记录'));
@@ -173,7 +185,7 @@ class _InstalmentList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final itemsAsync = ref.watch(_instalmentsProvider);
     return itemsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const XpSkeletonList(itemCount: 4),
       error: (e, _) => Center(child: Text('加载失败：$e')),
       data: (items) {
         if (items.isEmpty) return const Center(child: Text('暂无分期记录'));

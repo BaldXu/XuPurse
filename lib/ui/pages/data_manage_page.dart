@@ -7,6 +7,7 @@ import '../../data/backup/backup_service.dart';
 import '../../data/backup/saver.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
+import '../tokens/design_tokens.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_snack.dart';
 import 'import_page.dart';
@@ -113,7 +114,7 @@ class _DataManagePageState extends ConsumerState<DataManagePage>
             child: Column(
               children: [
                 ListTile(
-                  leading: const Icon(Icons.file_download_outlined),
+                  leading: const _TintedIcon(Icons.file_download_outlined),
                   title: const Text('数据导入'),
                   subtitle: const Text('导入一木 / 昼虎 / 钱迹备份 .db 文件'),
                   trailing: const Icon(Icons.chevron_right, size: 20),
@@ -124,7 +125,7 @@ class _DataManagePageState extends ConsumerState<DataManagePage>
                 ),
                 const Divider(height: 1, indent: 16, endIndent: 16),
                 ListTile(
-                  leading: const Icon(Icons.backup_outlined),
+                  leading: const _TintedIcon(Icons.backup_outlined),
                   title: const Text('备份导出'),
                   subtitle: const Text('导出当前账本全部数据为 JSON 文件'),
                   trailing: _exporting
@@ -257,6 +258,27 @@ class _LongPressDeleteButtonState extends State<_LongPressDeleteButton> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// primary 色块图标（数据管理分组行用）。
+class _TintedIcon extends StatelessWidget {
+  const _TintedIcon(this.icon);
+
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: ShapeDecoration(
+        color: colorScheme.primary.withValues(alpha: 0.12),
+        shape: XpShape.smooth(borderRadius: BorderRadius.circular(XpRadius.s)),
+      ),
+      child: Icon(icon, size: 20, color: colorScheme.primary),
     );
   }
 }

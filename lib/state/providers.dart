@@ -129,10 +129,7 @@ final billsProvider = StreamProvider<List<Bill>>((ref) {
     start = custom.start;
     end = custom.end;
   } else {
-    start = DateTime(
-      now.year,
-      now.month - (months - 1),
-    ).millisecondsSinceEpoch;
+    start = DateTime(now.year, now.month - (months - 1)).millisecondsSinceEpoch;
     end = DateTime(now.year, now.month, now.day + 1).millisecondsSinceEpoch;
   }
   return ref
@@ -187,3 +184,12 @@ final tagsProvider = StreamProvider<List<Tag>>((ref) {
 final snapshotsProvider = StreamProvider<List<BalanceSnapshot>>((ref) {
   return ref.watch(snapshotRepoProvider).watchAll();
 });
+
+/// 单账户流水流（时间倒序；含转账双账户侧；账户详情页用）。
+/// autoDispose：push 进出的详情页级 provider，离开页面即释放。
+final accountBillsProvider = StreamProvider.autoDispose
+    .family<List<Bill>, String>((ref, accountId) {
+      return ref
+          .watch(billRepoProvider)
+          .watchPage(limit: 1000000, accountId: accountId);
+    });

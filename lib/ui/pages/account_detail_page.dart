@@ -8,13 +8,19 @@ import '../../core/utils/icons.dart';
 import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
+import '../tokens/design_tokens.dart';
 import '../widgets/adjust_sheet.dart';
+import '../widgets/bill_tile.dart';
 import '../widgets/historical_snapshot_sheet.dart';
+import '../widgets/xp_empty_state.dart';
 import '../widgets/xp_sheet.dart';
+import '../widgets/xp_skeleton.dart';
 import '../widgets/xp_snack.dart';
 import 'account_form_sheet.dart';
+import 'bookkeeping_sheet.dart';
 
-/// 账户详情：余额概览 + 调账/编辑/删除 + 历史快照。
+/// 账户详情：顶部账户 Hero（余额大金额 tabular）→ 调账/快照入口 →
+/// 流水（watchPage 按账户过滤，drift watch 响应式）→ 历史快照。
 class AccountDetailPage extends ConsumerStatefulWidget {
   const AccountDetailPage({super.key, required this.account});
 
@@ -37,7 +43,11 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage>
     final accountSnaps = snapshots
         .where((s) => s.accountId == current.id)
         .toList();
+    // 该账户流水（时间倒序；含转账双账户侧；watch 响应式）
+    final billsAsync = ref.watch(accountBillsProvider(current.id));
     final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final color = hexToColor(current.color);
 
     return buildXpScaffold(
       appBar: AppBar(
@@ -56,55 +66,54 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage>
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(
+          XpSpacing.l,
+          XpSpacing.xs,
+          XpSpacing.l,
+          32,
+        ),
         children: [
-          // 余额概览卡
+          // ── 账户 Hero 卡 ──
           Card(
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 18,
-              ),
+              padding: const EdgeInsets.all(XpSpacing.xl),
               child: Row(
                 children: [
                   CircleAvatar(
-                    radius: 24,
-                    backgroundColor: hexToColor(
-                      current.color,
-                    ).withValues(alpha: 0.15),
-                    foregroundColor: hexToColor(current.color),
-                    child: Icon(resolveIcon(current.icon), size: 24),
+                    radius: 26,
+                    backgroundColor: color.withValues(alpha: 0.15),
+                    foregroundColor: color,
+                    child: Icon(resolveIcon(current.icon), size: 26),
                   ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: XpSpacing.m),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          current.name,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
+                        Text(current.name, style: textTheme.titleMedium),
                         const SizedBox(height: 2),
                         Text(
                           '初始 ${formatYuan(current.initialBalance)}'
                           ' · ${_categoryLabel(current.category)}',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: colorScheme.onSurfaceVariant),
+                          style: textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
                   ),
                   Text(
-                    '¥ ${formatYuan(current.currentBalance)}',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                    '¥${formatYuan(current.currentBalance)}',
+                    style: textTheme.headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.w700)
+                        .tabular,
                   ),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: XpSpacing.m),
+          // ── 操作入口 ──
           Row(
             children: [
               Expanded(
@@ -114,7 +123,7 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage>
                   label: const Text('调账'),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: XpSpacing.s),
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () =>
@@ -125,54 +134,113 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage>
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: XpSpacing.l),
+          // ── 流水 ──
+          Text(
+            '流水',
+            style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: XpSpacing.xs),
+          billsAsync.when(
+            loading: () => const Padding(
+              padding: EdgeInsets.symmetric(vertical: XpSpacing.s),
+              child: XpSkeletonList(itemCount: 3),
+            ),
+            error: (e, _) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: XpSpacing.l),
+              child: Center(child: Text('流水加载失败：$e')),
+            ),
+            data: (bills) {
+              if (bills.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: XpSpacing.l),
+                  child: XpEmptyState(
+                    icon: Icons.receipt_long_outlined,
+                    title: '该账户还没有流水',
+                    message: '记一笔并选择此账户后，这里会展示账单明细',
+                  ),
+                );
+              }
+              return Card(
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  children: [
+                    for (var i = 0; i < bills.length; i++) ...[
+                      if (i > 0)
+                        Divider(
+                          height: 1,
+                          indent: 60,
+                          color: colorScheme.outlineVariant.withValues(
+                            alpha: 0.5,
+                          ),
+                        ),
+                      BillTile(
+                        bill: bills[i],
+                        onTap: () => _editBill(bills[i]),
+                        onLongPress: () => _deleteBill(bills[i]),
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: XpSpacing.l),
+          // ── 历史快照 ──
           Text(
             '历史快照（${accountSnaps.length}）',
-            style: Theme.of(context).textTheme.titleSmall,
+            style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: XpSpacing.xs),
           if (accountSnaps.isEmpty)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24),
+              padding: const EdgeInsets.symmetric(vertical: XpSpacing.m),
               child: Center(
                 child: Text(
                   '暂无快照',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  style: textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                   ),
                 ),
               ),
             )
           else
-            ...accountSnaps.reversed.map(
-              (s) => ListTile(
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-                leading: Icon(
-                  _snapIcon(s.type),
-                  size: 20,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-                title: Text(
-                  '${s.note?.isEmpty == false ? '${s.note} · ' : ''}'
-                  '${_snapLabel(s.type)}',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                subtitle: Text(
-                  _formatTime(s.timestamp),
-                  style: Theme.of(context).textTheme.labelSmall,
-                ),
-                trailing: Text(
-                  formatYuan(s.balance),
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+            Card(
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  for (var i = 0; i < accountSnaps.length; i++) ...[
+                    if (i > 0)
+                      Divider(
+                        height: 1,
+                        indent: 52,
+                        color: colorScheme.outlineVariant.withValues(
+                          alpha: 0.5,
+                        ),
+                      ),
+                    _SnapTile(snap: accountSnaps[i]),
+                  ],
+                ],
               ),
             ),
         ],
       ),
     );
+  }
+
+  void _editBill(Bill bill) => BookkeepingSheet.show(context, bill: bill);
+
+  Future<void> _deleteBill(Bill bill) async {
+    final ok = await confirmXpDialog(
+      context,
+      title: '删除账单',
+      content: '删除后余额与快照将同步回滚，确定删除？',
+      confirmLabel: '删除',
+      danger: true,
+    );
+    if (ok && mounted) {
+      await ref.read(billServiceProvider).deleteBill(bill.id);
+    }
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
@@ -204,6 +272,13 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage>
     'debt' => '债务',
     _ => category,
   };
+}
+
+/// 快照行：类型图标 + 备注/类型 + 时间 + 余额。
+class _SnapTile extends StatelessWidget {
+  const _SnapTile({required this.snap});
+
+  final BalanceSnapshot snap;
 
   static String _snapLabel(int type) => switch (type) {
     SnapshotType.expense => '支出',
@@ -225,10 +300,35 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage>
     _ => Icons.bookmark_outline,
   };
 
-  static String _formatTime(int ms) {
-    final dt = DateTime.fromMillisecondsSinceEpoch(ms);
-    return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-'
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    final dt = DateTime.fromMillisecondsSinceEpoch(snap.timestamp);
+    return ListTile(
+      dense: true,
+      leading: Icon(
+        _snapIcon(snap.type),
+        size: 20,
+        color: colorScheme.onSurfaceVariant,
+      ),
+      title: Text(
+        '${snap.note?.isEmpty == false ? '${snap.note} · ' : ''}'
+        '${_snapLabel(snap.type)}',
+        style: textTheme.bodyMedium,
+      ),
+      subtitle: Text(
+        '${dt.year}-${dt.month.toString().padLeft(2, '0')}-'
         '${dt.day.toString().padLeft(2, '0')} '
-        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}',
+        style: textTheme.labelSmall,
+      ),
+      trailing: Text(
+        formatYuan(snap.balance),
+        style: textTheme.bodyMedium
+            ?.copyWith(fontWeight: FontWeight.w600)
+            .tabular,
+      ),
+    );
   }
 }

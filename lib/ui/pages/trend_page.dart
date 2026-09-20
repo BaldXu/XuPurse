@@ -8,7 +8,8 @@ import '../../domain/services/trend_service.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../widgets/bill_tile.dart' show kExpenseColor, kIncomeColor;
-import 'statistics_page.dart' show statsDataVersionProvider;
+import '../widgets/xp_skeleton.dart';
+import 'statistics/stats_shared.dart' show statsDataVersionProvider;
 
 /// 趋势页：资产趋势（快照聚合，算法五）+ 单账户余额趋势 + 累计收支净额。
 ///
@@ -68,7 +69,7 @@ class _TrendPageState extends ConsumerState<TrendPage>
     return buildXpScaffold(
       appBar: AppBar(title: const Text('趋势')),
       body: snapsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const XpSkeletonPage(),
         error: (e, _) => Center(child: Text('加载失败：$e')),
         data: (snaps) {
           final points = aggregateTrendPoints(

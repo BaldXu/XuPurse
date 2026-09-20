@@ -8,6 +8,7 @@ import '../../domain/services/currency_service.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../widgets/xp_sheet.dart';
+import '../widgets/xp_skeleton.dart';
 import '../widgets/xp_snack.dart';
 
 /// 标签管理页（列表 + 新增/编辑/删除）。
@@ -26,7 +27,7 @@ class _TagManagePageState extends ConsumerState<TagManagePage>
     return buildXpScaffold(
       appBar: AppBar(title: const Text('标签管理')),
       body: tagsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const XpSkeletonList(itemCount: 3),
         error: (e, _) => Center(child: Text('加载失败：$e')),
         data: (tags) {
           if (tags.isEmpty) {

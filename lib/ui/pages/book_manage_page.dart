@@ -6,6 +6,7 @@ import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_snack.dart';
+import '../widgets/xp_skeleton.dart';
 
 /// 账本管理页：新建 / 切换 / 删除账本（切换后重建数据源）。
 class BookManagePage extends ConsumerStatefulWidget {
@@ -124,7 +125,7 @@ class _BookManagePageState extends ConsumerState<BookManagePage>
         future: _booksFuture,
         builder: (context, snap) {
           if (snap.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const XpSkeletonList(itemCount: 4);
           }
           if (snap.hasError) {
             return Center(child: Text('加载失败：${snap.error}'));

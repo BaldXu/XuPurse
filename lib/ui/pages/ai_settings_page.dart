@@ -6,6 +6,7 @@ import '../../domain/ai/ai_service.dart';
 import '../layout/breakpoints.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
+import '../widgets/xp_sheet.dart';
 import '../widgets/xp_snack.dart';
 
 /// AI 设置页：多配置管理（新增/编辑/删除/启用停用/切换当前）+ 连通性测试。
@@ -89,24 +90,14 @@ class AiSettingsPage extends ConsumerWidget {
     WidgetRef ref,
     AiConfig config,
   ) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('删除配置'),
-        content: Text('确定删除「${config.name}」？此操作不可恢复。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
+    final ok = await confirmXpDialog(
+      context,
+      title: '删除配置',
+      content: '确定删除「${config.name}」？此操作不可恢复。',
+      confirmLabel: '删除',
+      danger: true,
     );
-    if (ok == true && context.mounted) {
+    if (ok && context.mounted) {
       await ref.read(aiConfigProvider.notifier).remove(config.id);
     }
   }

@@ -47,6 +47,8 @@ class _HomePageState extends ConsumerState<HomePage>
           ),
         ],
       ),
+      // 整页骨架:账单流未就绪时 Hero/过滤栏/列表整体以骨架呈现,就绪后淡入
+      loading: billsAsync.isLoading,
       body: NotificationListener<ScrollNotification>(
         onNotification: (n) {
           // 自定义范围下整段已加载，无需分页

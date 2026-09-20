@@ -15,11 +15,23 @@ import '../tokens/design_tokens.dart';
 /// 时长 XpMotion.micro 170ms easeOut;animationsEnabled=false 或系统
 /// reduce-motion 时退化为纯 InkWell(无缩放)。
 class XpCard extends StatefulWidget {
-  const XpCard({super.key, required this.child, this.padding, this.onTap});
+  const XpCard({
+    super.key,
+    required this.child,
+    this.padding,
+    this.onTap,
+    this.onLongPress,
+    this.clipBehavior,
+  });
 
   final Widget child;
   final EdgeInsetsGeometry? padding;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+
+  /// 裁剪行为（如分组卡内嵌多行 ListTile 时传 [Clip.antiAlias],
+  /// 让 ripple/按压态被圆角裁剪）。
+  final Clip? clipBehavior;
 
   @override
   State<XpCard> createState() => _XpCardState();
@@ -55,12 +67,14 @@ class _XpCardState extends State<XpCard> {
         elevation: baseElev,
         shape: cardStyle.shape,
         margin: EdgeInsets.zero,
+        clipBehavior: widget.clipBehavior,
         child: padded,
       );
       if (hasTap) {
         card = InkWell(
           borderRadius: _borderRadiusOf(cardStyle.shape),
           onTap: widget.onTap,
+          onLongPress: widget.onLongPress,
           child: card,
         );
       }
@@ -80,11 +94,13 @@ class _XpCardState extends State<XpCard> {
         builder: (context, elevation, child) => InkWell(
           borderRadius: _borderRadiusOf(cardStyle.shape),
           onTap: widget.onTap,
+          onLongPress: widget.onLongPress,
           onHighlightChanged: _onHighlightChanged,
           child: Card(
             elevation: elevation,
             shape: cardStyle.shape,
             margin: EdgeInsets.zero,
+            clipBehavior: widget.clipBehavior,
             child: child,
           ),
         ),

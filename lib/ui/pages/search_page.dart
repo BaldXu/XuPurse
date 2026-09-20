@@ -10,6 +10,8 @@ import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/bill_tile.dart';
+import '../widgets/xp_empty_state.dart';
+import '../widgets/xp_skeleton.dart';
 import 'bookkeeping_sheet.dart';
 
 /// 搜索页：关键词（备注/分类/标签）+ 类型/账户/分类/时间段/金额 多条件筛选。
@@ -196,7 +198,7 @@ class _SearchPageState extends ConsumerState<SearchPage>
     final billTagsAsync = ref.watch(_allBillTagsProvider);
     final allAsync = ref.watch(_allBillsProvider);
     return billTagsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const XpSkeletonList(itemCount: 8),
       error: (e, _) => Center(child: Text('加载失败：$e')),
       data: (billTags) {
         final tagNameById = {for (final t in tags) t.id: t.name};
@@ -205,7 +207,7 @@ class _SearchPageState extends ConsumerState<SearchPage>
           billTagIds.putIfAbsent(rel.billId, () => <String>{}).add(rel.tagId);
         }
         return allAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const XpSkeletonList(itemCount: 8),
           error: (e, _) => Center(child: Text('加载失败：$e')),
           data: (all) {
             final filtered = _filter(
@@ -272,7 +274,11 @@ class _SearchPageState extends ConsumerState<SearchPage>
                 const Divider(height: 1),
                 Expanded(
                   child: filtered.isEmpty
-                      ? const Center(child: Text('没有符合条件的账单'))
+                      ? const XpEmptyState(
+                          icon: Icons.search_off,
+                          title: '没有符合条件的账单',
+                          message: '试试放宽筛选条件或更换关键词',
+                        )
                       : _showAnalysis
                       ? _AnalysisView(bills: statBills, categories: categories)
                       : _buildBillList(filtered),

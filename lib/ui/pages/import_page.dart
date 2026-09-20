@@ -73,7 +73,12 @@ class _ImportPageState extends ConsumerState<ImportPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('选择来源', style: Theme.of(context).textTheme.titleSmall),
+        Text(
+          '1 · 选择来源',
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+        ),
         const SizedBox(height: 8),
         RadioGroup<ImportSource>(
           groupValue: _source,
@@ -106,19 +111,32 @@ class _ImportPageState extends ConsumerState<ImportPage>
 
   Widget _buildFilePicker() {
     final enabled = _source != null;
-    return Card(
-      child: ListTile(
-        enabled: enabled,
-        leading: const Icon(Icons.folder_open),
-        title: Text(_file?.name ?? '选择备份文件'),
-        subtitle: Text(
-          _file == null
-              ? '支持 .db 备份文件（需 ${_source == null ? '先选择来源' : '${_sourceInfo[_source]!.name} 导出的数据库'}）'
-              : '${_file!.size} 字节',
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 16),
+        Text(
+          '2 · 选择文件',
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
         ),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: enabled ? _pickFile : null,
-      ),
+        const SizedBox(height: 8),
+        Card(
+          child: ListTile(
+            enabled: enabled,
+            leading: const Icon(Icons.folder_open),
+            title: Text(_file?.name ?? '选择备份文件'),
+            subtitle: Text(
+              _file == null
+                  ? '支持 .db 备份文件（需 ${_source == null ? '先选择来源' : '${_sourceInfo[_source]!.name} 导出的数据库'}）'
+                  : '${_file!.size} 字节',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: enabled ? _pickFile : null,
+          ),
+        ),
+      ],
     );
   }
 

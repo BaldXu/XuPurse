@@ -84,27 +84,64 @@ class _CurrencySettingsPageState extends ConsumerState<CurrencySettingsPage>
               ),
             ),
           ),
-          const SizedBox(height: 8),
-          for (final code in CurrencyService.supportedCodes)
-            ListTile(
-              leading: CircleAvatar(
-                radius: 16,
-                child: Text(code.substring(0, 1)),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Card(
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  for (
+                    var i = 0;
+                    i < CurrencyService.supportedCodes.length;
+                    i++
+                  ) ...[
+                    if (i > 0)
+                      Divider(
+                        height: 1,
+                        indent: 56,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.outlineVariant.withValues(alpha: 0.5),
+                      ),
+                    ListTile(
+                      leading: CircleAvatar(
+                        radius: 16,
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.12),
+                        foregroundColor: Theme.of(context).colorScheme.primary,
+                        child: Text(
+                          CurrencyService.supportedCodes[i].substring(0, 1),
+                          style: Theme.of(context).textTheme.labelMedium,
+                        ),
+                      ),
+                      title: Text(CurrencyService.supportedCodes[i]),
+                      subtitle: Text(
+                        service.isOverridden(CurrencyService.supportedCodes[i])
+                            ? '手动覆盖：1 ${CurrencyService.supportedCodes[i]} = ${_fmt(rates[CurrencyService.supportedCodes[i]])} CNY'
+                            : '内置：1 ${CurrencyService.supportedCodes[i]} = ${_fmt(rates[CurrencyService.supportedCodes[i]])} CNY',
+                        style: TextStyle(
+                          color:
+                              service.isOverridden(
+                                CurrencyService.supportedCodes[i],
+                              )
+                              ? Theme.of(context).colorScheme.primary
+                              : null,
+                        ),
+                      ),
+                      trailing: const Icon(Icons.edit_outlined, size: 18),
+                      onTap: () => _edit(
+                        context,
+                        ref,
+                        CurrencyService.supportedCodes[i],
+                      ),
+                    ),
+                  ],
+                ],
               ),
-              title: Text(code),
-              subtitle: Text(
-                service.isOverridden(code)
-                    ? '手动覆盖：1 $code = ${_fmt(rates[code])} CNY'
-                    : '内置：1 $code = ${_fmt(rates[code])} CNY',
-                style: TextStyle(
-                  color: service.isOverridden(code)
-                      ? Theme.of(context).colorScheme.primary
-                      : null,
-                ),
-              ),
-              trailing: const Icon(Icons.edit_outlined, size: 18),
-              onTap: () => _edit(context, ref, code),
             ),
+          ),
         ],
       ),
     );

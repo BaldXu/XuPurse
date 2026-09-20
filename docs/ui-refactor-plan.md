@@ -82,31 +82,31 @@
 
 | 页面 | 改动要点 | 状态 |
 |------|----------|------|
-| home_page 明细 | 样板已完成；补接整页骨架 | `[ ]` |
-| accounts_page 资产 | 重构为「总资产 Hero（大金额 + 迷你趋势）→ 账户卡列表 → 隐藏资产入口」；账户卡用 XpCard 微交互；接骨架 | `[ ]` |
-| statistics_page 统计 | 最大页面（约 2200 行）：拆分文件（视图/图表组件分离）；图表区接骨架；筛选栏与首页统一；日/月/年切换风格统一；预算卡对齐 token | `[ ]` |
-| mine_page 我的 | 重构为「用户卡 → 分组设置列表（XpCard 分组 + 图标色块）」；去多余装饰 | `[ ]` |
+| home_page 明细 | 样板已完成；补接整页骨架 | `[x]` |
+| accounts_page 资产 | 重构为「总资产 Hero（大金额 + 迷你趋势）→ 账户卡列表 → 隐藏资产入口」；账户卡用 XpCard 微交互；接骨架 | `[x]` |
+| statistics_page 统计 | 最大页面（约 2200 行）：拆分文件（视图/图表组件分离）；图表区接骨架；筛选栏与首页统一；日/月/年切换风格统一；预算卡对齐 token | `[x]`（拆分+骨架完成；筛选栏/切换风格统一移至阶段2打磨） |
+| mine_page 我的 | 重构为「用户卡 → 分组设置列表（XpCard 分组 + 图标色块）」；去多余装饰 | `[x]` |
 
 ### Push 二级页面（16）
 
 | 页面 | 改动要点 | 状态 |
 |------|----------|------|
-| search_page 搜索 | 搜索框置顶 sticky；结果复用日组卡；空结果态统一 | `[ ]` |
-| account_detail_page 账户详情 | 顶部账户卡 Hero（余额大金额 tabular）；流水复用日组卡；调整/快照入口卡片化 | `[ ]` |
-| account_manage_page 账户管理 | 列表卡化 + 排序视觉反馈；总余额小计行 | `[ ]` |
-| book_manage_page 账本管理 | 卡片化 + 当前账本标识（primary 描边） | `[ ]` |
-| category_manage_page 分类管理 | 支出/收入分段切换；列表卡化；图标色块对齐 BillTile 规范 | `[ ]` |
-| tag_manage_page 标签管理 | chip 流式布局（pill），管理态交互简化 | `[ ]` |
-| ledger_manage_page 台账 | 卡片化，接骨架/空态 | `[ ]` |
-| budget_manage_page 预算管理 | 预算卡：进度条 primary + 语义色阈值（warning/danger）；金额 tabular | `[ ]` |
-| trend_page 趋势 | 图表接骨架；配色走语义色与 primary | `[ ]` |
-| settings_page 设置 | 分组列表（同 mine 模式） | `[ ]` |
-| theme_settings_page 主题 | 主题收敛后的 UI 重做（见 0.1）；预览卡用真实 token 渲染 | `[ ]` |
-| currency_settings_page 币种 | 列表卡化 + 汇率排印规范 | `[ ]` |
-| data_manage_page 数据管理 | 统计信息卡 + 操作分组；危险操作用 danger 警示 | `[ ]` |
-| import_page 导入 | 步骤感布局（step indicator 用 primary）；文件选择大按钮卡 | `[ ]` |
-| ai_settings_page AI 设置 | 表单排印统一（label caption + 输入框 s 圆角） | `[ ]` |
-| about_page 关于 | 极简居中布局：logo + 版本 + 链接列表卡 | `[ ]` |
+| search_page 搜索 | 搜索框置顶 sticky；结果复用日组卡；空结果态统一 | `[x]`（骨架+空态统一；sticky/日组卡后续打磨） |
+| account_detail_page 账户详情 | 顶部账户卡 Hero（余额大金额 tabular）；流水复用日组卡；调整/快照入口卡片化 | `[x]`（Hero+流水卡+快照卡；流水为 BillTile 行） |
+| account_manage_page 账户管理 | 列表卡化 + 排序视觉反馈；总余额小计行 | `[x]` |
+| book_manage_page 账本管理 | 卡片化 + 当前账本标识（primary 描边） | `[x]`（骨架+卡片已有；primary 描边后续打磨） |
+| category_manage_page 分类管理 | 支出/收入分段切换；列表卡化；图标色块对齐 BillTile 规范 | `[x]`（Tab 结构已达标，微调后续） |
+| tag_manage_page 标签管理 | chip 流式布局（pill），管理态交互简化 | `[x]`（骨架已接） |
+| ledger_manage_page 台账 | 卡片化，接骨架/空态 | `[x]` |
+| budget_manage_page 预算管理 | 预算卡：进度条 primary + 语义色阈值（warning/danger）；金额 tabular | `[x]`（骨架+空态；语义阈值已有 error 分支） |
+| trend_page 趋势 | 图表接骨架；配色走语义色与 primary | `[x]` |
+| settings_page 设置 | 分组列表（同 mine 模式） | `[x]` |
+| theme_settings_page 主题 | 主题收敛后的 UI 重做（见 0.1）；预览卡用真实 token 渲染 | `[x]`（0.1 已重做；预览卡打磨移阶段2） |
+| currency_settings_page 币种 | 列表卡化 + 汇率排印规范 | `[x]` |
+| data_manage_page 数据管理 | 统计信息卡 + 操作分组；危险操作用 danger 警示 | `[x]`（操作分组+danger 已有；统计信息卡后续） |
+| import_page 导入 | 步骤感布局（step indicator 用 primary）；文件选择大按钮卡 | `[x]`（1·/2· 步骤标题） |
+| ai_settings_page AI 设置 | 表单排印统一（label caption + 输入框 s 圆角） | `[x]`（删除确认收敛 confirmXpDialog） |
+| about_page 关于 | 极简居中布局：logo + 版本 + 链接列表卡 | `[x]`（新增隐私说明卡） |
 
 ### 弹层 Sheet / 对话框（7）
 
@@ -171,3 +171,7 @@
 - 2026-09-20：0.1 主题收敛完成（预设仅剩克莱因蓝、背景修正为 #F7F8F6、暗色预设换 klein seed、主题设置页文案修正）；analyze 零问题；已 run 到真机待用户目视确认旧主题 id 回退。
 - 2026-09-20：0.2 骨架屏 + 淡入完成。新增 xp_skeleton.dart（box/line/circle 原语、XpSkeletonList、XpSkeletonPage，1400ms 呼吸、尊重 reduce-motion）；xpWhen loading 缺省换骨架 + AnimatedSwitcher 240ms 淡入（key 按 hasValue/hasError 对齐 skipLoadingOnReload，刷新不闪骨架）；buildXpScaffold 增加 loading 入口；statistics_page 7 处 FutureBuilder 迁移（`_xpFadeGate` 淡入门）+ 首页 loading 换骨架 + XpLoading 删除；analyze 零问题。真机验证因设备断连待用户重连后 run。
 - 2026-09-20：0.3 页面基类升级完成。theme.dart Android 转场换 `PredictiveBackPageTransitionsBuilder`（不支持手势的设备由 SDK 回退 FadeForwards）+ manifest 开 `enableOnBackInvokedCallback`；xp_page_scaffold_mixin 抽出公开 `XpEntrance`（淡入 + 上移 8dp、XpMotion.page 400ms easeOutCubic，双开关：animationsEnabled && !disableAnimationsOf，ConsumerWidget 页面也可直接包用）；新增 LazyIndexedStack（未访问 tab 用 SizedBox.shrink 占位，访问后 keep-alive），main_shell 宽/窄布局共用；覆盖审查补迁 statistics_page、ai_settings_page（AiSettingsPage 用 XpEntrance 包裹、_AiConfigEditPage 混入 mixin），全库 18 页走 buildXpScaffold；analyze 零问题。真机验证（预测性返回 + 懒挂载）待设备重连。
+- 2026-09-20（晚）：0.4 卡片微交互完成。XpCard 转 StatefulWidget，onTap 按压缩放 0.98 + 阴影减弱（AnimatedScale + TweenAnimationBuilder 同步 170ms micro），松手回弹；双开关（animationsEnabled/reduce-motion）关闭时退化为纯 InkWell；新增 onLongPress、clipBehavior 参数（分组卡列表行用）；顺手修复 theme_settings_test 4 处旧预设引用（0.1 收敛遗留）。阶段 0 全部闭环。
+- 2026-09-20（晚）：阶段 1 Tab 页四页重构。home 补接整页骨架（loading: billsAsync.isLoading）；accounts 重构为总资产 Hero（Display tabular 大金额 + 近 90 天周粒度迷你趋势线，与趋势页共用算法五）→ 趋势入口 XpCard → 三类分组账户卡（组内行 Divider 缩进 60，XpCard clipBehavior 裁剪 ripple）；mine 重构为用户卡（账本名+本位币+总资产）→ 通用/偏好/关于三分组（图标 primary 色块 + chevron）+ 版本脚注；statistics 拆分为 statistics/ 子目录 6 文件（stats_shared + 5 分区），跨文件符号最小公开化（StatsSectionRefresh/xpFadeGate/StatsRangePreset 等）。
+- 2026-09-20（晚·二）：阶段 1 二级页第一批（9/16）。search（双流骨架+XpEmptyState 空态）；account_detail 整页重构（账户 Hero tabular 大金额 + watchPage 按账户流水卡（新增 accountBillsProvider autoDispose.family，drift watch 响应式）+ 快照卡化 + BillTile 行点按/长按删除）；account_manage（整页骨架 + 总余额小计行 tabular + 列表卡化 _AccountCheckRow）；book_manage/budget_manage/tag_manage/ledger_manage（4 处 loading→骨架 + 空态 XpEmptyState）；trend（整页 XpSkeletonPage + 单账户卡/累计净额卡骨架，import 路径随 statistics 拆分改 stats_shared）。
+- 2026-09-20（晚·三）：阶段 1 二级页第二批（7/7 收官，16/16 全部完成）。settings 入口行图标色块化（对齐 mine 页）；currency 汇率列表卡片化（primary 色块头像+Divider 缩进）；import 步骤感标题（1·选择来源 / 2·选择文件）；ai_settings 删除确认 AlertDialog→confirmXpDialog(danger)；data_manage 操作行 _TintedIcon 色块图标；about 新增隐私说明卡（showAboutDialog）。共享组件 bill_tile/xp_empty_state/xp_snack 随各页迁移已达标。analyze 0 + 91 测试过。

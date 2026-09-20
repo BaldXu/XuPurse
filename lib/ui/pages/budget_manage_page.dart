@@ -9,6 +9,8 @@ import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../widgets/xp_snack.dart';
+import '../widgets/xp_empty_state.dart';
+import '../widgets/xp_skeleton.dart';
 
 /// 预算管理页（卡片 + 进度 + 表单 + 删除）。
 class BudgetManagePage extends ConsumerStatefulWidget {
@@ -26,11 +28,17 @@ class _BudgetManagePageState extends ConsumerState<BudgetManagePage>
     return buildXpScaffold(
       appBar: AppBar(title: const Text('预算管理')),
       body: budgetsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const XpSkeletonList(itemCount: 4),
         error: (e, _) => Center(child: Text('加载失败：$e')),
         data: (items) {
           if (items.isEmpty) {
-            return const Center(child: Text('暂无预算，点击右下角新增'));
+            return const Center(
+              child: XpEmptyState(
+                icon: Icons.savings_outlined,
+                title: '暂无预算',
+                message: '点击右下角新增第一个预算',
+              ),
+            );
           }
           return ListView.builder(
             padding: const EdgeInsets.only(bottom: 96),

@@ -1,3 +1,4 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,15 +7,22 @@ import '../../core/utils/amount.dart';
 import '../../core/utils/app_colors.dart';
 import '../../core/utils/icons.dart';
 import '../../data/database/app_database.dart';
+import '../../domain/services/trend_service.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
+import '../tokens/design_tokens.dart';
 import '../widgets/adjust_sheet.dart';
+import '../widgets/xp_card.dart';
+import '../widgets/xp_empty_state.dart';
 import 'account_detail_page.dart';
 import 'account_form_sheet.dart';
 import 'account_manage_page.dart';
 import 'trend_page.dart';
 
-/// 资产页：总资产卡 + 三类账户分组列表。
+/// 资产页：总资产 Hero（大金额 + 迷你趋势）→ 资产趋势入口 → 三类账户分组卡。
+///
+/// 口径与 totalAssetsProvider 一致（fund 恒计入；debt/record 仅
+/// includeInAssets 时计入）；迷你趋势与趋势页共用算法五。
 class AccountsPage extends ConsumerStatefulWidget {
   const AccountsPage({super.key});
 
@@ -28,6 +36,8 @@ class _AccountsPageState extends ConsumerState<AccountsPage>
   Widget build(BuildContext context) {
     final accountsAsync = ref.watch(accountsProvider);
     final total = ref.watch(totalAssetsProvider).value ?? 0;
+    final snapsAsync = ref.watch(snapshotsProvider);
+    final textTheme = Theme.of(context).textTheme;
 
     return buildXpScaffold(
       appBar: AppBar(
@@ -48,122 +58,124 @@ class _AccountsPageState extends ConsumerState<AccountsPage>
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
-        children: [
-          // 总资产卡
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '总资产',
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '¥ ${formatYuan(total)}',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
+      // 整页骨架:账户流未就绪时整页以骨架呈现,就绪后淡入
+      loading: accountsAsync.isLoading,
+      body: accountsAsync.when(
+        loading: () => const SizedBox.shrink(),
+        error: (e, _) => Center(child: Text('加载失败：$e')),
+        data: (accounts) {
+          final assetIds = accounts
+              .where(
+                (a) =>
+                    a.enabled &&
+                    (a.category == 'fund' ||
+                        ((a.category == 'debt' || a.category == 'record') &&
+                            a.includeInAssets)),
+              )
+              .map((a) => a.id)
+              .toSet();
+
+          final groups = <AccountCategory, List<Account>>{};
+          for (final a in accounts) {
+            groups
+                .putIfAbsent(
+                  AccountCategory.values.byName(a.category),
+                  () => [],
+                )
+                .add(a);
+          }
+          final hasAny = groups.isNotEmpty;
+
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(
+              XpSpacing.l,
+              XpSpacing.xs,
+              XpSpacing.l,
+              32,
+            ),
+            children: [
+              // ── 总资产 Hero ──
+              _TotalAssetsHero(
+                total: total,
+                snaps: snapsAsync.value ?? const <BalanceSnapshot>[],
+                assetIds: assetIds,
+                accounts: accounts,
               ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          // 资产趋势入口
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.show_chart),
-              title: const Text('资产趋势'),
-              subtitle: const Text('总资产曲线与期间统计'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const TrendPage()),
-              ),
-            ),
-          ),
-          accountsAsync.when(
-            loading: () => const Padding(
-              padding: EdgeInsets.all(32),
-              child: Center(child: CircularProgressIndicator()),
-            ),
-            error: (e, _) => Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text('加载失败：$e'),
-            ),
-            data: (accounts) {
-              if (accounts.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Center(child: Text('还没有账户，点击右上角 + 创建')),
-                );
-              }
-              final groups = <AccountCategory, List<Account>>{};
-              for (final a in accounts) {
-                groups
-                    .putIfAbsent(
-                      AccountCategory.values.byName(a.category),
-                      () => [],
-                    )
-                    .add(a);
-              }
-              return Column(
-                children: [
-                  for (final cat in AccountCategory.values)
-                    if (groups.containsKey(cat)) ...[
-                      _GroupHeader(label: _categoryTitle(cat)),
-                      Card(
-                        clipBehavior: Clip.antiAlias,
-                        child: Column(
-                          children: [
-                            for (final a in groups[cat]!)
-                              ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: hexToColor(
-                                    a.color,
-                                  ).withValues(alpha: 0.15),
-                                  foregroundColor: hexToColor(a.color),
-                                  child: Icon(resolveIcon(a.icon), size: 20),
-                                ),
-                                title: Text(a.name),
-                                subtitle:
-                                    (a.remark == null || a.remark!.isEmpty)
-                                    ? null
-                                    : Text(
-                                        a.remark!,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                trailing: Text(
-                                  formatYuan(a.currentBalance),
-                                  style: Theme.of(context).textTheme.titleSmall
-                                      ?.copyWith(fontWeight: FontWeight.w600),
-                                ),
-                                onTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        AccountDetailPage(account: a),
-                                  ),
-                                ),
-                                onLongPress: () => AdjustSheet.show(context, a),
+              const SizedBox(height: XpSpacing.m),
+              // ── 资产趋势入口 ──
+              XpCard(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const TrendPage()),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.show_chart,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: XpSpacing.m),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('资产趋势', style: textTheme.titleSmall),
+                          const SizedBox(height: 2),
+                          Text(
+                            '总资产曲线与期间统计',
+                            style: textTheme.bodySmall?.copyWith(
+                              color: textTheme.bodySmall?.color?.withValues(
+                                alpha: 0.6,
                               ),
-                          ],
-                        ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                ],
-              );
-            },
-          ),
-        ],
+                    ),
+                    Icon(
+                      Icons.chevron_right,
+                      color: textTheme.bodySmall?.color?.withValues(alpha: 0.5),
+                    ),
+                  ],
+                ),
+              ),
+              if (!hasAny) ...[
+                const SizedBox(height: XpSpacing.xl),
+                const XpEmptyState(
+                  icon: Icons.account_balance_wallet_outlined,
+                  title: '还没有账户',
+                  message: '点击右上角 + 创建第一个账户',
+                ),
+              ] else ...[
+                for (final cat in AccountCategory.values)
+                  if (groups.containsKey(cat)) ...[
+                    _GroupHeader(label: _categoryTitle(cat)),
+                    // 每组一张卡,组内账户行共享 ripple 裁剪
+                    XpCard(
+                      padding: EdgeInsets.zero,
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        children: [
+                          for (var i = 0; i < groups[cat]!.length; i++) ...[
+                            if (i > 0)
+                              Divider(
+                                height: 1,
+                                indent: 60,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .outlineVariant
+                                    .withValues(alpha: 0.5),
+                              ),
+                            _AccountRow(account: groups[cat]![i]),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+              ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -175,6 +187,196 @@ class _AccountsPageState extends ConsumerState<AccountsPage>
   };
 }
 
+/// 总资产 Hero:标签 + Display 大金额(tabular) + 近 90 天迷你趋势线。
+/// 口径与趋势页一致(算法五 + assetIds 过滤),无快照/单点时隐藏迷你图。
+class _TotalAssetsHero extends StatelessWidget {
+  const _TotalAssetsHero({
+    required this.total,
+    required this.snaps,
+    required this.assetIds,
+    required this.accounts,
+  });
+
+  final int total;
+  final List<BalanceSnapshot> snaps;
+  final Set<String> assetIds;
+  final List<Account> accounts;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final now = DateTime.now();
+    final start = DateTime(
+      now.year,
+      now.month,
+      now.day - 90,
+    ).millisecondsSinceEpoch;
+    final end =
+        DateTime(now.year, now.month, now.day).millisecondsSinceEpoch +
+        86400000;
+
+    final points = aggregateTrendPoints(
+      buildTrendPoints(
+        snaps: snaps,
+        assetIds: assetIds,
+        accounts: accounts,
+        start: start,
+        end: end,
+      ),
+      TrendGranularity.week,
+    );
+
+    return XpCard(
+      padding: const EdgeInsets.all(XpSpacing.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '总资产',
+            style: textTheme.labelMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: XpSpacing.xs),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                '¥',
+                style: textTheme.headlineSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(width: XpSpacing.xs),
+              Text(
+                formatYuan(total),
+                style: textTheme.displayLarge
+                    ?.copyWith(fontWeight: FontWeight.w700)
+                    .tabular,
+              ),
+            ],
+          ),
+          if (points.length >= 2) ...[
+            const SizedBox(height: XpSpacing.s),
+            SizedBox(height: 56, child: _MiniTrend(points: points)),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// 近 90 天迷你趋势线:无轴无 tooltip 的 sparkline,触感提示看趋势页。
+class _MiniTrend extends StatelessWidget {
+  const _MiniTrend({required this.points});
+
+  final List<TrendPoint> points;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.primary;
+    final values = points.map((p) => p.value / 10000).toList();
+    final minV = values.reduce((a, b) => a < b ? a : b);
+    final maxV = values.reduce((a, b) => a > b ? a : b);
+
+    return LineChart(
+      LineChartData(
+        minX: 0,
+        maxX: (values.length - 1).toDouble(),
+        minY: minV == maxV ? minV - 1 : minV,
+        maxY: minV == maxV ? maxV + 1 : maxV,
+        gridData: const FlGridData(show: false),
+        titlesData: const FlTitlesData(show: false),
+        borderData: FlBorderData(show: false),
+        lineTouchData: const LineTouchData(enabled: false),
+        lineBarsData: [
+          LineChartBarData(
+            spots: [
+              for (var i = 0; i < values.length; i++)
+                FlSpot(i.toDouble(), values[i]),
+            ],
+            isCurved: true,
+            preventCurveOverShooting: true,
+            color: color,
+            barWidth: 2,
+            dotData: const FlDotData(show: false),
+            belowBarData: BarAreaData(
+              show: true,
+              color: color.withValues(alpha: 0.08),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 账户行:图标色块 + 名称/备注 + tabular 金额;点按进详情,长按调余额。
+class _AccountRow extends StatelessWidget {
+  const _AccountRow({required this.account});
+
+  final Account account;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final color = hexToColor(account.color);
+
+    return InkWell(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => AccountDetailPage(account: account)),
+      ),
+      onLongPress: () => AdjustSheet.show(context, account),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: XpSpacing.l,
+          vertical: XpSpacing.m,
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: color.withValues(alpha: 0.15),
+              foregroundColor: color,
+              child: Icon(resolveIcon(account.icon), size: 20),
+            ),
+            const SizedBox(width: XpSpacing.m),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(account.name, style: textTheme.bodyLarge),
+                  if (account.remark != null && account.remark!.isNotEmpty)
+                    Text(
+                      account.remark!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.bodySmall?.copyWith(
+                        color: textTheme.bodySmall?.color?.withValues(
+                          alpha: 0.6,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: XpSpacing.m),
+            Text(
+              formatYuan(account.currentBalance),
+              style: textTheme.titleSmall
+                  ?.copyWith(fontWeight: FontWeight.w600)
+                  .tabular,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _GroupHeader extends StatelessWidget {
   const _GroupHeader({required this.label});
 
@@ -183,10 +385,15 @@ class _GroupHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 16, 4, 6),
+      padding: const EdgeInsets.fromLTRB(4, XpSpacing.l, 4, XpSpacing.s),
       child: Align(
         alignment: Alignment.centerLeft,
-        child: Text(label, style: Theme.of(context).textTheme.titleSmall),
+        child: Text(
+          label,
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+        ),
       ),
     );
   }

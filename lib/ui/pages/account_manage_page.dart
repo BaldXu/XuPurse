@@ -9,6 +9,7 @@ import '../../data/database/app_database.dart';
 import '../../domain/services/currency_service.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
+import '../tokens/design_tokens.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_snack.dart';
 
@@ -30,6 +31,8 @@ class _AccountManagePageState extends ConsumerState<AccountManagePage>
     final accountsAsync = ref.watch(accountsProvider);
     return buildXpScaffold(
       appBar: AppBar(title: const Text('账户管理')),
+      // 整页骨架:账户流未就绪时以骨架呈现
+      loading: accountsAsync.isLoading,
       body: Column(
         children: [
           Padding(
@@ -44,7 +47,7 @@ class _AccountManagePageState extends ConsumerState<AccountManagePage>
           ),
           Expanded(
             child: accountsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const SizedBox.shrink(),
               error: (e, _) => Center(child: Text('加载失败：$e')),
               data: (accounts) {
                 if (accounts.isEmpty) {
@@ -55,38 +58,74 @@ class _AccountManagePageState extends ConsumerState<AccountManagePage>
                 final suspicious = <String, bool>{
                   for (final a in sorted) a.id: _maxSimilarity(sorted, a) > 0.4,
                 };
-                return ListView.builder(
-                  itemCount: sorted.length,
-                  itemBuilder: (context, i) {
-                    final a = sorted[i];
-                    final checked = _selected.contains(a.id);
-                    return CheckboxListTile(
-                      value: checked,
-                      onChanged: _busy
-                          ? null
-                          : (v) => setState(() {
-                              if (v == true) {
-                                _selected.add(a.id);
-                              } else {
-                                _selected.remove(a.id);
-                              }
-                            }),
-                      controlAffinity: ListTileControlAffinity.leading,
-                      title: Text(a.name),
-                      subtitle: Text(
-                        '${formatYuan(a.currentBalance)} · ${a.currency}'
-                        '${suspicious[a.id] == true ? ' · 疑似重复' : ''}'
-                        '${a.remark != null && a.remark!.isNotEmpty ? ' · ${a.remark}' : ''}',
+                // 总余额小计（展示用,不做币种折算）
+                final totalBalance = accounts.fold<int>(
+                  0,
+                  (s, a) => s + a.currentBalance,
+                );
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                  children: [
+                    // 总余额小计行
+                    Padding(
+                      padding: const EdgeInsets.only(
+                        left: 4,
+                        right: 4,
+                        bottom: 8,
                       ),
-                      secondary: CircleAvatar(
-                        backgroundColor: hexToColor(
-                          a.color,
-                        ).withValues(alpha: 0.15),
-                        foregroundColor: hexToColor(a.color),
-                        child: Icon(resolveIcon(a.icon), size: 20),
+                      child: Row(
+                        children: [
+                          Text(
+                            '共 ${accounts.length} 个账户',
+                            style: Theme.of(context).textTheme.labelMedium
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            '余额合计 ¥${formatYuan(totalBalance)}',
+                            style: Theme.of(context).textTheme.labelMedium
+                                ?.copyWith(fontWeight: FontWeight.w600)
+                                .tabular,
+                          ),
+                        ],
                       ),
-                    );
-                  },
+                    ),
+                    Card(
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        children: [
+                          for (var i = 0; i < sorted.length; i++) ...[
+                            if (i > 0)
+                              Divider(
+                                height: 1,
+                                indent: 56,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .outlineVariant
+                                    .withValues(alpha: 0.5),
+                              ),
+                            _AccountCheckRow(
+                              account: sorted[i],
+                              checked: _selected.contains(sorted[i].id),
+                              suspicious: suspicious[sorted[i].id] == true,
+                              busy: _busy,
+                              onToggle: (v) => setState(() {
+                                if (v == true) {
+                                  _selected.add(sorted[i].id);
+                                } else {
+                                  _selected.remove(sorted[i].id);
+                                }
+                              }),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
                 );
               },
             ),
@@ -349,5 +388,42 @@ class _AccountManagePageState extends ConsumerState<AccountManagePage>
       setState(() => _busy = false);
       showXpSnack(context, '修改失败：$e', error: true);
     }
+  }
+}
+
+/// 账户勾选行：复选框 + 头像 + 名称/副标题。
+class _AccountCheckRow extends StatelessWidget {
+  const _AccountCheckRow({
+    required this.account,
+    required this.checked,
+    required this.suspicious,
+    required this.busy,
+    required this.onToggle,
+  });
+
+  final Account account;
+  final bool checked;
+  final bool suspicious;
+  final bool busy;
+  final ValueChanged<bool?> onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return CheckboxListTile(
+      value: checked,
+      onChanged: busy ? null : onToggle,
+      controlAffinity: ListTileControlAffinity.leading,
+      title: Text(account.name),
+      subtitle: Text(
+        '${formatYuan(account.currentBalance)} · ${account.currency}'
+        '${suspicious ? ' · 疑似重复' : ''}'
+        '${account.remark != null && account.remark!.isNotEmpty ? ' · ${account.remark}' : ''}',
+      ),
+      secondary: CircleAvatar(
+        backgroundColor: hexToColor(account.color).withValues(alpha: 0.15),
+        foregroundColor: hexToColor(account.color),
+        child: Icon(resolveIcon(account.icon), size: 20),
+      ),
+    );
   }
 }
