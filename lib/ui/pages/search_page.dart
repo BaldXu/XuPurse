@@ -130,8 +130,10 @@ class _SearchPageState extends ConsumerState<SearchPage>
                   hint: const Text('全部分类'),
                   items: [
                     const DropdownMenuItem(value: null, child: Text('全部分类')),
+                    // 排除转账类型分类:转账单 categoryId 语义不同,选中永远 0 结果
                     for (final c in categories)
-                      DropdownMenuItem(value: c.id, child: Text(c.name)),
+                      if (c.type != BillType.transfer.name)
+                        DropdownMenuItem(value: c.id, child: Text(c.name)),
                   ],
                   onChanged: (v) => setState(() => _categoryId = v),
                 ),

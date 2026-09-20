@@ -108,13 +108,9 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
   Future<void> _loadTransferFee() async {
     final bill = widget.initialBill;
     if (bill == null) return;
-    final row =
-        await (ref.read(dbProvider).select(ref.read(dbProvider).transfers)
-              ..where((t) => t.billId.equals(bill.id))
-              ..limit(1))
-            .getSingleOrNull();
-    if (row != null && row.fee > 0 && mounted) {
-      setState(() => _feeController.text = formatYuan(row.fee));
+    final fee = await ref.read(billRepoProvider).transferFeeOf(bill.id);
+    if (fee != null && mounted) {
+      setState(() => _feeController.text = formatYuan(fee));
     }
   }
 

@@ -1,4 +1,3 @@
-import 'package:drift/drift.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,9 +7,13 @@ import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/xp_empty_state.dart';
+import '../widgets/xp_sheet.dart';
 import '../widgets/xp_skeleton.dart';
+import '../widgets/xp_snack.dart';
 
 /// 业务记录页：借贷 / 报销 / 退款 / 分期 四 tab（只读列表 + 删除）。
+///
+/// 删除仅移除台账记录本身，不回滚关联账单与余额——确认弹窗中明示。
 class LedgerManagePage extends ConsumerStatefulWidget {
   const LedgerManagePage({super.key});
 
@@ -36,7 +39,7 @@ class _LedgerManagePageState extends ConsumerState<LedgerManagePage>
             ],
           ),
         ),
-        body: const TabBarView(
+        body: TabBarView(
           children: [
             _LendList(),
             _ReimbursementList(),
@@ -49,13 +52,37 @@ class _LedgerManagePageState extends ConsumerState<LedgerManagePage>
   }
 }
 
-String _accountName(WidgetRef ref, String? id) {
-  if (id == null) return '—';
+String _accountName(WidgetRef ref, String id) {
   final accounts = ref.watch(accountsProvider).valueOrNull ?? const [];
   for (final a in accounts) {
     if (a.id == id) return a.name;
   }
   return '未知账户';
+}
+
+/// 统一删除确认：title 带类型，正文说明「仅删除记录，不动账单与余额」。
+Future<void> _confirmDelete(
+  BuildContext context,
+  WidgetRef ref,
+  Future<void> Function() doDelete, {
+  required String title,
+  String? detail,
+}) async {
+  final ok = await confirmXpDialog(
+    context,
+    title: '删除$title',
+    content:
+        '将删除这条台账记录。${detail ?? ''}\n\n'
+        '注意：仅删除记录本身，关联账单与账户余额不受影响。',
+    confirmLabel: '删除',
+    danger: true,
+  );
+  if (ok && context.mounted) {
+    await doDelete();
+    if (context.mounted) {
+      showXpSnack(context, '$title记录已删除');
+    }
+  }
 }
 
 class _LendList extends ConsumerWidget {
@@ -98,7 +125,13 @@ class _LendList extends ConsumerWidget {
               ),
               trailing: IconButton(
                 icon: const Icon(Icons.delete_outline, size: 20),
-                onPressed: () => _delete(ref, _db(ref).lends, l.id),
+                onPressed: () => _confirmDelete(
+                  context,
+                  ref,
+                  () => ref.read(ledgerRepoProvider).deleteLend(l.id),
+                  title: '借贷',
+                  detail: '金额 ${formatYuan(l.amount)}。',
+                ),
               ),
             );
           },
@@ -129,15 +162,21 @@ class _ReimbursementList extends ConsumerWidget {
           itemBuilder: (context, i) {
             final r = items[i];
             return ListTile(
-              leading: const Icon(Icons.assignment_return, color: Colors.blue),
+              leading: const Icon(Icons.assignment_return),
               title: Text('报销 ${formatYuan(r.amount)}'),
               subtitle: Text(
-                '${_accountName(ref, r.reimbursementAccountId ?? r.accountId)}'
+                '${_accountName(ref, r.reimbursementAccountId ?? r.accountId ?? '')}'
                 '${r.ended ? ' · 已结束' : ' · 进行中'}',
               ),
               trailing: IconButton(
                 icon: const Icon(Icons.delete_outline, size: 20),
-                onPressed: () => _delete(ref, _db(ref).reimbursements, r.id),
+                onPressed: () => _confirmDelete(
+                  context,
+                  ref,
+                  () => ref.read(ledgerRepoProvider).deleteReimbursement(r.id),
+                  title: '报销',
+                  detail: '金额 ${formatYuan(r.amount)}。',
+                ),
               ),
             );
           },
@@ -157,18 +196,29 @@ class _RefundList extends ConsumerWidget {
       loading: () => const XpSkeletonList(itemCount: 4),
       error: (e, _) => Center(child: Text('加载失败：$e')),
       data: (items) {
-        if (items.isEmpty) return const Center(child: Text('暂无退款记录'));
+        if (items.isEmpty) {
+          return const XpEmptyState(icon: Icons.replay, title: '暂无退款记录');
+        }
         return ListView.builder(
           itemCount: items.length,
           itemBuilder: (context, i) {
             final r = items[i];
             return ListTile(
-              leading: const Icon(Icons.replay, color: Colors.orange),
+              leading: const Icon(Icons.replay),
               title: Text('退款 ${formatYuan(r.amount)}'),
-              subtitle: Text('关联账单 ${r.billId.substring(0, 8)}…'),
+              subtitle: Text(
+                '关联账单 '
+                '${r.billId.length > 8 ? r.billId.substring(0, 8) : r.billId}…',
+              ),
               trailing: IconButton(
                 icon: const Icon(Icons.delete_outline, size: 20),
-                onPressed: () => _delete(ref, _db(ref).refunds, r.id),
+                onPressed: () => _confirmDelete(
+                  context,
+                  ref,
+                  () => ref.read(ledgerRepoProvider).deleteRefund(r.id),
+                  title: '退款',
+                  detail: '金额 ${formatYuan(r.amount)}，关联账单保留。',
+                ),
               ),
             );
           },
@@ -188,13 +238,18 @@ class _InstalmentList extends ConsumerWidget {
       loading: () => const XpSkeletonList(itemCount: 4),
       error: (e, _) => Center(child: Text('加载失败：$e')),
       data: (items) {
-        if (items.isEmpty) return const Center(child: Text('暂无分期记录'));
+        if (items.isEmpty) {
+          return const XpEmptyState(
+            icon: Icons.calendar_month,
+            title: '暂无分期记录',
+          );
+        }
         return ListView.builder(
           itemCount: items.length,
           itemBuilder: (context, i) {
             final r = items[i];
             return ListTile(
-              leading: const Icon(Icons.calendar_month, color: Colors.purple),
+              leading: const Icon(Icons.calendar_month),
               title: Text(
                 '分期 ${formatYuan(r.totalAmount)}'
                 '${r.serviceFee != 0 ? ' + 服务费 ${formatYuan(r.serviceFee)}' : ''}',
@@ -205,7 +260,13 @@ class _InstalmentList extends ConsumerWidget {
               ),
               trailing: IconButton(
                 icon: const Icon(Icons.delete_outline, size: 20),
-                onPressed: () => _delete(ref, _db(ref).instalments, r.id),
+                onPressed: () => _confirmDelete(
+                  context,
+                  ref,
+                  () => ref.read(ledgerRepoProvider).deleteInstalment(r.id),
+                  title: '分期',
+                  detail: '总额 ${formatYuan(r.totalAmount)}，${r.periods} 期。',
+                ),
               ),
             );
           },
@@ -215,35 +276,17 @@ class _InstalmentList extends ConsumerWidget {
   }
 }
 
-AppDatabase _db(WidgetRef ref) => ref.read(dbProvider);
+// ---------- 台账 watch 流（autoDispose:离开台账页即释放 drift 监听） ----------
 
-/// 删除指定表的记录（全部业务表都有 id 主键，用 dynamic 统一处理）。
-Future<void> _delete(WidgetRef ref, dynamic table, String id) async {
-  final db = ref.read(dbProvider);
-  await (db.delete(table)..where((t) => (t as dynamic).id.equals(id))).go();
-}
-
-final _lendsProvider = StreamProvider<List<Lend>>(
-  (ref) =>
-      (ref.watch(dbProvider).select(ref.watch(dbProvider).lends)
-            ..orderBy([(t) => OrderingTerm.desc(t.time)]))
-          .watch(),
+final _lendsProvider = StreamProvider.autoDispose<List<Lend>>(
+  (ref) => ref.watch(ledgerRepoProvider).watchLends(),
 );
-final _reimbursementsProvider = StreamProvider<List<Reimbursement>>(
-  (ref) =>
-      (ref.watch(dbProvider).select(ref.watch(dbProvider).reimbursements)
-            ..orderBy([(t) => OrderingTerm.desc(t.time)]))
-          .watch(),
+final _reimbursementsProvider = StreamProvider.autoDispose<List<Reimbursement>>(
+  (ref) => ref.watch(ledgerRepoProvider).watchReimbursements(),
 );
-final _refundsProvider = StreamProvider<List<Refund>>(
-  (ref) =>
-      (ref.watch(dbProvider).select(ref.watch(dbProvider).refunds)
-            ..orderBy([(t) => OrderingTerm.desc(t.time)]))
-          .watch(),
+final _refundsProvider = StreamProvider.autoDispose<List<Refund>>(
+  (ref) => ref.watch(ledgerRepoProvider).watchRefunds(),
 );
-final _instalmentsProvider = StreamProvider<List<Instalment>>(
-  (ref) =>
-      (ref.watch(dbProvider).select(ref.watch(dbProvider).instalments)
-            ..orderBy([(t) => OrderingTerm.desc(t.time)]))
-          .watch(),
+final _instalmentsProvider = StreamProvider.autoDispose<List<Instalment>>(
+  (ref) => ref.watch(ledgerRepoProvider).watchInstalments(),
 );

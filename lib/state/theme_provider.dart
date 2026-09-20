@@ -155,7 +155,11 @@ class ThemeState {
   final List<AppTheme> userThemes;
 
   /// 全部可选主题(浅色主题 + 暗色预设;主题设置页展示用)。
-  List<AppTheme> get allThemes => [...presetThemes, darkThemePreset, ...userThemes];
+  List<AppTheme> get allThemes => [
+    ...presetThemes,
+    darkThemePreset,
+    ...userThemes,
+  ];
 
   AppTheme get current => allThemes.firstWhere(
     (t) => t.id == currentId,
@@ -193,7 +197,10 @@ class ThemeNotifier extends Notifier<ThemeState> {
   ThemeState build() {
     final userThemes = _loadUserThemes();
     final currentId = _prefsCache?.getString(_currentKey);
-    final valid = [...presetThemes, ...userThemes].any((t) => t.id == currentId);
+    final valid = [
+      ...presetThemes,
+      ...userThemes,
+    ].any((t) => t.id == currentId);
     return ThemeState(
       currentId: valid ? currentId! : presetThemes.first.id,
       userThemes: userThemes,
@@ -206,12 +213,38 @@ class ThemeNotifier extends Notifier<ThemeState> {
     try {
       final list = jsonDecode(raw) as List<dynamic>;
       return [
+        // 读取时兜底:历史版本允许保存过深背景/卡色(浅色主题渲染会文字全糊),
+        // 加载时把过深色置 null 回退默认,与保存时校验形成双保险。
         for (final e in list)
-          AppTheme.fromJson((e as Map).cast<String, Object?>()),
+          _sanitizeTheme(AppTheme.fromJson((e as Map).cast<String, Object?>())),
       ];
     } catch (_) {
       return const [];
     }
+  }
+
+  /// 浅色主题的背景/卡色亮度兜底:亮度 < 0.15(近黑)视为脏数据置 null。
+  /// seedColor 不校验(主题色允许深色,如克莱因蓝)。
+  static AppTheme _sanitizeTheme(AppTheme theme) {
+    final bgOk =
+        theme.background == null ||
+        theme.background!.computeLuminance() >= 0.15;
+    final cardOk =
+        theme.cardColor == null || theme.cardColor!.computeLuminance() >= 0.15;
+    if (bgOk && cardOk) return theme;
+    return AppTheme(
+      id: theme.id,
+      name: theme.name,
+      seedColor: theme.seedColor,
+      background: bgOk ? theme.background : null,
+      cardColor: cardOk ? theme.cardColor : null,
+      fontFamily: theme.fontFamily,
+      fontScale: theme.fontScale,
+      cardStyle: theme.cardStyle,
+      cardRadius: theme.cardRadius,
+      animationsEnabled: theme.animationsEnabled,
+      isDark: theme.isDark,
+    );
   }
 
   Future<void> _persist(ThemeState next) async {

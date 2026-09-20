@@ -6,6 +6,7 @@ import '../data/database/database_manager.dart';
 import '../data/import/import_service.dart';
 import '../data/repositories/account_repository.dart';
 import '../data/repositories/bill_repository.dart';
+import '../data/repositories/ledger_repository.dart';
 import '../data/repositories/budget_repository.dart';
 import '../data/repositories/category_repository.dart';
 import '../data/repositories/snapshot_repository.dart';
@@ -40,6 +41,9 @@ final snapshotRepoProvider = Provider(
   (ref) => SnapshotRepository(ref.watch(dbProvider)),
 );
 final tagRepoProvider = Provider((ref) => TagRepository(ref.watch(dbProvider)));
+final ledgerRepoProvider = Provider(
+  (ref) => LedgerRepository(ref.watch(dbProvider)),
+);
 final budgetRepoProvider = Provider(
   (ref) => BudgetRepository(ref.watch(dbProvider)),
 );

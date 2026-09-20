@@ -67,8 +67,9 @@ class BillRepository {
       (_db.select(_db.bills)..orderBy([(t) => OrderingTerm.asc(t.time)])).get();
 
   /// 全部账单流(时间升序;搜索页等需要全量数据响应式刷新的场景)。
-  Stream<List<Bill>> watchAll() =>
-      (_db.select(_db.bills)..orderBy([(t) => OrderingTerm.asc(t.time)])).watch();
+  Stream<List<Bill>> watchAll() => (_db.select(
+    _db.bills,
+  )..orderBy([(t) => OrderingTerm.asc(t.time)])).watch();
 
   Future<List<Bill>> getByIds(List<String> ids) =>
       (_db.select(_db.bills)..where((t) => t.id.isIn(ids))).get();
@@ -243,6 +244,17 @@ class BillRepository {
   Future<List<({String billId, String tagId})>> allBillTags() async {
     final rows = await (_db.select(_db.billTags)).get();
     return [for (final r in rows) (billId: r.billId, tagId: r.tagId)];
+  }
+
+  /// 转账记录的手续费（无转账记录或 fee=0 返回 null；编辑转账时回显用）。
+  Future<int?> transferFeeOf(String billId) async {
+    final row =
+        await (_db.select(_db.transfers)
+              ..where((t) => t.billId.equals(billId))
+              ..limit(1))
+            .getSingleOrNull();
+    if (row == null || row.fee <= 0) return null;
+    return row.fee;
   }
 
   /// 整体替换账单的标签关联

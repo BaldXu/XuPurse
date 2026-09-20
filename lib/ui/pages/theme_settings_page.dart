@@ -199,12 +199,14 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
           Card(
             child: ListTile(
               leading: Icon(
-                darkThemePreset.isDark ? Icons.dark_mode_outlined : null,
+                Icons.dark_mode_outlined,
                 color: Theme.of(context).colorScheme.primary,
               ),
               title: const Text('克莱因蓝 · 暗色'),
-              subtitle: const Text('系统开启深色模式时自动生效'),
-              trailing: const Icon(Icons.nightlight_outlined, size: 20),
+              subtitle: const Text('跟随系统深色设置自动切换，无需手动选择'),
+              onTap: () {
+                showXpSnack(context, '暗色跟随系统设置：系统开启深色模式即自动生效');
+              },
             ),
           ),
           const SizedBox(height: 24),
@@ -224,10 +226,7 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
           const SizedBox(height: 12),
           Card(
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 8,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
