@@ -119,7 +119,10 @@ ThemeData buildAppTheme(
       shape: XpRadius.sheet,
       showDragHandle: true,
     ),
-    snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      shape: XpShape.smooth(borderRadius: BorderRadius.circular(XpRadius.s)),
+    ),
     dividerTheme: DividerThemeData(color: scheme.outlineVariant, thickness: 1),
     pageTransitionsTheme: PageTransitionsTheme(
       builders: {

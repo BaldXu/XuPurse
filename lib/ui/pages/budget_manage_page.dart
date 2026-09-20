@@ -8,6 +8,7 @@ import '../../core/utils/ids.dart';
 import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
+import '../widgets/xp_fab.dart';
 import '../widgets/xp_snack.dart';
 import '../widgets/xp_empty_state.dart';
 import '../widgets/xp_skeleton.dart';
@@ -47,7 +48,7 @@ class _BudgetManagePageState extends ConsumerState<BudgetManagePage>
           );
         },
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: XpFab(
         onPressed: () => showModalBottomSheet<void>(
           context: context,
           isScrollControlled: true,

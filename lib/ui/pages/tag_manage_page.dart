@@ -9,6 +9,7 @@ import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_skeleton.dart';
+import '../widgets/xp_fab.dart';
 import '../widgets/xp_snack.dart';
 
 /// 标签管理页（列表 + 新增/编辑/删除）。
@@ -62,7 +63,7 @@ class _TagManagePageState extends ConsumerState<TagManagePage>
           );
         },
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: XpFab(
         onPressed: () => _showForm(context, ref, null),
         icon: const Icon(Icons.add),
         label: const Text('新增标签'),

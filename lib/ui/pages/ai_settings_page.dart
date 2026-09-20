@@ -7,6 +7,7 @@ import '../layout/breakpoints.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/xp_sheet.dart';
+import '../widgets/xp_fab.dart';
 import '../widgets/xp_snack.dart';
 
 /// AI 设置页：多配置管理（新增/编辑/删除/启用停用/切换当前）+ 连通性测试。
@@ -67,10 +68,10 @@ class AiSettingsPage extends ConsumerWidget {
       ),
       floatingActionButton: aiState.configs.isEmpty
           ? null
-          : FloatingActionButton(
+          : XpFab(
               tooltip: '新增配置',
               onPressed: () => _edit(context, ref, null),
-              child: const Icon(Icons.add),
+              icon: const Icon(Icons.add),
             ),
     );
   }

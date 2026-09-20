@@ -9,6 +9,8 @@ import '../tokens/design_tokens.dart';
 import '../widgets/bill_tile.dart';
 import '../widgets/xp_card.dart';
 import '../widgets/xp_empty_state.dart';
+import '../widgets/xp_fab.dart';
+import '../widgets/xp_stagger_in.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_skeleton.dart';
 import 'bookkeeping_sheet.dart';
@@ -118,10 +120,10 @@ class _HomePageState extends ConsumerState<HomePage>
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: XpFab(
         tooltip: '记一笔',
         onPressed: () => BookkeepingSheet.show(context),
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.add),
       ),
     );
   }
@@ -167,13 +169,15 @@ class _HomePageState extends ConsumerState<HomePage>
         itemCount: sections.length,
         itemBuilder: (context, i) {
           final section = sections[i];
+          // stagger 淡入试点:仅前 12 组做动画,更深处直接渲染(性能守则)
+          final item = _DayGroupCard(
+            section: section,
+            onTapBill: (bill) => BookkeepingSheet.show(context, bill: bill),
+            onLongPressBill: (bill) => _confirmDelete(context, ref, bill),
+          );
           return Padding(
             padding: const EdgeInsets.only(bottom: XpSpacing.m),
-            child: _DayGroupCard(
-              section: section,
-              onTapBill: (bill) => BookkeepingSheet.show(context, bill: bill),
-              onLongPressBill: (bill) => _confirmDelete(context, ref, bill),
-            ),
+            child: i < 12 ? XpStaggerIn(index: i, child: item) : item,
           );
         },
       ),

@@ -5,6 +5,7 @@ import '../../data/database/global_database.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../widgets/xp_sheet.dart';
+import '../widgets/xp_fab.dart';
 import '../widgets/xp_snack.dart';
 import '../widgets/xp_skeleton.dart';
 
@@ -164,7 +165,7 @@ class _BookManagePageState extends ConsumerState<BookManagePage>
           );
         },
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: XpFab(
         onPressed: _createBook,
         icon: const Icon(Icons.add),
         label: const Text('新建账本'),

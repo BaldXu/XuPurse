@@ -13,6 +13,7 @@ import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/adjust_sheet.dart';
 import '../widgets/xp_card.dart';
+import '../widgets/xp_stagger_in.dart';
 import '../widgets/xp_empty_state.dart';
 import 'account_detail_page.dart';
 import 'account_form_sheet.dart';
@@ -85,6 +86,8 @@ class _AccountsPageState extends ConsumerState<AccountsPage>
                 .add(a);
           }
           final hasAny = groups.isNotEmpty;
+          // stagger 组序计数器(Builder 回调闭包递增)
+          var groupIndex = 0;
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(
@@ -150,26 +153,34 @@ class _AccountsPageState extends ConsumerState<AccountsPage>
                 for (final cat in AccountCategory.values)
                   if (groups.containsKey(cat)) ...[
                     _GroupHeader(label: _categoryTitle(cat)),
-                    // 每组一张卡,组内账户行共享 ripple 裁剪
-                    XpCard(
-                      padding: EdgeInsets.zero,
-                      clipBehavior: Clip.antiAlias,
-                      child: Column(
-                        children: [
-                          for (var i = 0; i < groups[cat]!.length; i++) ...[
-                            if (i > 0)
-                              Divider(
-                                height: 1,
-                                indent: 60,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .outlineVariant
-                                    .withValues(alpha: 0.5),
-                              ),
-                            _AccountRow(account: groups[cat]![i]),
-                          ],
-                        ],
-                      ),
+                    // 每组一张卡,组内账户行共享 ripple 裁剪;stagger 按组序淡入
+                    Builder(
+                      builder: (context) {
+                        final idx = groupIndex++;
+                        final card = XpCard(
+                          padding: EdgeInsets.zero,
+                          clipBehavior: Clip.antiAlias,
+                          child: Column(
+                            children: [
+                              for (var i = 0; i < groups[cat]!.length; i++) ...[
+                                if (i > 0)
+                                  Divider(
+                                    height: 1,
+                                    indent: 60,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .outlineVariant
+                                        .withValues(alpha: 0.5),
+                                  ),
+                                _AccountRow(account: groups[cat]![i]),
+                              ],
+                            ],
+                          ),
+                        );
+                        return idx < 6
+                            ? XpStaggerIn(index: idx, child: card)
+                            : card;
+                      },
                     ),
                   ],
               ],

@@ -7,6 +7,7 @@ import '../../core/utils/ids.dart';
 import '../../data/database/app_database.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../widgets/xp_sheet.dart';
+import '../widgets/xp_fab.dart';
 import '../widgets/xp_snack.dart';
 import '../../state/providers.dart';
 
@@ -40,7 +41,7 @@ class _CategoryManagePageState extends ConsumerState<CategoryManagePage>
             for (final type in BillType.values) _CategoryList(type: type),
           ],
         ),
-        floatingActionButton: FloatingActionButton.extended(
+        floatingActionButton: XpFab(
           onPressed: () => showModalBottomSheet<void>(
             context: context,
             isScrollControlled: true,

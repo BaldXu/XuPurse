@@ -134,10 +134,10 @@
 
 | # | 事项 | 状态 |
 |---|------|------|
-| 1 | 全局转场复核：push/pop、sheet、dialog 三类节奏统一（micro/component/container 档位对号） | `[ ]` |
-| 2 | FAB：随路由出现/消失；按下微缩放 | `[ ]` |
-| 3 | 列表项进视口轻微 stagger 淡入（仅首页与资产页试点，性能不达标则回退） | `[ ]` |
-| 4 | reduce-motion / animationsEnabled=false 全链路验证 | `[ ]` |
+| 1 | 全局转场复核：push/pop、sheet、dialog 三类节奏统一（micro/component/container 档位对号） | `[x]`（push=PredictiveBack/Zoom、sheet=M3 内建+container 形状、dialog=showXpDialog 限宽、snackBar 补 XpShape 圆角） |
+| 2 | FAB：随路由出现/消失；按下微缩放 | `[x]`（XpFab 统一封装：Listener+AnimatedScale 0.96 micro，reduce-motion 直通；全 7 处 FAB 收口） |
+| 3 | 列表项进视口轻微 stagger 淡入（仅首页与资产页试点，性能不达标则回退） | `[x]`（XpStaggerIn：仅透明度+索引差分延迟封顶 240ms；home 前 12 组、accounts 前 6 组，超限直接渲染） |
+| 4 | reduce-motion / animationsEnabled=false 全链路验证 | `[x]`（逐点核查：XpEntrance/XpSkeleton._Pulse/XpCard/XpFab/XpStaggerIn 五处均双开关判断，static 关闭态直通 child） |
 
 ## 五、阶段 3：整体验收 `[ ]`
 
@@ -175,3 +175,4 @@
 - 2026-09-20（晚）：阶段 1 Tab 页四页重构。home 补接整页骨架（loading: billsAsync.isLoading）；accounts 重构为总资产 Hero（Display tabular 大金额 + 近 90 天周粒度迷你趋势线，与趋势页共用算法五）→ 趋势入口 XpCard → 三类分组账户卡（组内行 Divider 缩进 60，XpCard clipBehavior 裁剪 ripple）；mine 重构为用户卡（账本名+本位币+总资产）→ 通用/偏好/关于三分组（图标 primary 色块 + chevron）+ 版本脚注；statistics 拆分为 statistics/ 子目录 6 文件（stats_shared + 5 分区），跨文件符号最小公开化（StatsSectionRefresh/xpFadeGate/StatsRangePreset 等）。
 - 2026-09-20（晚·二）：阶段 1 二级页第一批（9/16）。search（双流骨架+XpEmptyState 空态）；account_detail 整页重构（账户 Hero tabular 大金额 + watchPage 按账户流水卡（新增 accountBillsProvider autoDispose.family，drift watch 响应式）+ 快照卡化 + BillTile 行点按/长按删除）；account_manage（整页骨架 + 总余额小计行 tabular + 列表卡化 _AccountCheckRow）；book_manage/budget_manage/tag_manage/ledger_manage（4 处 loading→骨架 + 空态 XpEmptyState）；trend（整页 XpSkeletonPage + 单账户卡/累计净额卡骨架，import 路径随 statistics 拆分改 stats_shared）。
 - 2026-09-20（晚·三）：阶段 1 二级页第二批（7/7 收官，16/16 全部完成）。settings 入口行图标色块化（对齐 mine 页）；currency 汇率列表卡片化（primary 色块头像+Divider 缩进）；import 步骤感标题（1·选择来源 / 2·选择文件）；ai_settings 删除确认 AlertDialog→confirmXpDialog(danger)；data_manage 操作行 _TintedIcon 色块图标；about 新增隐私说明卡（showAboutDialog）。共享组件 bill_tile/xp_empty_state/xp_snack 随各页迁移已达标。analyze 0 + 91 测试过。
+- 2026-09-20（晚·四）：阶段 2 动效打磨完成。全局转场复核（页面=PredictiveBack/Zoom、sheet=M3 内建 container 节奏、dialog 统一 showXpDialog、snackBar 浮起补 XpShape 圆角）；XpFab 统一 FAB（按下 0.96 微缩放，Listener+AnimatedScale micro 170ms，reduce-motion 直通，7 处收口：home/book/budget/category/tag/ai_settings）；XpStaggerIn 列表淡入试点（仅透明度、索引差分延迟 40ms/项封顶 240ms、reduce-motion 直通；home 前 12 组+accounts 前 6 组，超限直渲染——性能回退方案就位）；reduce-motion 全链路核查（XpEntrance/骨架脉冲/XpCard/XpFab/XpStaggerIn 五处双开关齐备）。analyze 0 + 91 测试过。
