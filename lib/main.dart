@@ -49,17 +49,20 @@ class XuPurseApp extends ConsumerWidget {
     // 尊重系统「减少动画」无障碍设置:开启时禁用主题级转场动画
     final reduceMotion =
         MediaQuery.of(context).disableAnimations || !theme.animationsEnabled;
+    final cardFrosted = ref.watch(frostedGlassProvider).cardsOn;
     return MaterialApp(
       title: 'XuPurse',
       theme: buildAppTheme(
         Brightness.light,
         theme,
         animationsEnabled: !reduceMotion,
+        cardFrosted: cardFrosted,
       ),
       darkTheme: buildAppTheme(
         Brightness.dark,
         darkThemePreset,
         animationsEnabled: !reduceMotion,
+        cardFrosted: cardFrosted,
       ),
       themeMode: dark ? ThemeMode.dark : ThemeMode.light,
       home: const MainShell(),

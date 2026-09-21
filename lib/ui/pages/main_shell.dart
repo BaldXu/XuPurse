@@ -117,7 +117,7 @@ class _MainShellState extends ConsumerState<MainShell> {
 
   @override
   Widget build(BuildContext context) {
-    final frosted = ref.watch(frostedGlassProvider);
+    final frosted = ref.watch(frostedGlassProvider).barsOn;
     // LayoutBuilder 而非 MediaQuery.sizeOf：跟随实际可用宽窄切换布局。
     return LayoutBuilder(
       builder: (context, constraints) {

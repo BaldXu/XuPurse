@@ -306,15 +306,44 @@ class ThemeNotifier extends Notifier<ThemeState> {
   }
 }
 
-/// 全局磨砂玻璃开关(独立于具体主题):标题栏/导航栏的白色高斯模糊效果。
-/// 开启:所有页面 AppBar 与一级页底部导航栏换磨砂玻璃;
-/// 关闭:恢复原生不透明栏样式。默认开启,持久化到 SharedPreferences。
-final frostedGlassProvider = NotifierProvider<FrostedGlassNotifier, bool>(
+/// 磨砂玻璃配置（独立于具体主题）：
+/// 总开关 + 两个子项——标题栏/导航栏磨砂、卡片磨砂。
+///
+/// 历史版本只有单个总开关（即现在的 [enabled]），迁移时
+/// 子项默认 appBar=true、card=false，保持旧行为不变。
+class FrostedState {
+  const FrostedState({
+    required this.enabled,
+    required this.appBar,
+    required this.card,
+  });
+
+  /// 磨砂总开关：关掉后两个子项全部失效。
+  final bool enabled;
+
+  /// 子项 1：标题栏 / 导航栏磨砂（AppBar 与一级页底部导航栏的白色高斯模糊）。
+  final bool appBar;
+
+  /// 子项 2：卡片磨砂（卡片表面半透明白磨砂，σ20 / α0.65）。
+  final bool card;
+
+  /// 标题栏/导航栏磨砂是否实际生效。
+  bool get barsOn => enabled && appBar;
+
+  /// 卡片磨砂是否实际生效。
+  bool get cardsOn => enabled && card;
+}
+
+/// 全局磨砂玻璃配置，持久化到 SharedPreferences。
+final frostedGlassProvider = NotifierProvider<FrostedGlassNotifier, FrostedState>(
   FrostedGlassNotifier.new,
 );
 
-class FrostedGlassNotifier extends Notifier<bool> {
+class FrostedGlassNotifier extends Notifier<FrostedState> {
+  /// 旧版总开关 key（迁移：写入/读取仍用它表示 enabled）。
   static const _key = 'ui_frosted_glass';
+  static const _keyAppBar = 'ui_frosted_appbar';
+  static const _keyCard = 'ui_frosted_card';
 
   static SharedPreferences? _prefsCache;
 
@@ -324,13 +353,38 @@ class FrostedGlassNotifier extends Notifier<bool> {
   }
 
   @override
-  bool build() => _prefsCache?.getBool(_key) ?? true;
+  FrostedState build() => FrostedState(
+    enabled: _prefsCache?.getBool(_key) ?? true,
+    appBar: _prefsCache?.getBool(_keyAppBar) ?? true,
+    card: _prefsCache?.getBool(_keyCard) ?? false,
+  );
 
-  Future<void> set(bool value) async {
-    if (state == value) return;
-    state = value;
+  Future<void> _persist(FrostedState next) async {
     final prefs = await SharedPreferences.getInstance();
     _prefsCache = prefs;
-    await prefs.setBool(_key, value);
+    await prefs.setBool(_key, next.enabled);
+    await prefs.setBool(_keyAppBar, next.appBar);
+    await prefs.setBool(_keyCard, next.card);
+  }
+
+  Future<void> setEnabled(bool value) async {
+    if (state.enabled == value) return;
+    final next = FrostedState(enabled: value, appBar: state.appBar, card: state.card);
+    await _persist(next);
+    state = next;
+  }
+
+  Future<void> setAppBar(bool value) async {
+    if (state.appBar == value) return;
+    final next = FrostedState(enabled: state.enabled, appBar: value, card: state.card);
+    await _persist(next);
+    state = next;
+  }
+
+  Future<void> setCard(bool value) async {
+    if (state.card == value) return;
+    final next = FrostedState(enabled: state.enabled, appBar: state.appBar, card: value);
+    await _persist(next);
+    state = next;
   }
 }

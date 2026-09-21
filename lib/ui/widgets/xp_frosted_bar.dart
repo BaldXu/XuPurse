@@ -16,7 +16,7 @@ class XpFrostedContainer extends StatelessWidget {
   const XpFrostedContainer({
     super.key,
     this.child = const SizedBox.expand(),
-    this.sigma = 20,
+    this.sigma = 15,
     this.alpha = 0.45,
   });
 

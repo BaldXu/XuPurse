@@ -420,10 +420,11 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
     );
   }
 
-  /// 磨砂玻璃:全局开关(不依赖具体主题),控制所有页面标题栏/导航栏的
-  /// 白色高斯模糊效果;关闭后恢复原生不透明栏样式。
+  /// 磨砂玻璃:全局配置(不依赖具体主题)。总开关 + 两个子开关——
+  /// 标题栏/导航栏磨砂、卡片磨砂;总开关关闭时子开关失效。
   Widget _buildFrostedSection() {
-    final frosted = ref.watch(frostedGlassProvider);
+    final state = ref.watch(frostedGlassProvider);
+    final notifier = ref.read(frostedGlassProvider.notifier);
     final scheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -431,20 +432,46 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
         Text('磨砂玻璃', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 4),
         Text(
-          '标题栏与导航栏的白色高斯模糊效果，对所有页面生效。',
+          '白色高斯模糊质感：标题栏/导航栏与卡片可分别开关。',
           style: Theme.of(
             context,
           ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
         ),
         const SizedBox(height: 12),
         Card(
-          child: ListTile(
-            leading: Icon(Icons.blur_on, color: scheme.primary),
-            title: const Text('磨砂玻璃'),
-            trailing: Switch(
-              value: frosted,
-              onChanged: (v) => ref.read(frostedGlassProvider.notifier).set(v),
-            ),
+          child: Column(
+            children: [
+              ListTile(
+                leading: Icon(Icons.blur_on, color: scheme.primary),
+                title: const Text('磨砂玻璃'),
+                subtitle: const Text('总开关，关闭后以下两项均不生效'),
+                trailing: Switch(
+                  value: state.enabled,
+                  onChanged: notifier.setEnabled,
+                ),
+              ),
+              const Divider(height: 1, indent: 16, endIndent: 16),
+              ListTile(
+                leading: Icon(Icons.vertical_split, color: scheme.primary),
+                title: const Text('标题栏/导航栏磨砂'),
+                enabled: state.enabled,
+                trailing: Switch(
+                  value: state.appBar,
+                  onChanged: notifier.setAppBar,
+                ),
+              ),
+              const Divider(height: 1, indent: 16, endIndent: 16),
+              ListTile(
+                leading: Icon(Icons.style_outlined, color: scheme.primary),
+                title: const Text('卡片磨砂'),
+                subtitle: const Text('卡片表面白色磨砂（σ20 · 透明度 0.65）'),
+                enabled: state.enabled,
+                trailing: Switch(
+                  value: state.card,
+                  onChanged: notifier.setCard,
+                ),
+              ),
+            ],
           ),
         ),
       ],

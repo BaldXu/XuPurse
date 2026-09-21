@@ -37,6 +37,7 @@ ThemeData buildAppTheme(
   Brightness brightness,
   AppTheme theme, {
   bool? animationsEnabled,
+  bool cardFrosted = false,
 }) {
   final dark = brightness == Brightness.dark || theme.isDark;
   ColorScheme scheme = ColorScheme.fromSeed(
@@ -76,23 +77,37 @@ ThemeData buildAppTheme(
   final cardRadius = BorderRadius.circular(theme.cardRadius ?? XpRadius.m);
   final cardShape = XpShape.smooth(borderRadius: cardRadius);
 
+  // 卡片磨砂：卡片表面换半透明白（α0.65），覆盖用户自定义卡色。
+  // 白色高斯模糊本身由磨砂栏的 XpFrostedContainer(σ20) 提供质感；
+  // 卡片在布局流内无内容穿底，表面半透明白即形成磨砂视觉。
+  // 仅浅色模式生效：暗色下白色磨砂会让白字卡片内容不可读。
+  final effectiveCardFrosted = cardFrosted && !dark;
+  final frostCardColor = Colors.white.withValues(alpha: 0.65);
+
   final CardThemeData cardTheme = switch (theme.cardStyle) {
     XpCardStyle.filled => CardThemeData(
       elevation: XpElevation.e0,
-      color: cardColor ?? scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+      color: effectiveCardFrosted
+          ? frostCardColor
+          : (cardColor ??
+                scheme.surfaceContainerHighest.withValues(alpha: 0.5)),
       shape: cardShape,
       margin: EdgeInsets.zero,
     ),
     XpCardStyle.outlined => CardThemeData(
       elevation: XpElevation.e0,
-      color: cardColor ?? scheme.surface,
+      color: effectiveCardFrosted
+          ? frostCardColor
+          : (cardColor ?? scheme.surface),
       shape: cardShape.copyWith(side: BorderSide(color: scheme.outlineVariant)),
       margin: EdgeInsets.zero,
     ),
     XpCardStyle.elevated => CardThemeData(
       elevation: XpElevation.e1,
       shadowColor: XpElevation.shadow.withValues(alpha: 0.24),
-      color: cardColor ?? scheme.surface,
+      color: effectiveCardFrosted
+          ? frostCardColor
+          : (cardColor ?? scheme.surface),
       shape: cardShape,
       margin: EdgeInsets.zero,
       surfaceTintColor: Colors.transparent,

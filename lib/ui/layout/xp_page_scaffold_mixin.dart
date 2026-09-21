@@ -35,7 +35,7 @@ mixin XpPageScaffold<T extends StatefulWidget> on State<T> {
     return Consumer(
       builder: (context, ref, _) {
         final frosted =
-            ref.watch(frostedGlassProvider) &&
+            ref.watch(frostedGlassProvider).barsOn &&
             appBar != null; // 磨砂:任意 AppBar 统一包壳,全部页面默认生效。
         Widget content = XpEntrance(
           child: ContentWidthBox(
