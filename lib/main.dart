@@ -14,6 +14,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await CurrencyService.init();
   await ThemeNotifier.init();
+  await FrostedGlassNotifier.init();
   await AiConfigNotifier.init();
   await AiChatNotifier.init();
 

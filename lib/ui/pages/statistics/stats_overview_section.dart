@@ -109,7 +109,13 @@ class _OverviewSectionState extends ConsumerState<StatsOverviewSection>
         final d = snap.data!;
         final balance = d.income - d.expense;
         return ListView(
-          padding: const EdgeInsets.all(16),
+          // 底部留出穿透导航栏的高度(extendBody 注入的 MediaQuery bottom)。
+          padding: EdgeInsets.fromLTRB(
+            16,
+            16,
+            16,
+            16 + MediaQuery.paddingOf(context).bottom,
+          ),
           children: [
             _SummaryCard(
               expense: d.expense,

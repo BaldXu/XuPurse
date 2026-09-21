@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../state/theme_provider.dart';
 import '../layout/breakpoints.dart';
 import '../layout/lazy_indexed_stack.dart';
+import '../widgets/xp_frosted_bar.dart';
 import 'accounts_page.dart';
 import 'home_page.dart';
 import 'mine_page.dart';
@@ -12,15 +15,21 @@ import 'statistics_page.dart';
 /// IndexedStack 保持各页状态。自适应：
 /// - 窄屏（手机竖屏）：底部 NavigationBar（现状不变）；
 /// - 宽屏（桌面横屏）：左侧带文字标签的宽侧栏。
-class MainShell extends StatefulWidget {
+///
+/// 磨砂模式:外层包 [BackdropGroup],一级页 AppBar 与底部导航栏共享一次
+/// 引擎模糊(BackdropFilter.grouped 自动归组);开关关闭恢复原生样式。
+class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key});
 
   @override
-  State<MainShell> createState() => _MainShellState();
+  ConsumerState<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends State<MainShell> {
+class _MainShellState extends ConsumerState<MainShell> {
   int _index = 0;
+
+  // 固定 key 避免每次 build 生成新组导致共享模糊层失效重建。
+  late final BackdropKey _backdropKey = BackdropKey();
 
   static const _pages = [
     HomePage(),
@@ -80,34 +89,42 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
-  /// 窄屏：现状不变（底部导航栏）。
-  Widget _buildNarrow() {
+  /// 窄屏：底部导航栏。磨砂开 = 白色磨砂玻璃栏 + 内容穿透栏底(extendBody);
+  /// 磨砂关 = 原生不透明 NavigationBar。
+  Widget _buildNarrow(bool frosted) {
+    final navBar = NavigationBar(
+      backgroundColor: frosted ? Colors.transparent : null,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      selectedIndex: _index,
+      onDestinationSelected: (i) => setState(() => _index = i),
+      destinations: [
+        for (var i = 0; i < _labels.length; i++)
+          NavigationDestination(
+            icon: Icon(_icons[i]),
+            selectedIcon: Icon(_selectedIcons[i]),
+            label: _labels[i],
+          ),
+      ],
+    );
     return Scaffold(
+      extendBody: frosted,
       body: LazyIndexedStack(index: _index, children: _pages),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: [
-          for (var i = 0; i < _labels.length; i++)
-            NavigationDestination(
-              icon: Icon(_icons[i]),
-              selectedIcon: Icon(_selectedIcons[i]),
-              label: _labels[i],
-            ),
-        ],
-      ),
-      // 只给本 Scaffold 一个空 AppBar 高度占位：避免各页 Scaffold AppBar 颜色
-      // 与 Rail 侧栏区拼接处出现视觉断层 —— 各页自带 AppBar，无需处理。
+      bottomNavigationBar: frosted ? XpFrostedContainer(child: navBar) : navBar,
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final frosted = ref.watch(frostedGlassProvider);
     // LayoutBuilder 而非 MediaQuery.sizeOf：跟随实际可用宽窄切换布局。
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= kWideBreakpoint;
-        return wide ? _buildWide() : _buildNarrow();
+        final shell = wide ? _buildWide() : _buildNarrow(frosted);
+        return frosted
+            ? BackdropGroup(backdropKey: _backdropKey, child: shell)
+            : shell;
       },
     );
   }

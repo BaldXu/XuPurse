@@ -305,3 +305,32 @@ class ThemeNotifier extends Notifier<ThemeState> {
     return true;
   }
 }
+
+/// 全局磨砂玻璃开关(独立于具体主题):标题栏/导航栏的白色高斯模糊效果。
+/// 开启:所有页面 AppBar 与一级页底部导航栏换磨砂玻璃;
+/// 关闭:恢复原生不透明栏样式。默认开启,持久化到 SharedPreferences。
+final frostedGlassProvider = NotifierProvider<FrostedGlassNotifier, bool>(
+  FrostedGlassNotifier.new,
+);
+
+class FrostedGlassNotifier extends Notifier<bool> {
+  static const _key = 'ui_frosted_glass';
+
+  static SharedPreferences? _prefsCache;
+
+  /// main 启动时调用，预热 SharedPreferences 缓存（build 需要同步读取）。
+  static Future<void> init() async {
+    _prefsCache = await SharedPreferences.getInstance();
+  }
+
+  @override
+  bool build() => _prefsCache?.getBool(_key) ?? true;
+
+  Future<void> set(bool value) async {
+    if (state == value) return;
+    state = value;
+    final prefs = await SharedPreferences.getInstance();
+    _prefsCache = prefs;
+    await prefs.setBool(_key, value);
+  }
+}

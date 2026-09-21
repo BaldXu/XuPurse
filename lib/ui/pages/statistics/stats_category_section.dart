@@ -81,7 +81,13 @@ class _CategorySectionState extends ConsumerState<StatsCategorySection>
         }
         final d = snap.data!;
         return ListView(
-          padding: const EdgeInsets.all(16),
+          // 底部留出穿透导航栏的高度(extendBody 注入的 MediaQuery bottom)。
+          padding: EdgeInsets.fromLTRB(
+            16,
+            16,
+            16,
+            16 + MediaQuery.paddingOf(context).bottom,
+          ),
           children: [
             _CategoryPieCard(
               title: '支出分类占比',

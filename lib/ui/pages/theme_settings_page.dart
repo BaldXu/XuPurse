@@ -274,6 +274,12 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
           ),
           const SizedBox(height: 24),
           _buildAppearanceSection(state),
+
+          // ---- 磨砂玻璃（全局开关，独立于主题预设） ----
+          const SizedBox(height: 24),
+          const Divider(height: 1),
+          const SizedBox(height: 24),
+          _buildFrostedSection(),
         ],
       ),
     );
@@ -363,6 +369,37 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
                   ),
                 ),
               ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 磨砂玻璃:全局开关(不依赖具体主题),控制所有页面标题栏/导航栏的
+  /// 白色高斯模糊效果;关闭后恢复原生不透明栏样式。
+  Widget _buildFrostedSection() {
+    final frosted = ref.watch(frostedGlassProvider);
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('磨砂玻璃', style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 4),
+        Text(
+          '标题栏与导航栏的白色高斯模糊效果，对所有页面生效。',
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: ListTile(
+            leading: Icon(Icons.blur_on, color: scheme.primary),
+            title: const Text('磨砂玻璃'),
+            trailing: Switch(
+              value: frosted,
+              onChanged: (v) => ref.read(frostedGlassProvider.notifier).set(v),
             ),
           ),
         ),

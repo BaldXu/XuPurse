@@ -117,6 +117,12 @@ class _HomePageState extends ConsumerState<HomePage>
                 return _buildBillSliver(context, ref, bills);
               },
             ),
+            // 底部留出穿透导航栏的高度(extendBody 注入的 MediaQuery bottom)。
+            SliverPadding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.paddingOf(context).bottom,
+              ),
+            ),
           ],
         ),
       ),

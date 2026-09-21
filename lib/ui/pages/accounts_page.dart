@@ -90,11 +90,12 @@ class _AccountsPageState extends ConsumerState<AccountsPage>
           var groupIndex = 0;
 
           return ListView(
-            padding: const EdgeInsets.fromLTRB(
+            // 底部留出穿透导航栏的高度(extendBody 注入的 MediaQuery bottom)。
+            padding: EdgeInsets.fromLTRB(
               XpSpacing.l,
               XpSpacing.xs,
               XpSpacing.l,
-              32,
+              32 + MediaQuery.paddingOf(context).bottom,
             ),
             children: [
               // ── 总资产 Hero ──

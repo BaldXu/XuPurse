@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../state/theme_provider.dart';
 import '../layout/breakpoints.dart';
 import '../tokens/design_tokens.dart';
+import '../widgets/xp_frosted_bar.dart';
 import '../widgets/xp_skeleton.dart';
 
 /// 页面壳 mixin:统一 Scaffold + AppBar + 宽屏限宽居中。
@@ -30,27 +31,54 @@ mixin XpPageScaffold<T extends StatefulWidget> on State<T> {
     Widget? bottomNavigationBar,
     bool? resizeToAvoidBottomInset,
   }) {
-    return Scaffold(
-      appBar: appBar,
-      floatingActionButton: floatingActionButton,
-      bottomNavigationBar: bottomNavigationBar,
-      resizeToAvoidBottomInset: resizeToAvoidBottomInset,
-      body: XpEntrance(
-        child: ContentWidthBox(
-          maxWidth: xpMaxWidth,
-          child: AnimatedSwitcher(
-            duration: XpMotion.component,
-            switchInCurve: XpMotion.easeOut,
-            switchOutCurve: XpMotion.easeIn,
-            child: KeyedSubtree(
-              key: ValueKey<bool>(loading),
-              child: loading
-                  ? const XpSkeletonPage()
-                  : body ?? const SizedBox.shrink(),
+    // Consumer 包裹:磨砂开关(全局 provider)变化时本页即时切换栏样式。
+    return Consumer(
+      builder: (context, ref, _) {
+        final frosted =
+            ref.watch(frostedGlassProvider) &&
+            appBar != null; // 磨砂:任意 AppBar 统一包壳,全部页面默认生效。
+        Widget content = XpEntrance(
+          child: ContentWidthBox(
+            maxWidth: xpMaxWidth,
+            child: AnimatedSwitcher(
+              duration: XpMotion.component,
+              switchInCurve: XpMotion.easeOut,
+              switchOutCurve: XpMotion.easeIn,
+              child: KeyedSubtree(
+                key: ValueKey<bool>(loading),
+                child: loading
+                    ? const XpSkeletonPage()
+                    : body ?? const SizedBox.shrink(),
+              ),
             ),
           ),
-        ),
-      ),
+        );
+        // 磨砂 AppBar:body 延伸到 AppBar 底下,顶部用「状态栏 + AppBar 实际
+        // 高度」留白,滚动内容可从磨砂栏后穿过。removeTop 防止内层主滚动视图
+        // (ListView/CustomScrollView 默认避让)再次叠加状态栏间距。
+        if (frosted) {
+          content = MediaQuery.removePadding(
+            context: context,
+            removeTop: true,
+            child: Padding(
+              padding: EdgeInsets.only(
+                top:
+                    MediaQuery.paddingOf(context).top +
+                    appBar.preferredSize.height,
+              ),
+              child: content,
+            ),
+          );
+        }
+        return Scaffold(
+          extendBodyBehindAppBar: frosted,
+          appBar: frosted ? XpFrostedShell(child: appBar) : appBar,
+          floatingActionButton: floatingActionButton,
+          bottomNavigationBar: bottomNavigationBar,
+          resizeToAvoidBottomInset: resizeToAvoidBottomInset,
+          body: content,
+        );
+      },
     );
   }
 }

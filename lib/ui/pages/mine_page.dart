@@ -36,11 +36,12 @@ class _MinePageState extends ConsumerState<MinePage>
     return buildXpScaffold(
       appBar: AppBar(title: const Text('我的')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(
+        // 底部留出穿透导航栏的高度(extendBody 注入的 MediaQuery bottom)。
+        padding: EdgeInsets.fromLTRB(
           XpSpacing.l,
           XpSpacing.xs,
           XpSpacing.l,
-          32,
+          32 + MediaQuery.paddingOf(context).bottom,
         ),
         children: [
           // ── 用户卡：账本身份 + 总资产概览 ──
