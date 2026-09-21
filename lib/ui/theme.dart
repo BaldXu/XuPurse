@@ -34,46 +34,15 @@ class _ZeroTransitionPageTransitionsBuilder extends PageTransitionsBuilder {
   }
 }
 
-/// 轻量页面转场：淡入 + 上移 3%（无快照）。
-///
-/// 相比 Material 默认的 ZoomPageTransitionsBuilder，不做 toImage 快照
-/// （Impeller/Vulkan 下该步骤会阻塞 UI 线程，导致 push/pop 首帧卡顿、
-/// 看起来像没有转场动画）；时长与曲线跟随 XpMotion.page（400ms
-/// easeOut/easeIn），进出场双向顺滑。
-class _XpPageTransitionsBuilder extends PageTransitionsBuilder {
-  const _XpPageTransitionsBuilder();
-
-  @override
-  Duration get transitionDuration => XpMotion.page;
-
-  @override
-  Duration get reverseTransitionDuration => XpMotion.page;
-
-  @override
-  Widget buildTransitions<T>(
-    PageRoute<T>? route,
-    BuildContext? context,
-    Animation<double> animation,
-    Animation<double>? secondaryAnimation,
-    Widget child,
-  ) {
-    final curved = CurvedAnimation(
-      parent: animation,
-      curve: XpMotion.easeOut,
-      reverseCurve: XpMotion.easeIn,
-    );
-    return FadeTransition(
-      opacity: curved,
-      child: SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(0, 0.03),
-          end: Offset.zero,
-        ).animate(curved),
-        child: child,
-      ),
-    );
-  }
-}
+/// 页面转场选型的原因记录(见下方 pageTransitionsTheme):
+/// 本 App 每页 AppBar 带磨砂 BackdropFilter,候选转场均有实测缺陷——
+/// 自定义淡入/交叉淡化/fade-through:整页透明度动画包住磨砂栏,引擎逐帧
+/// 重算模糊快照,进二级页明显闪烁;Zoom(M3 默认):toImage 快照在
+/// Impeller/Vulkan 阻塞 UI 线程;PredictiveBack:磨砂铺开时实测定稿移除;
+/// FadeForwards(Android U):本质仍是交叉淡化且 800ms 更长。
+/// CupertinoPageTransitionsBuilder 纯 Transform 滑动 + 旧页视差,
+/// 整页零 Opacity,对磨砂模糊层与快照均无负担,是 Flutter iOS 长期
+/// 使用的成熟实现;animationsEnabled=false 时走零时长。
 
 ThemeData buildAppTheme(
   Brightness brightness,
@@ -187,7 +156,7 @@ ThemeData buildAppTheme(
         for (final platform in TargetPlatform.values)
           platform: !animOn
               ? const _ZeroTransitionPageTransitionsBuilder()
-              : const _XpPageTransitionsBuilder(),
+              : const CupertinoPageTransitionsBuilder(),
       },
     ),
   );

@@ -17,9 +17,9 @@ import '../widgets/xp_skeleton.dart';
 /// 加载完成后与真实内容做淡入切换(XpMotion.component)。
 /// 块级异步请用 XpAsyncView.xpWhen,不要两者叠加。
 ///
-/// 进场:页面内容首次构建时做「淡入 + 上移 8dp」([XpEntrance]),
-/// 动画开关与系统 reduce-motion 由 [XpEntrance] 内部判断。
-/// 无法混入本 mixin 的页面(如 ConsumerWidget)可直接包一层 [XpEntrance]。
+/// 进场动画:由路由转场统一负责(theme 的 CupertinoPageTransitionsBuilder),
+/// mixin 内不再叠加内容级进场,避免双重动画。特殊页面如需内容级进场,
+/// 可自行包一层 [XpEntrance](仅首次构建触发,尊重动画开关与 reduce-motion)。
 mixin XpPageScaffold<T extends StatefulWidget> on State<T> {
   double get xpMaxWidth => 720;
 
@@ -37,19 +37,19 @@ mixin XpPageScaffold<T extends StatefulWidget> on State<T> {
         final frosted =
             ref.watch(frostedGlassProvider).barsOn &&
             appBar != null; // 磨砂:任意 AppBar 统一包壳,全部页面默认生效。
-        Widget content = XpEntrance(
-          child: ContentWidthBox(
-            maxWidth: xpMaxWidth,
-            child: AnimatedSwitcher(
-              duration: XpMotion.component,
-              switchInCurve: XpMotion.easeOut,
-              switchOutCurve: XpMotion.easeIn,
-              child: KeyedSubtree(
-                key: ValueKey<bool>(loading),
-                child: loading
-                    ? const XpSkeletonPage()
-                    : body ?? const SizedBox.shrink(),
-              ),
+        // 页面转场由 theme 的 PageTransitionsTheme 统一负责(Cupertino 滑动),
+        // 此处不再叠加进场动画,保证一个页面只有一个转场动画。
+        Widget content = ContentWidthBox(
+          maxWidth: xpMaxWidth,
+          child: AnimatedSwitcher(
+            duration: XpMotion.component,
+            switchInCurve: XpMotion.easeOut,
+            switchOutCurve: XpMotion.easeIn,
+            child: KeyedSubtree(
+              key: ValueKey<bool>(loading),
+              child: loading
+                  ? const XpSkeletonPage()
+                  : body ?? const SizedBox.shrink(),
             ),
           ),
         );
