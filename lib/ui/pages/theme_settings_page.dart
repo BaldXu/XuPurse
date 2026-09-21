@@ -510,7 +510,7 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
               ListTile(
                 leading: Icon(Icons.style_outlined, color: scheme.primary),
                 title: const Text('卡片磨砂'),
-                subtitle: const Text('卡片表面白色磨砂（σ30 · 透明度 0.65）'),
+                subtitle: const Text('卡片表面白色磨砂（σ10 · 透明度 0.55）'),
                 enabled: state.enabled,
                 trailing: Switch(
                   value: state.card,

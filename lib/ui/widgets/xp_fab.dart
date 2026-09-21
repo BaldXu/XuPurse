@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../state/theme_provider.dart';
 import '../tokens/design_tokens.dart';
+import 'xp_card.dart';
 
 /// 统一 FAB:按下微缩放(micro 170ms),尊重系统 reduce-motion。
 /// 外观(shape/icon 尺寸/extended)与 FloatingActionButton 默认一致;
@@ -37,10 +38,6 @@ class XpFab extends StatefulWidget {
 class _XpFabState extends State<XpFab> {
   bool _pressed = false;
 
-  /// FAB 磨砂参数与 XpCard 卡片磨砂一致（σ30 · 白 0.65）。
-  static const double frostSigma = 30;
-  static const double frostAlpha = 0.65;
-
   @override
   Widget build(BuildContext context) {
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
@@ -48,8 +45,8 @@ class _XpFabState extends State<XpFab> {
     // 与「由卡片包裹」的要求一致——FAB 与卡片共享同一套表面。
     final scheme = Theme.of(context).colorScheme;
     final cardColor = Theme.of(context).cardTheme.color;
-    // 卡片磨砂开启时：表面由下方真实模糊层（σ30 + 白 0.65）提供，
-    // FAB 背景置透明避免双层白。
+    // 卡片磨砂开启时：表面由下方真实模糊层提供（参数与 XpCard 卡片磨砂
+    // 完全一致，保证 FAB 与卡片视觉统一），FAB 背景置透明避免双层白。
     final cardsOn = ProviderScope.containerOf(
       context,
       listen: false,
@@ -105,14 +102,17 @@ class _XpFabState extends State<XpFab> {
     );
   }
 
-  /// 磨砂表面：形状裁剪内做真实高斯模糊 + 半透明白（与 XpCard 同参）。
+  /// 磨砂表面：形状裁剪内做真实高斯模糊 + 半透明白（参数同 XpCard）。
   Widget _frostFab(Widget fab, ShapeBorder shape) {
     return ClipPath(
       clipper: ShapeBorderClipper(shape: shape),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: frostSigma, sigmaY: frostSigma),
+        filter: ImageFilter.blur(
+          sigmaX: XpCard.frostSigma,
+          sigmaY: XpCard.frostSigma,
+        ),
         child: ColoredBox(
-          color: Colors.white.withValues(alpha: frostAlpha),
+          color: Colors.white.withValues(alpha: XpCard.frostAlpha),
           child: fab,
         ),
       ),

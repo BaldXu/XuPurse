@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../state/theme_provider.dart';
 import 'tokens/design_tokens.dart';
+import 'widgets/xp_card.dart';
 
 /// XuPurse 主题:Material 3,由 [AppTheme] 配置驱动。
 ///
@@ -30,6 +31,47 @@ class _ZeroTransitionPageTransitionsBuilder extends PageTransitionsBuilder {
     Widget child,
   ) {
     return child;
+  }
+}
+
+/// 轻量页面转场：淡入 + 上移 3%（无快照）。
+///
+/// 相比 Material 默认的 ZoomPageTransitionsBuilder，不做 toImage 快照
+/// （Impeller/Vulkan 下该步骤会阻塞 UI 线程，导致 push/pop 首帧卡顿、
+/// 看起来像没有转场动画）；时长与曲线跟随 XpMotion.page（400ms
+/// easeOut/easeIn），进出场双向顺滑。
+class _XpPageTransitionsBuilder extends PageTransitionsBuilder {
+  const _XpPageTransitionsBuilder();
+
+  @override
+  Duration get transitionDuration => XpMotion.page;
+
+  @override
+  Duration get reverseTransitionDuration => XpMotion.page;
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T>? route,
+    BuildContext? context,
+    Animation<double> animation,
+    Animation<double>? secondaryAnimation,
+    Widget child,
+  ) {
+    final curved = CurvedAnimation(
+      parent: animation,
+      curve: XpMotion.easeOut,
+      reverseCurve: XpMotion.easeIn,
+    );
+    return FadeTransition(
+      opacity: curved,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.03),
+          end: Offset.zero,
+        ).animate(curved),
+        child: child,
+      ),
+    );
   }
 }
 
@@ -77,12 +119,12 @@ ThemeData buildAppTheme(
   final cardRadius = BorderRadius.circular(theme.cardRadius ?? XpRadius.m);
   final cardShape = XpShape.smooth(borderRadius: cardRadius);
 
-  // 卡片磨砂：卡片表面换半透明白（α0.65），覆盖用户自定义卡色。
-  // 白色高斯模糊本身由磨砂栏的 XpFrostedContainer(σ20) 提供质感；
-  // 卡片在布局流内无内容穿底，表面半透明白即形成磨砂视觉。
+  // 卡片磨砂：卡片表面换半透明白（α0.55），覆盖用户自定义卡色。
+  // XpCard 在磨砂开启时自带真实高斯模糊层（σ10 + 白 0.55，见 XpCard.frost*），
+  // 此处仅服务于内页原始 Card（统计/趋势等，无穿底内容、不叠真实模糊）。
   // 仅浅色模式生效：暗色下白色磨砂会让白字卡片内容不可读。
   final effectiveCardFrosted = cardFrosted && !dark;
-  final frostCardColor = Colors.white.withValues(alpha: 0.65);
+  final frostCardColor = Colors.white.withValues(alpha: XpCard.frostAlpha);
 
   final CardThemeData cardTheme = switch (theme.cardStyle) {
     XpCardStyle.filled => CardThemeData(
@@ -145,7 +187,7 @@ ThemeData buildAppTheme(
         for (final platform in TargetPlatform.values)
           platform: !animOn
               ? const _ZeroTransitionPageTransitionsBuilder()
-              : const ZoomPageTransitionsBuilder(),
+              : const _XpPageTransitionsBuilder(),
       },
     ),
   );

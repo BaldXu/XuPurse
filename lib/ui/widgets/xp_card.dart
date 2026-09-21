@@ -34,6 +34,11 @@ class XpCard extends StatefulWidget {
   /// 让 ripple/按压态被圆角裁剪）。
   final Clip? clipBehavior;
 
+  /// 卡片磨砂参数：真实高斯模糊 σ10 · 白 0.55（比弹窗磨砂更透）。
+  /// FAB 磨砂（XpFab）共享同一参数，保证「卡片化」表面视觉一致。
+  static const double frostSigma = 10;
+  static const double frostAlpha = 0.55;
+
   @override
   State<XpCard> createState() => _XpCardState();
 }
@@ -57,8 +62,8 @@ class _XpCardState extends State<XpCard> {
           listen: false,
         ).read(currentThemeProvider).animationsEnabled &&
         !MediaQuery.disableAnimationsOf(context);
-    // 卡片磨砂开启时：表面由下方真实模糊层（σ30 + 白 0.65）提供，
-    // 内部 Card 置透明避免双层白；透明度不变、模糊程度增加。
+    // 卡片磨砂开启时：表面由下方真实模糊层（σ10 + 白 0.55）提供，
+    // 内部 Card 置透明避免双层白。
     final cardsOn = ProviderScope.containerOf(
       context,
       listen: false,
@@ -126,26 +131,22 @@ class _XpCardState extends State<XpCard> {
     return card;
   }
 
-  /// 卡片磨砂表面：G2 形状裁剪内做真实高斯模糊 + 半透明白（σ30 · α0.65）。
+  /// 卡片磨砂表面：G2 形状裁剪内做真实高斯模糊 + 半透明白（σ10 · α0.55）。
   Widget _frostCard(Widget card, ShapeBorder shape) {
     return ClipPath(
       clipper: ShapeBorderClipper(shape: shape),
       child: BackdropFilter(
         filter: ImageFilter.blur(
-          sigmaX: _XpCardState.cardFrostSigma,
-          sigmaY: _XpCardState.cardFrostSigma,
+          sigmaX: XpCard.frostSigma,
+          sigmaY: XpCard.frostSigma,
         ),
         child: ColoredBox(
-          color: Colors.white.withValues(alpha: _XpCardState.cardFrostAlpha),
+          color: Colors.white.withValues(alpha: XpCard.frostAlpha),
           child: card,
         ),
       ),
     );
   }
-
-  /// 卡片磨砂参数：模糊 σ30（比弹窗磨砂更强），白 0.65（透明度不变）。
-  static const double cardFrostSigma = 10;
-  static const double cardFrostAlpha = 0.55;
 
   static BorderRadius? _borderRadiusOf(ShapeBorder? shape) {
     final BorderRadiusGeometry? geometry = switch (shape) {

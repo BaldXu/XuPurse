@@ -9,6 +9,7 @@ import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../widgets/app_icon.dart';
 import '../widgets/bill_tile.dart' show kExpenseColor, kIncomeColor;
+import '../widgets/xp_sheet.dart';
 import '../widgets/xp_skeleton.dart';
 import 'statistics/stats_shared.dart' show statsDataVersionProvider;
 
@@ -211,16 +212,16 @@ class _TrendPageState extends ConsumerState<TrendPage>
       final dt = DateTime.fromMillisecondsSinceEpoch(minDataTime);
       first = DateTime(dt.year, dt.month, dt.day);
     }
-    final picked = await showDateRangePicker(
+    final picked = await showXpDateRangePicker(
       context: context,
       firstDate: first,
       lastDate: now,
-      initialDateRange: _custom == null
+      initialDateRangeStart: _custom == null
           ? null
-          : DateTimeRange(
-              start: DateTime.fromMillisecondsSinceEpoch(_custom!.start),
-              end: DateTime.fromMillisecondsSinceEpoch(_custom!.end - 86400000),
-            ),
+          : DateTime.fromMillisecondsSinceEpoch(_custom!.start),
+      initialDateRangeEnd: _custom == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(_custom!.end - 86400000),
       helpText: '选择趋势日期范围',
       saveText: '确定',
     );

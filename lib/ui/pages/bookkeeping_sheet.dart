@@ -681,7 +681,7 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
   }
 
   Future<void> _pickDate() async {
-    final picked = await showDatePicker(
+    final picked = await showXpDatePicker(
       context: context,
       initialDate: _date,
       firstDate: DateTime(2000),

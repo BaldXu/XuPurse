@@ -193,11 +193,10 @@ class _HomePageState extends ConsumerState<HomePage>
     final first = minT == null
         ? now.subtract(const Duration(days: 365 * 5))
         : DateTime.fromMillisecondsSinceEpoch(minT);
-    final picked = await showDateRangePicker(
+    final picked = await showXpDateRangePicker(
       context: context,
       firstDate: DateTime(first.year, first.month, first.day),
       lastDate: now,
-      initialDateRange: null,
       helpText: '选择明细日期范围',
       saveText: '确定',
     );

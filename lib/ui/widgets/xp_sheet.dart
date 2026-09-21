@@ -11,7 +11,7 @@ import '../tokens/design_tokens.dart';
 ///
 /// - 高度：默认占屏幕垂直 85%（[heightFactor]）。
 /// - 遮罩：弹窗外区域「变暗 + 高斯模糊」（σ10，与弹窗磨砂共用一层模糊）。
-/// - 表面：弹窗背景色（主题「弹窗背景色」）或「配置弹窗磨砂」（σ10 · α0.55），
+/// - 表面：弹窗背景色（主题「弹窗背景色」）或「配置弹窗磨砂」（σ10 · α0.7），
 ///   两者互斥（磨砂开启时背景固定为半透明白）。
 /// - 性能：内容懒加载——滑入动画结束后才构建并淡入，重内容不拖慢出场动画。
 /// - 交互：顶部拖拽手柄可下拉关闭；点击遮罩/返回键同样可关闭。
@@ -225,6 +225,98 @@ class _XpSheetState extends State<_XpSheet> {
       ),
     );
   }
+}
+
+/// 日期选择弹窗：淡入 + 上移（XpMotion），进出场动画与页面转场一致，
+/// 替代裸 showDatePicker（默认对话框转场太弱 + 首帧构建重，观感像没动画）。
+Future<DateTime?> showXpDatePicker({
+  required BuildContext context,
+  required DateTime initialDate,
+  required DateTime firstDate,
+  required DateTime lastDate,
+  String? helpText,
+  String? cancelText,
+  String? confirmText,
+  DatePickerEntryMode initialEntryMode = DatePickerEntryMode.calendar,
+}) {
+  return showGeneralDialog<DateTime>(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+    barrierColor: Colors.black54,
+    transitionDuration: XpMotion.container,
+    transitionBuilder: _xpDialogTransition,
+    pageBuilder: (ctx, _, __) => DatePickerDialog(
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
+      helpText: helpText,
+      cancelText: cancelText,
+      confirmText: confirmText,
+      initialEntryMode: initialEntryMode,
+    ),
+  );
+}
+
+/// 日期范围选择弹窗（统计/趋势/首页自定义范围用），进出场动画同上。
+Future<DateTimeRange?> showXpDateRangePicker({
+  required BuildContext context,
+  required DateTime firstDate,
+  required DateTime lastDate,
+  DateTime? initialDateRangeStart,
+  DateTime? initialDateRangeEnd,
+  String? helpText,
+  String? cancelText,
+  String? confirmText,
+  String? saveText,
+}) {
+  return showGeneralDialog<DateTimeRange>(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+    barrierColor: Colors.black54,
+    transitionDuration: XpMotion.container,
+    transitionBuilder: _xpDialogTransition,
+    pageBuilder: (ctx, _, __) => DateRangePickerDialog(
+      firstDate: firstDate,
+      lastDate: lastDate,
+      initialDateRange:
+          initialDateRangeStart != null && initialDateRangeEnd != null
+          ? DateTimeRange(
+              start: initialDateRangeStart,
+              end: initialDateRangeEnd,
+            )
+          : null,
+      helpText: helpText,
+      cancelText: cancelText,
+      confirmText: confirmText,
+      saveText: saveText,
+    ),
+  );
+}
+
+/// 对话框进出场：淡入 + 上移 4%（easeOut 进 / easeIn 出）。
+Widget _xpDialogTransition(
+  BuildContext context,
+  Animation<double> animation,
+  Animation<double> secondaryAnimation,
+  Widget child,
+) {
+  final curved = CurvedAnimation(
+    parent: animation,
+    curve: XpMotion.easeOut,
+    reverseCurve: XpMotion.easeIn,
+  );
+  return FadeTransition(
+    opacity: curved,
+    child: SlideTransition(
+      position: Tween<Offset>(
+        begin: const Offset(0, 0.04),
+        end: Offset.zero,
+      ).animate(curved),
+      child: child,
+    ),
+  );
 }
 
 /// 限宽 AlertDialog:长文本确认弹窗在桌面宽屏不再被拉到接近全宽。

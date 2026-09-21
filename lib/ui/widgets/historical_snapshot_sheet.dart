@@ -46,7 +46,7 @@ class _HistoricalSnapshotSheetState
 
   Future<void> _pickTime() async {
     final now = DateTime.now();
-    final date = await showDatePicker(
+    final date = await showXpDatePicker(
       context: context,
       initialDate: _time,
       firstDate: DateTime(2000),

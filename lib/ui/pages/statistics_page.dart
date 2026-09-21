@@ -7,6 +7,7 @@ import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/ai_chat_sheet.dart';
 import '../widgets/app_icon.dart';
+import '../widgets/xp_sheet.dart';
 import 'statistics/stats_budget_section.dart';
 import 'statistics/stats_category_section.dart';
 import 'statistics/stats_overview_section.dart';
@@ -138,11 +139,12 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage>
   Future<void> _pickCustomRange() async {
     final now = DateTime.now();
     final first = _earliest ?? now.subtract(const Duration(days: 365 * 5));
-    final picked = await showDateRangePicker(
+    final picked = await showXpDateRangePicker(
       context: context,
       firstDate: first,
       lastDate: now,
-      initialDateRange: _customRange,
+      initialDateRangeStart: _customRange?.start,
+      initialDateRangeEnd: _customRange?.end,
       helpText: '选择统计范围',
       saveText: '确定',
     );
