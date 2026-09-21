@@ -34,6 +34,9 @@ abstract final class XpRadius {
   /// 大圆角（大面板、弹窗、sheet 顶部）
   static const double l = 28;
 
+  /// 超大圆角（配置弹窗大圆角）
+  static const double xl = 40;
+
   /// 胶囊（全圆）
   static const double pill = 999;
 
@@ -42,6 +45,11 @@ abstract final class XpRadius {
   /// 底部弹窗顶部圆角 shape（G2 连续曲率）
   static final RoundedSuperellipseBorder sheet = RoundedSuperellipseBorder(
     borderRadius: BorderRadius.vertical(top: Radius.circular(l)),
+  );
+
+  /// 配置弹窗顶部大圆角 shape（G2 连续曲率，遵循设计规范）
+  static final RoundedSuperellipseBorder sheetLarge = RoundedSuperellipseBorder(
+    borderRadius: BorderRadius.vertical(top: Radius.circular(xl)),
   );
 }
 

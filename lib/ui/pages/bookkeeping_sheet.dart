@@ -10,6 +10,7 @@ import '../../data/database/app_database.dart';
 import '../../domain/services/currency_service.dart';
 import '../../state/providers.dart';
 import '../widgets/xp_snack.dart';
+import '../widgets/xp_sheet.dart';
 import '../widgets/app_icon.dart';
 import '../widgets/bill_tile.dart' show kExpenseColor, kIncomeColor;
 
@@ -22,11 +23,8 @@ class BookkeepingSheet extends ConsumerStatefulWidget {
   final Bill? initialBill;
 
   static Future<void> show(BuildContext context, {Bill? bill}) {
-    return showModalBottomSheet(
+    return showXpSheet(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
       builder: (_) => Padding(
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).viewInsets.bottom,

@@ -43,9 +43,8 @@ class _CategoryManagePageState extends ConsumerState<CategoryManagePage>
           ],
         ),
         floatingActionButton: XpFab(
-          onPressed: () => showModalBottomSheet<void>(
+          onPressed: () => showXpSheet<void>(
             context: context,
-            isScrollControlled: true,
             builder: (_) => const CategoryFormSheet(),
           ),
           icon: const Icon(Icons.add),
@@ -99,9 +98,8 @@ class _CategoryList extends ConsumerWidget {
   }
 
   Future<void> _edit(BuildContext context, WidgetRef ref, Category c) {
-    return showModalBottomSheet<void>(
+    return showXpSheet<void>(
       context: context,
-      isScrollControlled: true,
       builder: (_) => CategoryFormSheet(category: c),
     );
   }

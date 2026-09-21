@@ -73,9 +73,8 @@ class _TagManagePageState extends ConsumerState<TagManagePage>
   }
 
   Future<void> _showForm(BuildContext context, WidgetRef ref, Tag? tag) {
-    return showModalBottomSheet<void>(
+    return showXpSheet<void>(
       context: context,
-      isScrollControlled: true,
       builder: (_) => _TagFormSheet(tag: tag),
     );
   }

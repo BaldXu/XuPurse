@@ -133,6 +133,7 @@ ThemeData buildAppTheme(
     bottomSheetTheme: BottomSheetThemeData(
       shape: XpRadius.sheet,
       showDragHandle: true,
+      backgroundColor: theme.sheetColor,
     ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,

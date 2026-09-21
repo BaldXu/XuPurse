@@ -7,6 +7,7 @@ import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
 import '../tokens/design_tokens.dart';
 import 'app_icon.dart';
+import 'xp_sheet.dart';
 import 'xp_snack.dart';
 
 /// 手动添加历史快照弹窗（模块 2.4「历史快照」）：输入时间点 + 余额 + 备注，
@@ -17,10 +18,9 @@ class HistoricalSnapshotSheet extends ConsumerStatefulWidget {
   final Account account;
 
   static Future<void> show(BuildContext context, Account account) {
-    return showModalBottomSheet(
+    return showXpSheet(
       context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
+      heightFactor: 0.7,
       builder: (_) => HistoricalSnapshotSheet(account: account),
     );
   }

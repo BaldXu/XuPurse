@@ -7,6 +7,7 @@ import '../../data/import/import_models.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../widgets/app_icon.dart';
+import '../widgets/xp_sheet.dart';
 
 /// 数据导入页（一木 / 昼虎 / 钱迹）。
 ///
@@ -215,11 +216,8 @@ class _ImportPageState extends ConsumerState<ImportPage>
     final preview = _preview;
     if (preview == null) return;
     final result =
-        await showModalBottomSheet<
-          ({ImportMode mode, Map<String, String> mergeMap})
-        >(
+        await showXpSheet<({ImportMode mode, Map<String, String> mergeMap})>(
           context: context,
-          isScrollControlled: true,
           builder: (_) => _ImportPreviewSheet(preview: preview),
         );
     if (result == null || !mounted) return;

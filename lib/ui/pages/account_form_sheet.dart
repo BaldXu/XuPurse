@@ -9,6 +9,7 @@ import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/app_icon.dart';
+import '../widgets/xp_sheet.dart';
 import '../widgets/xp_snack.dart';
 
 /// 账户表单（新建 / 编辑）。
@@ -18,10 +19,8 @@ class AccountFormSheet extends ConsumerStatefulWidget {
   final Account? account;
 
   static Future<void> show(BuildContext context, {Account? account}) {
-    return showModalBottomSheet(
+    return showXpSheet(
       context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
       builder: (_) => AccountFormSheet(account: account),
     );
   }

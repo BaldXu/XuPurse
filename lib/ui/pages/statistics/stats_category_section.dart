@@ -7,6 +7,7 @@ import '../../../core/utils/amount.dart';
 import '../../../data/database/app_database.dart';
 import '../../../state/providers.dart';
 import '../../tokens/design_tokens.dart';
+import '../../widgets/xp_sheet.dart';
 import '../../widgets/xp_skeleton.dart';
 import 'stats_shared.dart';
 
@@ -206,12 +207,8 @@ class _CategoryRankCardState extends ConsumerState<_CategoryRankCard> {
   /// 明细弹窗：该一级分类（含其子分类）在时间范围内的账单列表。
   void _showDetail(String topCategoryId) {
     final name = _catName(widget.data.categories, topCategoryId);
-    showModalBottomSheet<void>(
+    showXpSheet<void>(
       context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
       builder: (sheetCtx) => _CategoryDetailSheet(
         start: widget.start,
         end: widget.end,

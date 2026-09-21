@@ -17,7 +17,7 @@ class XpFrostedContainer extends StatelessWidget {
     super.key,
     this.child = const SizedBox.expand(),
     this.sigma = 15,
-    this.alpha = 0.45,
+    this.alpha = 0.30,
   });
 
   /// 作为 AppBar 的磨砂底层时可省略(由 Positioned.fill 撑满)。

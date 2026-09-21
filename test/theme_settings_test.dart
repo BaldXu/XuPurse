@@ -71,8 +71,8 @@ void main() {
 
     await ensureVisible(tester, find.byType(TextField).first);
     await tester.enterText(find.byType(TextField).first, '我的主题');
-    await ensureVisible(tester, find.text('保存为自定义主题'));
-    await tester.tap(find.text('保存为自定义主题'));
+    await ensureVisible(tester, find.text('另存为自定义主题'));
+    await tester.tap(find.text('另存为自定义主题'));
     await tester.pumpAndSettle();
 
     final state = container.read(themeProvider);
@@ -81,14 +81,40 @@ void main() {
     expect(state.current.id, state.userThemes.single.id, reason: '保存后自动应用');
   });
 
+  testWidgets('当前是用户主题时，按钮为「保存并生效」且原地更新不新增', (tester) async {
+    final container = await pumpPage(tester);
+
+    // 先另存一个用户主题（当前变更为该主题）
+    await ensureVisible(tester, find.byType(TextField).first);
+    await tester.enterText(find.byType(TextField).first, '初始主题');
+    await ensureVisible(tester, find.text('另存为自定义主题'));
+    await tester.tap(find.text('另存为自定义主题'));
+    await tester.pumpAndSettle();
+    final id = container.read(themeProvider).current.id;
+    expect(id, startsWith('user_'));
+
+    // 当前为用户主题：按钮文案切换为「保存并生效」
+    await ensureVisible(tester, find.text('保存并生效'));
+    expect(find.text('另存为自定义主题'), findsNothing);
+    await tester.enterText(find.byType(TextField).first, '改后主题');
+    await tester.tap(find.text('保存并生效'));
+    await tester.pumpAndSettle();
+
+    final state = container.read(themeProvider);
+    expect(state.userThemes, hasLength(1), reason: '原地更新不应新增主题');
+    expect(state.userThemes.single.id, id);
+    expect(state.userThemes.single.name, '改后主题');
+    expect(state.current.id, id);
+  });
+
   testWidgets('长按用户自建主题出现减号，确认后删除；内置预设长按不出现', (tester) async {
     final container = await pumpPage(tester);
 
     // 新增一个用户主题
     await ensureVisible(tester, find.byType(TextField).first);
     await tester.enterText(find.byType(TextField).first, '我的主题');
-    await ensureVisible(tester, find.text('保存为自定义主题'));
-    await tester.tap(find.text('保存为自定义主题'));
+    await ensureVisible(tester, find.text('另存为自定义主题'));
+    await tester.tap(find.text('另存为自定义主题'));
     await tester.pumpAndSettle();
     final userThemeId = container.read(themeProvider).current.id;
     expect(userThemeId, startsWith('user_'));
@@ -135,8 +161,8 @@ void main() {
 
     await ensureVisible(tester, find.byType(TextField).first);
     await tester.enterText(find.byType(TextField).first, '我的主题');
-    await ensureVisible(tester, find.text('保存为自定义主题'));
-    await tester.tap(find.text('保存为自定义主题'));
+    await ensureVisible(tester, find.text('另存为自定义主题'));
+    await tester.tap(find.text('另存为自定义主题'));
     await tester.pumpAndSettle();
     final userThemeId = container.read(themeProvider).current.id;
 
@@ -152,8 +178,8 @@ void main() {
 
   testWidgets('点击颜色项打开取色器，滑动色相并确认后写回该颜色项', (tester) async {
     final container = await pumpPage(tester);
-    // 初始：主题色/页面背景/卡片背景 均非「默认」的有 0 个（背景、卡片为默认）
-    expect(find.text('默认'), findsNWidgets(2));
+    // 初始：背景/卡片/弹窗三色均未设置 → 3 个「默认」
+    expect(find.text('默认'), findsNWidgets(3));
 
     // 点击「页面背景色」行 → 打开取色器
     await ensureVisible(tester, find.text('页面背景色'));
@@ -174,8 +200,8 @@ void main() {
     await tester.tap(find.text('确认'));
     await tester.pumpAndSettle();
 
-    // 页面背景色已写回（不再是「默认」），只剩卡片背景为默认
-    expect(find.text('默认'), findsOneWidget);
+    // 页面背景色已写回（不再是「默认」），只剩卡片与弹窗为默认
+    expect(find.text('默认'), findsNWidgets(2));
     expect(container.read(themeProvider).current.id, presetThemes.first.id);
   });
 }

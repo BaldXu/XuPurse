@@ -10,7 +10,6 @@ import '../widgets/app_icon.dart';
 import '../widgets/bill_tile.dart';
 import '../widgets/xp_card.dart';
 import '../widgets/xp_empty_state.dart';
-import '../widgets/xp_fab.dart';
 import '../widgets/xp_stagger_in.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_skeleton.dart';
@@ -126,11 +125,6 @@ class _HomePageState extends ConsumerState<HomePage>
             ),
           ],
         ),
-      ),
-      floatingActionButton: XpFab(
-        tooltip: '记一笔',
-        onPressed: () => BookkeepingSheet.show(context),
-        icon: const Icon(Icons.add),
       ),
     );
   }

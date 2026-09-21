@@ -20,6 +20,7 @@ class AppTheme {
     required this.seedColor,
     this.background,
     this.cardColor,
+    this.sheetColor,
     this.fontFamily,
     this.fontScale = 1.0,
     this.cardStyle = XpCardStyle.filled,
@@ -33,6 +34,7 @@ class AppTheme {
   final Color seedColor;
   final Color? background; // 页面背景覆盖(浅色)
   final Color? cardColor; // 卡片背景覆盖(浅色)
+  final Color? sheetColor; // 弹窗背景覆盖(浅色；配置弹窗磨砂开启时固定为白色)
 
   /// 系统字体名(null = 平台默认);仅支持系统已装字体,不做字体文件导入。
   final String? fontFamily;
@@ -56,7 +58,9 @@ class AppTheme {
   bool get isPreset => id.startsWith('preset_');
 
   static Color _color(String hex) {
-    final v = int.tryParse(hex.replaceFirst('#', ''));
+    // 必须按 16 进制解析：缺 radix 会把 '#123456' 当十进制(123456=0x1E240)，
+    // 导致重启后主题/背景/卡色全部错乱甚至回退默认色。
+    final v = int.tryParse(hex.replaceFirst('#', ''), radix: 16);
     return Color(0xFF000000 | (v ?? 0xFF002FA7));
   }
 
@@ -69,12 +73,13 @@ class AppTheme {
   );
 
   Map<String, Object?> toJson() => {
-    'v': 2,
+    'v': 3,
     'id': id,
     'name': name,
     'seedColor': _hex(seedColor),
     if (background != null) 'background': _hex(background!),
     if (cardColor != null) 'cardColor': _hex(cardColor!),
+    if (sheetColor != null) 'sheetColor': _hex(sheetColor!),
     if (fontFamily != null) 'fontFamily': fontFamily,
     if (fontScale != 1.0) 'fontScale': fontScale,
     if (cardStyle != XpCardStyle.filled) 'cardStyle': cardStyle.name,
@@ -83,7 +88,7 @@ class AppTheme {
     if (isDark) 'isDark': true,
   };
 
-  /// 兼容 v1(无 v 字段,仅三色)与 v2 格式。
+  /// 兼容 v1(无 v 字段,仅三色)、v2 与 v3(含弹窗背景色)格式。
   static AppTheme fromJson(Map<String, Object?> json) => AppTheme(
     id: json['id'] as String,
     name: json['name'] as String,
@@ -94,6 +99,9 @@ class AppTheme {
     cardColor: json['cardColor'] == null
         ? null
         : _color(json['cardColor'] as String),
+    sheetColor: json['sheetColor'] == null
+        ? null
+        : _color(json['sheetColor'] as String),
     fontFamily: json['fontFamily'] as String?,
     fontScale: (json['fontScale'] as num?)?.toDouble() ?? 1.0,
     cardStyle: _cardStyleOf(json['cardStyle'] as String?),
@@ -116,6 +124,7 @@ class AppTheme {
     seedColor: seedColor,
     background: background,
     cardColor: cardColor,
+    sheetColor: sheetColor,
     fontFamily: clearFontFamily ? null : (fontFamily ?? this.fontFamily),
     fontScale: fontScale ?? this.fontScale,
     cardStyle: cardStyle ?? this.cardStyle,
@@ -223,7 +232,7 @@ class ThemeNotifier extends Notifier<ThemeState> {
     }
   }
 
-  /// 浅色主题的背景/卡色亮度兜底:亮度 < 0.15(近黑)视为脏数据置 null。
+  /// 浅色主题的背景/卡色/弹窗色亮度兜底:亮度 < 0.15(近黑)视为脏数据置 null。
   /// seedColor 不校验(主题色允许深色,如克莱因蓝)。
   static AppTheme _sanitizeTheme(AppTheme theme) {
     final bgOk =
@@ -231,13 +240,17 @@ class ThemeNotifier extends Notifier<ThemeState> {
         theme.background!.computeLuminance() >= 0.15;
     final cardOk =
         theme.cardColor == null || theme.cardColor!.computeLuminance() >= 0.15;
-    if (bgOk && cardOk) return theme;
+    final sheetOk =
+        theme.sheetColor == null ||
+        theme.sheetColor!.computeLuminance() >= 0.15;
+    if (bgOk && cardOk && sheetOk) return theme;
     return AppTheme(
       id: theme.id,
       name: theme.name,
       seedColor: theme.seedColor,
       background: bgOk ? theme.background : null,
       cardColor: cardOk ? theme.cardColor : null,
+      sheetColor: sheetOk ? theme.sheetColor : null,
       fontFamily: theme.fontFamily,
       fontScale: theme.fontScale,
       cardStyle: theme.cardStyle,
@@ -307,18 +320,19 @@ class ThemeNotifier extends Notifier<ThemeState> {
 }
 
 /// 磨砂玻璃配置（独立于具体主题）：
-/// 总开关 + 两个子项——标题栏/导航栏磨砂、卡片磨砂。
+/// 总开关 + 三个子项——标题栏/导航栏磨砂、卡片磨砂、配置弹窗磨砂。
 ///
 /// 历史版本只有单个总开关（即现在的 [enabled]），迁移时
-/// 子项默认 appBar=true、card=false，保持旧行为不变。
+/// 子项默认 appBar=true、card=false、sheet=false，保持旧行为不变。
 class FrostedState {
   const FrostedState({
     required this.enabled,
     required this.appBar,
     required this.card,
+    required this.sheet,
   });
 
-  /// 磨砂总开关：关掉后两个子项全部失效。
+  /// 磨砂总开关：关掉后所有子项全部失效。
   final bool enabled;
 
   /// 子项 1：标题栏 / 导航栏磨砂（AppBar 与一级页底部导航栏的白色高斯模糊）。
@@ -327,23 +341,31 @@ class FrostedState {
   /// 子项 2：卡片磨砂（卡片表面半透明白磨砂，σ20 / α0.65）。
   final bool card;
 
+  /// 子项 3：配置弹窗磨砂（底部配置弹窗表面白色磨砂，σ10 / α0.55）。
+  final bool sheet;
+
   /// 标题栏/导航栏磨砂是否实际生效。
   bool get barsOn => enabled && appBar;
 
   /// 卡片磨砂是否实际生效。
   bool get cardsOn => enabled && card;
+
+  /// 配置弹窗磨砂是否实际生效。
+  bool get sheetOn => enabled && sheet;
 }
 
 /// 全局磨砂玻璃配置，持久化到 SharedPreferences。
-final frostedGlassProvider = NotifierProvider<FrostedGlassNotifier, FrostedState>(
-  FrostedGlassNotifier.new,
-);
+final frostedGlassProvider =
+    NotifierProvider<FrostedGlassNotifier, FrostedState>(
+      FrostedGlassNotifier.new,
+    );
 
 class FrostedGlassNotifier extends Notifier<FrostedState> {
   /// 旧版总开关 key（迁移：写入/读取仍用它表示 enabled）。
   static const _key = 'ui_frosted_glass';
   static const _keyAppBar = 'ui_frosted_appbar';
   static const _keyCard = 'ui_frosted_card';
+  static const _keySheet = 'ui_frosted_sheet';
 
   static SharedPreferences? _prefsCache;
 
@@ -357,6 +379,7 @@ class FrostedGlassNotifier extends Notifier<FrostedState> {
     enabled: _prefsCache?.getBool(_key) ?? true,
     appBar: _prefsCache?.getBool(_keyAppBar) ?? true,
     card: _prefsCache?.getBool(_keyCard) ?? false,
+    sheet: _prefsCache?.getBool(_keySheet) ?? false,
   );
 
   Future<void> _persist(FrostedState next) async {
@@ -365,25 +388,53 @@ class FrostedGlassNotifier extends Notifier<FrostedState> {
     await prefs.setBool(_key, next.enabled);
     await prefs.setBool(_keyAppBar, next.appBar);
     await prefs.setBool(_keyCard, next.card);
+    await prefs.setBool(_keySheet, next.sheet);
   }
 
   Future<void> setEnabled(bool value) async {
     if (state.enabled == value) return;
-    final next = FrostedState(enabled: value, appBar: state.appBar, card: state.card);
+    final next = FrostedState(
+      enabled: value,
+      appBar: state.appBar,
+      card: state.card,
+      sheet: state.sheet,
+    );
     await _persist(next);
     state = next;
   }
 
   Future<void> setAppBar(bool value) async {
     if (state.appBar == value) return;
-    final next = FrostedState(enabled: state.enabled, appBar: value, card: state.card);
+    final next = FrostedState(
+      enabled: state.enabled,
+      appBar: value,
+      card: state.card,
+      sheet: state.sheet,
+    );
     await _persist(next);
     state = next;
   }
 
   Future<void> setCard(bool value) async {
     if (state.card == value) return;
-    final next = FrostedState(enabled: state.enabled, appBar: state.appBar, card: value);
+    final next = FrostedState(
+      enabled: state.enabled,
+      appBar: state.appBar,
+      card: value,
+      sheet: state.sheet,
+    );
+    await _persist(next);
+    state = next;
+  }
+
+  Future<void> setSheet(bool value) async {
+    if (state.sheet == value) return;
+    final next = FrostedState(
+      enabled: state.enabled,
+      appBar: state.appBar,
+      card: state.card,
+      sheet: value,
+    );
     await _persist(next);
     state = next;
   }

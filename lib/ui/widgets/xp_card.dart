@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -56,18 +57,26 @@ class _XpCardState extends State<XpCard> {
           listen: false,
         ).read(currentThemeProvider).animationsEnabled &&
         !MediaQuery.disableAnimationsOf(context);
+    // 卡片磨砂开启时：表面由下方真实模糊层（σ30 + 白 0.65）提供，
+    // 内部 Card 置透明避免双层白；透明度不变、模糊程度增加。
+    final cardsOn = ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).read(frostedGlassProvider).cardsOn;
 
     final Widget padded = Padding(
       padding: widget.padding ?? const EdgeInsets.all(16),
       child: widget.child,
     );
 
+    Widget card;
     if (!hasTap || !animOn) {
-      Widget card = Card(
+      card = Card(
         elevation: baseElev,
         shape: cardStyle.shape,
         margin: EdgeInsets.zero,
         clipBehavior: widget.clipBehavior,
+        color: cardsOn ? Colors.transparent : null,
         child: padded,
       );
       if (hasTap) {
@@ -78,36 +87,65 @@ class _XpCardState extends State<XpCard> {
           child: card,
         );
       }
-      return card;
-    }
-
-    return AnimatedScale(
-      scale: _pressed ? 0.98 : 1.0,
-      duration: XpMotion.micro,
-      curve: XpMotion.easeOut,
-      child: TweenAnimationBuilder<double>(
+    } else {
+      card = AnimatedScale(
+        scale: _pressed ? 0.98 : 1.0,
         duration: XpMotion.micro,
         curve: XpMotion.easeOut,
-        tween: Tween<double>(
-          end: _pressed ? math.max(0.0, baseElev - 1) : baseElev,
-        ),
-        builder: (context, elevation, child) => InkWell(
-          borderRadius: _borderRadiusOf(cardStyle.shape),
-          onTap: widget.onTap,
-          onLongPress: widget.onLongPress,
-          onHighlightChanged: _onHighlightChanged,
-          child: Card(
-            elevation: elevation,
-            shape: cardStyle.shape,
-            margin: EdgeInsets.zero,
-            clipBehavior: widget.clipBehavior,
-            child: child,
+        child: TweenAnimationBuilder<double>(
+          duration: XpMotion.micro,
+          curve: XpMotion.easeOut,
+          tween: Tween<double>(
+            end: _pressed ? math.max(0.0, baseElev - 1) : baseElev,
           ),
+          builder: (context, elevation, child) => InkWell(
+            borderRadius: _borderRadiusOf(cardStyle.shape),
+            onTap: widget.onTap,
+            onLongPress: widget.onLongPress,
+            onHighlightChanged: _onHighlightChanged,
+            child: Card(
+              elevation: elevation,
+              shape: cardStyle.shape,
+              margin: EdgeInsets.zero,
+              clipBehavior: widget.clipBehavior,
+              color: cardsOn ? Colors.transparent : null,
+              child: child,
+            ),
+          ),
+          child: padded,
         ),
-        child: padded,
+      );
+    }
+
+    if (cardsOn) {
+      card = _frostCard(
+        card,
+        cardStyle.shape ?? const RoundedRectangleBorder(),
+      );
+    }
+    return card;
+  }
+
+  /// 卡片磨砂表面：G2 形状裁剪内做真实高斯模糊 + 半透明白（σ30 · α0.65）。
+  Widget _frostCard(Widget card, ShapeBorder shape) {
+    return ClipPath(
+      clipper: ShapeBorderClipper(shape: shape),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(
+          sigmaX: _XpCardState.cardFrostSigma,
+          sigmaY: _XpCardState.cardFrostSigma,
+        ),
+        child: ColoredBox(
+          color: Colors.white.withValues(alpha: _XpCardState.cardFrostAlpha),
+          child: card,
+        ),
       ),
     );
   }
+
+  /// 卡片磨砂参数：模糊 σ30（比弹窗磨砂更强），白 0.65（透明度不变）。
+  static const double cardFrostSigma = 10;
+  static const double cardFrostAlpha = 0.55;
 
   static BorderRadius? _borderRadiusOf(ShapeBorder? shape) {
     final BorderRadiusGeometry? geometry = switch (shape) {

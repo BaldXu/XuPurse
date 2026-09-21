@@ -5,8 +5,10 @@ import '../../state/theme_provider.dart';
 import '../layout/breakpoints.dart';
 import '../layout/lazy_indexed_stack.dart';
 import '../widgets/app_icon.dart';
+import '../widgets/xp_fab.dart';
 import '../widgets/xp_frosted_bar.dart';
 import 'accounts_page.dart';
+import 'bookkeeping_sheet.dart';
 import 'home_page.dart';
 import 'mine_page.dart';
 import 'statistics_page.dart';
@@ -55,37 +57,52 @@ class _MainShellState extends ConsumerState<MainShell> {
 
   static const _labels = ['明细', '资产', '统计', '我的'];
 
+  /// 明细页「记一笔」FAB。放在外层壳（而非内层页面 Scaffold）：
+  /// 外层 Scaffold 会把 FAB 自动置于底部导航之上，避免被磨砂导航遮挡。
+  Widget _buildFab() {
+    return XpFab(
+      tooltip: '记一笔',
+      onPressed: () => BookkeepingSheet.show(context),
+      icon: const Icon(Icons.add),
+    );
+  }
+
   /// 宽屏：左侧带文字标签的宽侧栏 + 内容区。
   Widget _buildWide() {
-    return Row(
+    return Stack(
       children: [
-        NavigationRail(
-          selectedIndex: _index,
-          onDestinationSelected: (i) => setState(() => _index = i),
-          // extended：图标 + 文字标签的宽侧栏
-          labelType: NavigationRailLabelType.none,
-          extended: true,
-          minExtendedWidth: 168,
-          leading: const Padding(
-            padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: Text(
-              'XuPurse',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-            ),
-          ),
-          destinations: [
-            for (var i = 0; i < _labels.length; i++)
-              NavigationRailDestination(
-                icon: AppIcon(icon: _icons[i]),
-                selectedIcon: AppIcon(icon: _selectedIcons[i]),
-                label: Text(_labels[i]),
+        Row(
+          children: [
+            NavigationRail(
+              selectedIndex: _index,
+              onDestinationSelected: (i) => setState(() => _index = i),
+              // extended：图标 + 文字标签的宽侧栏
+              labelType: NavigationRailLabelType.none,
+              extended: true,
+              minExtendedWidth: 168,
+              leading: const Padding(
+                padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: Text(
+                  'XuPurse',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                ),
               ),
+              destinations: [
+                for (var i = 0; i < _labels.length; i++)
+                  NavigationRailDestination(
+                    icon: AppIcon(icon: _icons[i]),
+                    selectedIcon: AppIcon(icon: _selectedIcons[i]),
+                    label: Text(_labels[i]),
+                  ),
+              ],
+            ),
+            const VerticalDivider(width: 1, thickness: 1),
+            Expanded(
+              child: LazyIndexedStack(index: _index, children: _pages),
+            ),
           ],
         ),
-        const VerticalDivider(width: 1, thickness: 1),
-        Expanded(
-          child: LazyIndexedStack(index: _index, children: _pages),
-        ),
+        if (_index == 0) Positioned(right: 24, bottom: 24, child: _buildFab()),
       ],
     );
   }
@@ -112,6 +129,7 @@ class _MainShellState extends ConsumerState<MainShell> {
       extendBody: frosted,
       body: LazyIndexedStack(index: _index, children: _pages),
       bottomNavigationBar: frosted ? XpFrostedContainer(child: navBar) : navBar,
+      floatingActionButton: _index == 0 ? _buildFab() : null,
     );
   }
 

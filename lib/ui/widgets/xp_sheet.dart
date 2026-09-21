@@ -1,23 +1,230 @@
-import 'package:flutter/material.dart';
+import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 
-/// 统一底部弹窗入口:shape 由主题 bottomSheetTheme 提供(顶部圆角+拖动手柄),
-/// 约定 isScrollControlled + 可选高度系数;调用方不再手写 RoundedRectangleBorder。
-/// 出入场由 Material 3 内建(bottomSheetTheme 统一),主题动画开关控制页面转场。
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../state/theme_provider.dart';
+import '../tokens/design_tokens.dart';
+
+/// 统一底部配置弹窗入口。
+///
+/// - 高度：默认占屏幕垂直 85%（[heightFactor]）。
+/// - 遮罩：弹窗外区域「变暗 + 高斯模糊」（σ10，与弹窗磨砂共用一层模糊）。
+/// - 表面：弹窗背景色（主题「弹窗背景色」）或「配置弹窗磨砂」（σ10 · α0.55），
+///   两者互斥（磨砂开启时背景固定为半透明白）。
+/// - 性能：内容懒加载——滑入动画结束后才构建并淡入，重内容不拖慢出场动画。
+/// - 交互：顶部拖拽手柄可下拉关闭；点击遮罩/返回键同样可关闭。
 Future<T?> showXpSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
-  double heightFactor = 0.7,
+  double heightFactor = 0.85,
   bool isDismissible = true,
+  bool showDragHandle = true,
 }) {
-  return showModalBottomSheet<T>(
+  // 弹窗生命周期内状态稳定，展示前捕获一次。
+  final container = ProviderScope.containerOf(context, listen: false);
+  final sheetOn = container.read(frostedGlassProvider).sheetOn;
+  final sheetColor = container.read(currentThemeProvider).sheetColor;
+
+  return showGeneralDialog<T>(
     context: context,
-    isScrollControlled: true,
-    isDismissible: isDismissible,
-    builder: (ctx) => SizedBox(
-      height: MediaQuery.heightOf(ctx) * heightFactor,
-      child: builder(ctx),
+    barrierDismissible: isDismissible,
+    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+    barrierColor: Colors.transparent, // 遮罩视觉由 pageBuilder 自绘
+    transitionDuration: XpMotion.component,
+    // 出入场动画在 pageBuilder 内自驱（遮罩淡入 + 弹窗滑入）。
+    transitionBuilder: (_, _, __, child) => child,
+    pageBuilder: (ctx, animation, _) => _XpSheet(
+      builder: builder,
+      animation: animation,
+      heightFactor: heightFactor,
+      showDragHandle: showDragHandle,
+      sheetOn: sheetOn,
+      sheetColor: sheetColor,
     ),
   );
+}
+
+/// 配置弹窗主体：自绘遮罩（模糊+变暗）、滑入、拖拽手柄、懒加载淡入内容。
+class _XpSheet extends StatefulWidget {
+  const _XpSheet({
+    required this.builder,
+    required this.animation,
+    required this.heightFactor,
+    required this.showDragHandle,
+    required this.sheetOn,
+    required this.sheetColor,
+  });
+
+  final WidgetBuilder builder;
+  final Animation<double> animation;
+  final double heightFactor;
+  final bool showDragHandle;
+  final bool sheetOn;
+  final Color? sheetColor;
+
+  /// 遮罩与弹窗磨砂共用的高斯模糊半径。
+  static const double blurSigma = 10;
+
+  /// 弹窗磨砂表面参数（半透明白，透明度较卡片磨砂低=更实）。
+  static const double frostedAlpha = 0.7;
+
+  /// 遮罩变暗强度。
+  static const double barrierAlpha = 0.35;
+
+  @override
+  State<_XpSheet> createState() => _XpSheetState();
+}
+
+class _XpSheetState extends State<_XpSheet> {
+  bool _contentReady = false;
+  double _drag = 0;
+
+  late final void Function(AnimationStatus) _onStatus;
+
+  @override
+  void initState() {
+    super.initState();
+    // 滑入动画结束后再构建真实内容并淡入，保证出场不因重内容掉帧。
+    _onStatus = (status) {
+      if (status == AnimationStatus.completed && !_contentReady) {
+        setState(() => _contentReady = true);
+      }
+    };
+    widget.animation.addStatusListener(_onStatus);
+    if (widget.animation.isCompleted) _contentReady = true;
+  }
+
+  @override
+  void dispose() {
+    widget.animation.removeStatusListener(_onStatus);
+    super.dispose();
+  }
+
+  void _onDragUpdate(DragUpdateDetails d) {
+    setState(() => _drag = math.max(0, _drag + d.delta.dy));
+  }
+
+  void _onDragEnd(DragEndDetails d) {
+    final close = _drag > 120 || d.velocity.pixelsPerSecond.dy > 800;
+    if (close) {
+      Navigator.of(context).pop();
+    } else if (_drag > 0) {
+      setState(() => _drag = 0);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: widget.animation,
+      builder: (context, _) {
+        final media = MediaQuery.of(context);
+        final screenH = media.size.height;
+        final sheetH = screenH * widget.heightFactor;
+        final t = Curves.easeOutCubic.transform(widget.animation.value);
+        final slide = sheetH * (1 - t) + _drag;
+
+        return Stack(
+          children: [
+            // 全屏高斯模糊：对底层页面（弹窗磨砂与其共享同一模糊层）。
+            Positioned.fill(
+              child: IgnorePointer(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(
+                    sigmaX: _XpSheet.blurSigma,
+                    sigmaY: _XpSheet.blurSigma,
+                  ),
+                  child: const SizedBox.expand(),
+                ),
+              ),
+            ),
+            // 变暗遮罩：覆盖全屏（层级低于弹窗），弹窗大圆角外的
+            // 小区域同样保持暗色，视觉更自然。
+            Positioned.fill(
+              child: IgnorePointer(
+                child: ColoredBox(
+                  color: Colors.black.withValues(
+                    alpha: _XpSheet.barrierAlpha * widget.animation.value,
+                  ),
+                ),
+              ),
+            ),
+            // 弹窗主体：自下而上滑入。
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Transform.translate(
+                offset: Offset(0, slide),
+                child: _buildSheet(theme: Theme.of(context), sheetH: sheetH),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildSheet({required ThemeData theme, required double sheetH}) {
+    final scheme = theme.colorScheme;
+    final Color bg = widget.sheetOn
+        ? Colors.white.withValues(alpha: _XpSheet.frostedAlpha)
+        : (widget.sheetColor ??
+              theme.bottomSheetTheme.backgroundColor ??
+              scheme.surfaceContainerLow);
+
+    return SizedBox(
+      key: const ValueKey('xp_sheet_surface'),
+      width: double.infinity,
+      height: sheetH,
+      child: ClipPath(
+        clipper: ShapeBorderClipper(shape: XpRadius.sheetLarge),
+        child: Material(
+          color: bg,
+          child: Column(
+            children: [
+              if (widget.showDragHandle) _buildDragHandle(theme),
+              Expanded(child: _buildContent(theme)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 内容懒加载 + 淡入：滑入动画完成前只渲染占位，完成后构建并淡入。
+  Widget _buildContent(ThemeData theme) {
+    return AnimatedOpacity(
+      opacity: _contentReady ? 1 : 0,
+      duration: XpMotion.component,
+      curve: Curves.easeOut,
+      child: _contentReady ? widget.builder(context) : const SizedBox.expand(),
+    );
+  }
+
+  Widget _buildDragHandle(ThemeData theme) {
+    final scheme = theme.colorScheme;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onVerticalDragUpdate: _onDragUpdate,
+      onVerticalDragEnd: _onDragEnd,
+      child: Container(
+        height: 28,
+        alignment: Alignment.topCenter,
+        padding: const EdgeInsets.only(top: 10),
+        child: Container(
+          width: 32,
+          height: 4,
+          decoration: BoxDecoration(
+            color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// 限宽 AlertDialog:长文本确认弹窗在桌面宽屏不再被拉到接近全宽。

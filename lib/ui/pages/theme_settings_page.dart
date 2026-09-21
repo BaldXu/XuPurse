@@ -29,11 +29,12 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
 
   final _nameCtrl = TextEditingController();
 
-  /// 当前正在编辑的颜色项：seed（主题色）/ background（页面背景）/ card（卡片背景）。
+  /// 当前正在编辑的颜色项：seed / background / card / sheet。
   String _editing = 'seed';
   late Color _seed;
   Color? _background;
   Color? _cardColor;
+  Color? _sheetColor;
 
   @override
   void initState() {
@@ -58,11 +59,13 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
     final initial = switch (field) {
       'background' => _background ?? const Color(0xFFF5F6F8),
       'card' => _cardColor ?? const Color(0xFFFFFFFF),
+      'sheet' => _sheetColor ?? const Color(0xFFF1F2F4),
       _ => _seed,
     };
     final title = switch (field) {
       'background' => '选择页面背景色',
       'card' => '选择卡片背景色',
+      'sheet' => '选择弹窗背景色',
       _ => '选择主题色',
     };
     final picked = await showColorPickerDialog(
@@ -76,6 +79,8 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
         _background = picked;
       } else if (field == 'card') {
         _cardColor = picked;
+      } else if (field == 'sheet') {
+        _sheetColor = picked;
       } else {
         _seed = picked;
       }
@@ -123,26 +128,53 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
       );
       return;
     }
-    final id = 'user_${DateTime.now().millisecondsSinceEpoch}';
-    await ref
-        .read(themeProvider.notifier)
-        .addUserTheme(
-          AppTheme(
-            id: id,
-            name: name,
-            seedColor: _seed,
-            background: _background,
-            cardColor: _cardColor,
-          ),
-        );
+    final sheet = _sheetColor;
+    if (sheet != null && sheet.computeLuminance() < 0.15) {
+      showXpSnack(
+        context,
+        '弹窗背景过深（浅色主题下弹窗应为白色/浅色系）。'
+        '请取浅色弹窗背景。',
+        error: true,
+      );
+      return;
+    }
+    final notifier = ref.read(themeProvider.notifier);
+    final current = ref.read(themeProvider).current;
+    final editingUserTheme = !current.isPreset;
+    if (editingUserTheme) {
+      // 当前是用户自建主题：保存并生效到当前主题（原地更新，不新增）。
+      final updated = AppTheme(
+        id: current.id,
+        name: name,
+        seedColor: _seed,
+        background: _background,
+        cardColor: _cardColor,
+        sheetColor: _sheetColor,
+      );
+      await notifier.updateCurrentTheme(updated);
+    } else {
+      // 当前是预设主题：另存为一个新主题并应用。
+      final id = 'user_${DateTime.now().millisecondsSinceEpoch}';
+      await notifier.addUserTheme(
+        AppTheme(
+          id: id,
+          name: name,
+          seedColor: _seed,
+          background: _background,
+          cardColor: _cardColor,
+          sheetColor: _sheetColor,
+        ),
+      );
+    }
     if (!mounted) return;
     setState(() {
       _nameCtrl.clear();
       _seed = ref.read(currentThemeProvider).seedColor;
       _background = null;
       _cardColor = null;
+      _sheetColor = null;
     });
-    showXpSnack(context, '已新增并应用「$name」');
+    showXpSnack(context, editingUserTheme ? '已保存并生效到「$name」' : '已新增并应用「$name」');
   }
 
   @override
@@ -220,8 +252,11 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
           Text('自定义主题', style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 4),
           Text(
-            '三个颜色项均为单选项：选中后打开取色器，滑动色相 / 饱和度 / 明度'
-            '取色并确认；保存后新增为自定义主题并应用。',
+            state.current.isPreset
+                ? '四个颜色项均为单选项：选中后打开取色器，取色确认后'
+                      '「另存为」新主题并应用。'
+                : '四个颜色项均为单选项：选中后打开取色器，取色确认后'
+                      '「保存并生效」到当前主题「${state.current.name}」。',
             style: Theme.of(
               context,
             ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
@@ -258,6 +293,15 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
                           field: 'card',
                           label: '卡片背景色',
                           color: _cardColor,
+                          enabled: !ref.watch(frostedGlassProvider).cardsOn,
+                          disabledHint: '卡片磨砂开启时，卡片背景固定为白色',
+                        ),
+                        _colorRow(
+                          field: 'sheet',
+                          label: '弹窗背景色',
+                          color: _sheetColor,
+                          enabled: !ref.watch(frostedGlassProvider).sheetOn,
+                          disabledHint: '弹窗磨砂开启时，弹窗背景固定为白色',
                         ),
                       ],
                     ),
@@ -268,7 +312,9 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
                     child: FilledButton.icon(
                       onPressed: _saveCustom,
                       icon: const Icon(Icons.add),
-                      label: const Text('保存为自定义主题'),
+                      label: Text(
+                        state.current.isPreset ? '另存为自定义主题' : '保存并生效',
+                      ),
                     ),
                   ),
                 ],
@@ -420,8 +466,8 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
     );
   }
 
-  /// 磨砂玻璃:全局配置(不依赖具体主题)。总开关 + 两个子开关——
-  /// 标题栏/导航栏磨砂、卡片磨砂;总开关关闭时子开关失效。
+  /// 磨砂玻璃:全局配置(不依赖具体主题)。总开关 + 三个子开关——
+  /// 标题栏/导航栏磨砂、卡片磨砂、弹窗磨砂;总开关关闭时子开关失效。
   Widget _buildFrostedSection() {
     final state = ref.watch(frostedGlassProvider);
     final notifier = ref.read(frostedGlassProvider.notifier);
@@ -432,7 +478,7 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
         Text('磨砂玻璃', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 4),
         Text(
-          '白色高斯模糊质感：标题栏/导航栏与卡片可分别开关。',
+          '白色高斯模糊质感：标题栏/导航栏、卡片与弹窗可分别开关。',
           style: Theme.of(
             context,
           ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
@@ -444,7 +490,7 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
               ListTile(
                 leading: Icon(Icons.blur_on, color: scheme.primary),
                 title: const Text('磨砂玻璃'),
-                subtitle: const Text('总开关，关闭后以下两项均不生效'),
+                subtitle: const Text('总开关，关闭后以下三项均不生效'),
                 trailing: Switch(
                   value: state.enabled,
                   onChanged: notifier.setEnabled,
@@ -464,11 +510,22 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
               ListTile(
                 leading: Icon(Icons.style_outlined, color: scheme.primary),
                 title: const Text('卡片磨砂'),
-                subtitle: const Text('卡片表面白色磨砂（σ20 · 透明度 0.65）'),
+                subtitle: const Text('卡片表面白色磨砂（σ30 · 透明度 0.65）'),
                 enabled: state.enabled,
                 trailing: Switch(
                   value: state.card,
                   onChanged: notifier.setCard,
+                ),
+              ),
+              const Divider(height: 1, indent: 16, endIndent: 16),
+              ListTile(
+                leading: Icon(Icons.article_outlined, color: scheme.primary),
+                title: const Text('弹窗磨砂'),
+                subtitle: const Text('弹窗表面白色磨砂（σ10 · 透明度 0.7）'),
+                enabled: state.enabled,
+                trailing: Switch(
+                  value: state.sheet,
+                  onChanged: notifier.setSheet,
                 ),
               ),
             ],
@@ -479,29 +536,40 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
   }
 
   /// 颜色项行：颜色预览 + 标题 + 单选框（可恢复默认）。
+  /// [enabled] 为 false 时整行置灰（如卡片磨砂开启时卡片背景色固定为白色）。
   Widget _colorRow({
     required String field,
     required String label,
     required Color? color,
+    bool enabled = true,
+    String? disabledHint,
   }) {
     final scheme = Theme.of(context).colorScheme;
     final canReset = field != 'seed' && color != null;
     return ListTile(
+      enabled: enabled,
       contentPadding: EdgeInsets.zero,
-      leading: Container(
-        width: 30,
-        height: 30,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          border: Border.all(color: scheme.outlineVariant),
+      leading: Opacity(
+        opacity: enabled ? 1 : 0.4,
+        child: Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            border: Border.all(color: scheme.outlineVariant),
+          ),
+          child: color == null
+              ? Icon(Icons.auto_awesome, size: 14, color: scheme.outline)
+              : null,
         ),
-        child: color == null
-            ? Icon(Icons.auto_awesome, size: 14, color: scheme.outline)
-            : null,
       ),
       title: Text(label),
-      subtitle: Text(color == null ? '默认' : _hexOf(color)),
+      subtitle: Text(
+        !enabled && disabledHint != null
+            ? disabledHint
+            : (color == null ? '默认' : _hexOf(color)),
+      ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -509,18 +577,25 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
             IconButton(
               tooltip: '恢复默认',
               icon: const Icon(Icons.restart_alt, size: 20),
-              onPressed: () => setState(() {
-                if (field == 'background') {
-                  _background = null;
-                } else {
-                  _cardColor = null;
-                }
-              }),
+              onPressed: enabled
+                  ? () => setState(() {
+                      if (field == 'background') {
+                        _background = null;
+                      } else if (field == 'card') {
+                        _cardColor = null;
+                      } else {
+                        _sheetColor = null;
+                      }
+                    })
+                  : null,
             ),
-          Radio<String>(value: field),
+          IgnorePointer(
+            ignoring: !enabled,
+            child: Radio<String>(value: field),
+          ),
         ],
       ),
-      onTap: () => _pickColor(field),
+      onTap: enabled ? () => _pickColor(field) : null,
     );
   }
 

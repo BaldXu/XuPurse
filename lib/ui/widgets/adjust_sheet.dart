@@ -6,6 +6,7 @@ import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../tokens/design_tokens.dart';
+import 'xp_sheet.dart';
 import 'xp_snack.dart';
 
 /// 手动调账弹窗（算法二）：输入目标余额 → 产生调账账单 + MANUAL 快照。
@@ -15,10 +16,9 @@ class AdjustSheet extends ConsumerStatefulWidget {
   final Account account;
 
   static Future<void> show(BuildContext context, Account account) {
-    return showModalBottomSheet(
+    return showXpSheet(
       context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
+      heightFactor: 0.6,
       builder: (_) => AdjustSheet(account: account),
     );
   }
