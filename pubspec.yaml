@@ -26,6 +26,10 @@ dependencies:
   # 图表
   fl_chart: ^0.70.0
 
+  # 图标（彩色表情图标：Twitter Emoji / twemoji）
+  colorful_iconify_flutter: ^0.0.5
+  flutter_svg: ^2.0.17
+
   # 基础工具
   intl: ^0.20.0
   uuid: ^4.5.1

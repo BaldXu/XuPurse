@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database/global_database.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
+import '../widgets/app_icon.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_fab.dart';
 import '../widgets/xp_snack.dart';
@@ -143,8 +144,10 @@ class _BookManagePageState extends ConsumerState<BookManagePage>
               final isCurrent = book.id == currentId;
               return Card(
                 child: ListTile(
-                  leading: Icon(
-                    isCurrent ? Icons.check_circle : Icons.menu_book_outlined,
+                  leading: AppIcon(
+                    icon: isCurrent
+                        ? Icons.check_circle
+                        : Icons.menu_book_outlined,
                     color: isCurrent
                         ? Theme.of(context).colorScheme.primary
                         : null,

@@ -6,6 +6,7 @@ import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
+import '../widgets/app_icon.dart';
 import '../widgets/xp_empty_state.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_skeleton.dart';
@@ -110,8 +111,8 @@ class _LendList extends ConsumerWidget {
                 ? XpSemanticColors.expense
                 : XpSemanticColors.income;
             return ListTile(
-              leading: Icon(
-                isLend ? Icons.north_east : Icons.south_west,
+              leading: AppIcon(
+                icon: isLend ? Icons.north_east : Icons.south_west,
                 color: color,
               ),
               title: Text(
@@ -162,7 +163,7 @@ class _ReimbursementList extends ConsumerWidget {
           itemBuilder: (context, i) {
             final r = items[i];
             return ListTile(
-              leading: const Icon(Icons.assignment_return),
+              leading: const AppIcon(icon: Icons.assignment_return),
               title: Text('报销 ${formatYuan(r.amount)}'),
               subtitle: Text(
                 '${_accountName(ref, r.reimbursementAccountId ?? r.accountId ?? '')}'
@@ -249,7 +250,7 @@ class _InstalmentList extends ConsumerWidget {
           itemBuilder: (context, i) {
             final r = items[i];
             return ListTile(
-              leading: const Icon(Icons.calendar_month),
+              leading: const AppIcon(icon: Icons.calendar_month),
               title: Text(
                 '分期 ${formatYuan(r.totalAmount)}'
                 '${r.serviceFee != 0 ? ' + 服务费 ${formatYuan(r.serviceFee)}' : ''}',

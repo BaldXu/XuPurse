@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../layout/xp_page_scaffold_mixin.dart';
+import '../widgets/app_icon.dart';
 
 /// 应用信息页：名称、版本、简介。
 class AboutPage extends StatefulWidget {
@@ -21,7 +22,11 @@ class _AboutPageState extends State<AboutPage> with XpPageScaffold<AboutPage> {
           shrinkWrap: true,
           padding: const EdgeInsets.all(32),
           children: [
-            Icon(Icons.account_balance_wallet, size: 64, color: scheme.primary),
+            AppIcon(
+              icon: Icons.account_balance_wallet,
+              size: 64,
+              color: scheme.primary,
+            ),
             const SizedBox(height: 12),
             Center(
               child: Text(

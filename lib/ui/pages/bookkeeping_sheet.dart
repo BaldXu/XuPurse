@@ -6,11 +6,11 @@ import '../../core/constants/enums.dart';
 import '../../core/utils/amount.dart';
 import '../../core/utils/app_colors.dart';
 import '../../core/utils/bill_extra.dart';
-import '../../core/utils/icons.dart';
 import '../../data/database/app_database.dart';
 import '../../domain/services/currency_service.dart';
 import '../../state/providers.dart';
 import '../widgets/xp_snack.dart';
+import '../widgets/app_icon.dart';
 import '../widgets/bill_tile.dart' show kExpenseColor, kIncomeColor;
 
 /// 记账弹窗：支出 / 收入 / 转账 + 数字键盘 + 二级分类 + 账户选择。
@@ -350,17 +350,17 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
         ButtonSegment(
           value: BillType.expense,
           label: Text('支出'),
-          icon: Icon(Icons.south_west),
+          icon: AppIcon(icon: Icons.south_west),
         ),
         ButtonSegment(
           value: BillType.income,
           label: Text('收入'),
-          icon: Icon(Icons.north_east),
+          icon: AppIcon(icon: Icons.north_east),
         ),
         ButtonSegment(
           value: BillType.transfer,
           label: Text('转账'),
-          icon: Icon(Icons.swap_horiz),
+          icon: AppIcon(icon: Icons.swap_horiz),
         ),
       ],
       selected: {_type},
@@ -551,7 +551,7 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
               ),
               TextButton.icon(
                 onPressed: _pickDate,
-                icon: const Icon(Icons.today, size: 18),
+                icon: const AppIcon(icon: Icons.today, size: 18),
                 label: Text(DateFormat('M月d日').format(_date)),
               ),
             ],
@@ -571,8 +571,8 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          Icon(
-            Icons.visibility_off_outlined,
+          AppIcon(
+            icon: Icons.visibility_off_outlined,
             size: 18,
             color: scheme.onSurfaceVariant,
           ),
@@ -869,7 +869,7 @@ class _CategoryCell extends StatelessWidget {
               // 选中态:主题色描边强化,与主题色图标呼应
               border: selected ? Border.all(color: accent, width: 1.5) : null,
             ),
-            child: Icon(resolveIcon(category.icon), size: 24, color: color),
+            child: AppIcon(name: category.icon, size: 24, color: color),
           ),
           const SizedBox(height: 4),
           Text(
@@ -918,8 +918,8 @@ class _AccountPicker extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: ChoiceChip(
-                    avatar: Icon(
-                      resolveIcon(acc.icon),
+                    avatar: AppIcon(
+                      name: acc.icon,
                       size: 16,
                       color: hexToColor(acc.color),
                     ),

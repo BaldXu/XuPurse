@@ -4,10 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/enums.dart';
 import '../../core/utils/amount.dart';
 import '../../core/utils/app_colors.dart';
-import '../../core/utils/icons.dart';
 import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
 import '../tokens/design_tokens.dart';
+import 'app_icon.dart';
 
 /// 金额语义色(统一从 design_tokens 提供,保留旧名兼容既有调用方)。
 const Color kExpenseColor = XpSemanticColors.expense;
@@ -38,7 +38,6 @@ class BillTile extends ConsumerWidget {
     final accById = {for (final a in accounts) a.id: a};
     final type = BillType.values.byName(bill.type);
 
-    final icon = resolveIcon(catById[bill.categoryId]?.icon);
     final iconColor = hexToColor(catById[bill.categoryId]?.color);
     final title = bill.comment?.isNotEmpty == true
         ? bill.comment!
@@ -60,7 +59,7 @@ class BillTile extends ConsumerWidget {
       leading: CircleAvatar(
         backgroundColor: iconColor.withValues(alpha: 0.15),
         foregroundColor: iconColor,
-        child: Icon(icon, size: 20),
+        child: AppIcon(name: catById[bill.categoryId]?.icon, size: 20),
       ),
       title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: subtitle.isEmpty

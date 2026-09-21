@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../layout/xp_page_scaffold_mixin.dart';
+import '../widgets/app_icon.dart';
 import 'budget_manage_page.dart';
 import 'category_manage_page.dart';
 import 'currency_settings_page.dart';
@@ -76,7 +77,7 @@ class _SettingsPageState extends State<SettingsPage>
     VoidCallback? onTap,
   }) {
     return ListTile(
-      leading: Icon(icon),
+      leading: AppIcon(icon: icon),
       title: Text(title),
       subtitle: subtitle == null ? null : Text(subtitle),
       trailing: const Icon(Icons.chevron_right, size: 20),

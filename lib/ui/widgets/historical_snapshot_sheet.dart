@@ -6,6 +6,7 @@ import '../../core/utils/amount.dart';
 import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
 import '../tokens/design_tokens.dart';
+import 'app_icon.dart';
 import 'xp_snack.dart';
 
 /// 手动添加历史快照弹窗（模块 2.4「历史快照」）：输入时间点 + 余额 + 备注，
@@ -123,7 +124,7 @@ class _HistoricalSnapshotSheetState
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: _pickTime,
-            icon: const Icon(Icons.event, size: 18),
+            icon: const AppIcon(icon: Icons.event, size: 18),
             label: Text('$_time.year-$m-$d $hh:$mm'),
           ),
           const SizedBox(height: 12),

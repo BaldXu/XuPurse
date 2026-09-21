@@ -5,10 +5,10 @@ import 'package:drift/drift.dart' show Value;
 
 import '../../core/constants/enums.dart';
 import '../../core/utils/amount.dart';
-import '../../core/utils/icons.dart';
 import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
 import '../tokens/design_tokens.dart';
+import '../widgets/app_icon.dart';
 import '../widgets/xp_snack.dart';
 
 /// 账户表单（新建 / 编辑）。
@@ -147,8 +147,8 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
                       (key) => Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: ChoiceChip(
-                          label: Icon(
-                            resolveIcon(key),
+                          label: AppIcon(
+                            name: key,
                             size: 20,
                             color: _icon == key
                                 ? Theme.of(context).colorScheme.onPrimary

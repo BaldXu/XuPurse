@@ -6,6 +6,7 @@ import '../../core/constants/enums.dart';
 import '../../data/import/import_models.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
+import '../widgets/app_icon.dart';
 
 /// 数据导入页（一木 / 昼虎 / 钱迹）。
 ///
@@ -54,7 +55,7 @@ class _ImportPageState extends ConsumerState<ImportPage>
                   const SizedBox(height: 16),
                   Card(
                     child: ListTile(
-                      leading: const Icon(Icons.visibility),
+                      leading: const AppIcon(icon: Icons.visibility),
                       title: const Text('已生成预览'),
                       subtitle: Text('${_file?.name ?? ''} · 点击重新查看预览弹窗'),
                       trailing: const Icon(Icons.chevron_right),
@@ -125,7 +126,7 @@ class _ImportPageState extends ConsumerState<ImportPage>
         Card(
           child: ListTile(
             enabled: enabled,
-            leading: const Icon(Icons.folder_open),
+            leading: const AppIcon(icon: Icons.folder_open),
             title: Text(_file?.name ?? '选择备份文件'),
             subtitle: Text(
               _file == null
@@ -462,7 +463,7 @@ class _ImportPreviewSheetState extends ConsumerState<_ImportPreviewSheet> {
                     label: Text('${_entityName(type)} ${names[type]}'),
                     avatar: stats.createdOf(type) > 0
                         ? const Icon(Icons.add, size: 16)
-                        : Icon(icon, size: 16),
+                        : AppIcon(icon: icon, size: 16),
                   ),
                 if (preview.isEmpty)
                   const Padding(

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../state/theme_provider.dart';
 import '../layout/breakpoints.dart';
 import '../layout/lazy_indexed_stack.dart';
+import '../widgets/app_icon.dart';
 import '../widgets/xp_frosted_bar.dart';
 import 'accounts_page.dart';
 import 'home_page.dart';
@@ -75,8 +76,8 @@ class _MainShellState extends ConsumerState<MainShell> {
           destinations: [
             for (var i = 0; i < _labels.length; i++)
               NavigationRailDestination(
-                icon: Icon(_icons[i]),
-                selectedIcon: Icon(_selectedIcons[i]),
+                icon: AppIcon(icon: _icons[i]),
+                selectedIcon: AppIcon(icon: _selectedIcons[i]),
                 label: Text(_labels[i]),
               ),
           ],
@@ -101,8 +102,8 @@ class _MainShellState extends ConsumerState<MainShell> {
       destinations: [
         for (var i = 0; i < _labels.length; i++)
           NavigationDestination(
-            icon: Icon(_icons[i]),
-            selectedIcon: Icon(_selectedIcons[i]),
+            icon: AppIcon(icon: _icons[i]),
+            selectedIcon: AppIcon(icon: _selectedIcons[i]),
             label: _labels[i],
           ),
       ],

@@ -6,6 +6,7 @@ import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
+import '../widgets/app_icon.dart';
 import '../widgets/bill_tile.dart';
 import '../widgets/xp_card.dart';
 import '../widgets/xp_empty_state.dart';
@@ -42,7 +43,7 @@ class _HomePageState extends ConsumerState<HomePage>
         actions: [
           IconButton(
             tooltip: '搜索',
-            icon: const Icon(Icons.search),
+            icon: const AppIcon(icon: Icons.search),
             onPressed: () => Navigator.of(
               context,
             ).push(MaterialPageRoute(builder: (_) => const SearchPage())),
@@ -434,8 +435,8 @@ class _FilterBar extends ConsumerWidget {
           // 日期范围按钮（ Flexible 防长文案在窄屏溢出）
           Flexible(
             child: ActionChip(
-              avatar: Icon(
-                Icons.date_range_outlined,
+              avatar: AppIcon(
+                icon: Icons.date_range_outlined,
                 size: 18,
                 color: custom != null ? colorScheme.onPrimary : null,
               ),

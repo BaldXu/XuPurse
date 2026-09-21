@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../state/theme_provider.dart';
+import '../../state/icon_pack_provider.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
+import '../widgets/app_icon.dart';
 import '../widgets/color_picker_dialog.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_snack.dart';
+import 'icon_settings_page.dart';
 
 /// 主题外观页：
 /// - 预设主题：点按应用；长按用户自建主题出现右上角减号，可删除（内置与当前使用中不可删）。
@@ -198,8 +201,8 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
           const SizedBox(height: 12),
           Card(
             child: ListTile(
-              leading: Icon(
-                Icons.dark_mode_outlined,
+              leading: AppIcon(
+                icon: Icons.dark_mode_outlined,
                 color: Theme.of(context).colorScheme.primary,
               ),
               title: const Text('克莱因蓝 · 暗色'),
@@ -274,6 +277,12 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
           ),
           const SizedBox(height: 24),
           _buildAppearanceSection(state),
+
+          // ---- 图标包（全局开关，独立于主题预设） ----
+          const SizedBox(height: 24),
+          const Divider(height: 1),
+          const SizedBox(height: 24),
+          _buildIconSection(),
 
           // ---- 磨砂玻璃（全局开关，独立于主题预设） ----
           const SizedBox(height: 24),
@@ -369,6 +378,41 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
                   ),
                 ),
               ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 图标包:全局开关(不依赖具体主题),点击进入图标选择页;
+  /// 确认后整 App 分类/账户图标即时切换并持久化。
+  Widget _buildIconSection() {
+    final scheme = Theme.of(context).colorScheme;
+    final pack = ref.watch(iconPackProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('图标', style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 4),
+        Text(
+          '分类与账户图标的整体风格，可切换 Twitter 表情（twemoji）。',
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: ListTile(
+            leading: AppIcon(
+              icon: Icons.emoji_emotions_outlined,
+              color: scheme.primary,
+            ),
+            title: const Text('图标风格'),
+            subtitle: Text('当前：${pack.label}'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const IconSettingsPage()),
             ),
           ),
         ),

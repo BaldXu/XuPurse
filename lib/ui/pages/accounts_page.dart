@@ -5,13 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/enums.dart';
 import '../../core/utils/amount.dart';
 import '../../core/utils/app_colors.dart';
-import '../../core/utils/icons.dart';
 import '../../data/database/app_database.dart';
 import '../../domain/services/trend_service.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/adjust_sheet.dart';
+import '../widgets/app_icon.dart';
 import '../widgets/xp_card.dart';
 import '../widgets/xp_stagger_in.dart';
 import '../widgets/xp_empty_state.dart';
@@ -46,7 +46,7 @@ class _AccountsPageState extends ConsumerState<AccountsPage>
         actions: [
           IconButton(
             tooltip: '账户管理',
-            icon: const Icon(Icons.manage_accounts_outlined),
+            icon: const AppIcon(icon: Icons.manage_accounts_outlined),
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const AccountManagePage()),
@@ -114,8 +114,8 @@ class _AccountsPageState extends ConsumerState<AccountsPage>
                 ),
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.show_chart,
+                    AppIcon(
+                      icon: Icons.show_chart,
                       color: Theme.of(context).colorScheme.primary,
                     ),
                     const SizedBox(width: XpSpacing.m),
@@ -353,7 +353,7 @@ class _AccountRow extends StatelessWidget {
               radius: 18,
               backgroundColor: color.withValues(alpha: 0.15),
               foregroundColor: color,
-              child: Icon(resolveIcon(account.icon), size: 20),
+              child: AppIcon(name: account.icon, size: 20),
             ),
             const SizedBox(width: XpSpacing.m),
             Expanded(

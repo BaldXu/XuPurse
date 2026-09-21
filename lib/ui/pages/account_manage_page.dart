@@ -4,12 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/utils/account_name.dart';
 import '../../core/utils/amount.dart';
 import '../../core/utils/app_colors.dart';
-import '../../core/utils/icons.dart';
 import '../../data/database/app_database.dart';
 import '../../domain/services/currency_service.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
+import '../widgets/app_icon.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_snack.dart';
 
@@ -150,7 +150,7 @@ class _AccountManagePageState extends ConsumerState<AccountManagePage>
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: _busy ? null : _changeCurrency,
-                        icon: const Icon(Icons.currency_exchange),
+                        icon: const AppIcon(icon: Icons.currency_exchange),
                         label: const Text('改币种'),
                       ),
                     ),
@@ -422,7 +422,7 @@ class _AccountCheckRow extends StatelessWidget {
       secondary: CircleAvatar(
         backgroundColor: hexToColor(account.color).withValues(alpha: 0.15),
         foregroundColor: hexToColor(account.color),
-        child: Icon(resolveIcon(account.icon), size: 20),
+        child: AppIcon(name: account.icon, size: 20),
       ),
     );
   }

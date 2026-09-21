@@ -8,6 +8,7 @@ import '../../data/backup/saver.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
+import '../widgets/app_icon.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_snack.dart';
 import 'import_page.dart';
@@ -278,7 +279,7 @@ class _TintedIcon extends StatelessWidget {
         color: colorScheme.primary.withValues(alpha: 0.12),
         shape: XpShape.smooth(borderRadius: BorderRadius.circular(XpRadius.s)),
       ),
-      child: Icon(icon, size: 20, color: colorScheme.primary),
+      child: AppIcon(icon: icon, size: 20, color: colorScheme.primary),
     );
   }
 }

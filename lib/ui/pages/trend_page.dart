@@ -7,6 +7,7 @@ import '../../data/database/app_database.dart';
 import '../../domain/services/trend_service.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
+import '../widgets/app_icon.dart';
 import '../widgets/bill_tile.dart' show kExpenseColor, kIncomeColor;
 import '../widgets/xp_skeleton.dart';
 import 'statistics/stats_shared.dart' show statsDataVersionProvider;
@@ -88,48 +89,67 @@ class _TrendPageState extends ConsumerState<TrendPage>
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
               children: [
-                _FilterBar(
-                  range: _range,
-                  granularity: _granularity,
-                  custom: _custom,
-                  onRangeChanged: (r) {
-                    setState(() {
-                      _range = r;
-                      if (r == _Range.custom && _custom == null) {
-                        _pickCustomRange(minDataTime);
-                      }
-                    });
-                  },
-                  onGranularityChanged: (g) => setState(() => _granularity = g),
-                  onPickCustom: () => _pickCustomRange(minDataTime),
-                ),
-                const SizedBox(height: 16),
-                // 当前总资产 + 期间变化
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '¥ ${formatYuan(total)}',
-                      style: Theme.of(context).textTheme.headlineMedium
-                          ?.copyWith(fontWeight: FontWeight.w700),
+                // 筛选栏：范围 + 粒度（包卡，避免直接落在页背景上低对比）
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                    child: _FilterBar(
+                      range: _range,
+                      granularity: _granularity,
+                      custom: _custom,
+                      onRangeChanged: (r) {
+                        setState(() {
+                          _range = r;
+                          if (r == _Range.custom && _custom == null) {
+                            _pickCustomRange(minDataTime);
+                          }
+                        });
+                      },
+                      onGranularityChanged: (g) =>
+                          setState(() => _granularity = g),
+                      onPickCustom: () => _pickCustomRange(minDataTime),
                     ),
-                    if (points.length >= 2) ...[
-                      const SizedBox(width: 12),
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
-                        child: _ChangeText(
-                          change: points.last.value - points.first.value,
-                          suffix: '（期间）',
-                        ),
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
                 const SizedBox(height: 16),
-                if (points.isEmpty)
-                  const _EmptyHint()
-                else
-                  SizedBox(height: 220, child: _TrendChart(points: points)),
+                // 总资产趋势（总资产 + 期间变化 + 主图表，包卡与下方卡片一致）
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '总资产趋势',
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '¥ ${formatYuan(total)}',
+                          style: Theme.of(context).textTheme.headlineMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        if (points.length >= 2)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: _ChangeText(
+                              change: points.last.value - points.first.value,
+                              suffix: '（期间）',
+                            ),
+                          ),
+                        const SizedBox(height: 12),
+                        if (points.isEmpty)
+                          const _EmptyHint()
+                        else
+                          SizedBox(
+                            height: 220,
+                            child: _TrendChart(points: points),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 24),
                 // 单账户余额趋势
                 _AccountTrendCard(
@@ -284,7 +304,7 @@ class _FilterBar extends StatelessWidget {
             // 自定义已选时展示当前范围摘要
             if (range == _Range.custom && custom != null)
               ActionChip(
-                avatar: const Icon(Icons.date_range, size: 16),
+                avatar: const AppIcon(icon: Icons.date_range, size: 16),
                 label: Text(
                   '${_fmtDay(custom!.start)} ~ ${_fmtDay(custom!.end - 86400000)}',
                   style: theme.textTheme.labelSmall,
@@ -727,8 +747,8 @@ class _EmptyHint extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.show_chart,
+          AppIcon(
+            icon: Icons.show_chart,
             size: 56,
             color: Theme.of(
               context,

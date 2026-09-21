@@ -5,6 +5,7 @@ import '../../core/utils/amount.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
+import '../widgets/app_icon.dart';
 import '../widgets/xp_card.dart';
 import 'about_page.dart';
 import 'ai_settings_page.dart';
@@ -287,7 +288,7 @@ class _Entry extends StatelessWidget {
                   borderRadius: BorderRadius.circular(XpRadius.s),
                 ),
               ),
-              child: Icon(icon, size: 20, color: colorScheme.primary),
+              child: AppIcon(icon: icon, size: 20, color: colorScheme.primary),
             ),
             const SizedBox(width: XpSpacing.m),
             Expanded(

@@ -5,6 +5,7 @@ import '../../domain/ai/ai_config.dart';
 import '../../domain/ai/ai_service.dart';
 import '../../domain/ai/stats_context.dart';
 import '../tokens/design_tokens.dart';
+import 'app_icon.dart';
 
 /// 统计页 AI 悬浮按钮：已配置 AI 时显示，点击弹出底部聊天窗口。
 class AiFab extends ConsumerWidget {
@@ -20,7 +21,7 @@ class AiFab extends ConsumerWidget {
       tooltip: 'AI 助手',
       heroTag: 'ai_fab',
       onPressed: () => showAiChatSheet(context),
-      child: const Icon(Icons.smart_toy_outlined),
+      child: const AppIcon(icon: Icons.smart_toy_outlined),
     );
   }
 }
@@ -206,7 +207,7 @@ class _AiChatSheetState extends ConsumerState<_AiChatSheet> {
             padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
             child: Row(
               children: [
-                const Icon(Icons.smart_toy_outlined, size: 20),
+                const AppIcon(icon: Icons.smart_toy_outlined, size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -218,7 +219,7 @@ class _AiChatSheetState extends ConsumerState<_AiChatSheet> {
                 ),
                 IconButton(
                   tooltip: '历史对话',
-                  icon: const Icon(Icons.history, size: 22),
+                  icon: const AppIcon(icon: Icons.history, size: 22),
                   onPressed: () => _showHistoryDrawer(conversations),
                 ),
                 // 思考模式开关（仅对疑似支持思考的模型显示；默认关闭）
@@ -255,7 +256,10 @@ class _AiChatSheetState extends ConsumerState<_AiChatSheet> {
                 ),
                 IconButton(
                   tooltip: '新建对话',
-                  icon: const Icon(Icons.add_comment_outlined, size: 22),
+                  icon: const AppIcon(
+                    icon: Icons.add_comment_outlined,
+                    size: 22,
+                  ),
                   onPressed: _sending ? null : _newConversation,
                 ),
                 IconButton(
@@ -367,8 +371,8 @@ class _AiChatSheetState extends ConsumerState<_AiChatSheet> {
                   itemBuilder: (context, i) {
                     final c = conversations[i];
                     return ListTile(
-                      leading: Icon(
-                        c.id == _convId
+                      leading: AppIcon(
+                        icon: c.id == _convId
                             ? Icons.chat_bubble
                             : Icons.chat_bubble_outline,
                         size: 20,
@@ -425,8 +429,8 @@ class _ChatEmptyHint extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.smart_toy_outlined,
+            AppIcon(
+              icon: Icons.smart_toy_outlined,
               size: 48,
               color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
             ),

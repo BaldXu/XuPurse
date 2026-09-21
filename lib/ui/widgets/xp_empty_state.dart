@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'app_icon.dart';
+
 /// 统一空状态占位:大图标 + 标题 + 副文 + 可选按钮。
 /// 替代散落各页的私有 EmptyHint 实现与裸 Text('暂无...')。
 class XpEmptyState extends StatelessWidget {
@@ -27,7 +29,7 @@ class XpEmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 48, color: scheme.outline),
+            AppIcon(icon: icon, size: 48, color: scheme.outline),
             const SizedBox(height: 12),
             Text(
               title,
@@ -40,14 +42,17 @@ class XpEmptyState extends StatelessWidget {
               Text(
                 message!,
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
               ),
             ],
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: 16),
-              FilledButton.tonal(onPressed: onAction, child: Text(actionLabel!)),
+              FilledButton.tonal(
+                onPressed: onAction,
+                child: Text(actionLabel!),
+              ),
             ],
           ],
         ),

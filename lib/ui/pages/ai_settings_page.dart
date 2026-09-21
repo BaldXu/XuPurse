@@ -6,6 +6,7 @@ import '../../domain/ai/ai_service.dart';
 import '../layout/breakpoints.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
+import '../widgets/app_icon.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_fab.dart';
 import '../widgets/xp_snack.dart';
@@ -115,8 +116,8 @@ class _EmptyConfigHint extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.smart_toy_outlined,
+          AppIcon(
+            icon: Icons.smart_toy_outlined,
             size: 56,
             color: Theme.of(
               context,

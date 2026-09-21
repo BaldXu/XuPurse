@@ -4,12 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/enums.dart';
 import '../../core/utils/amount.dart';
 import '../../core/utils/app_colors.dart';
-import '../../core/utils/icons.dart';
 import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/adjust_sheet.dart';
+import '../widgets/app_icon.dart';
 import '../widgets/bill_tile.dart';
 import '../widgets/historical_snapshot_sheet.dart';
 import '../widgets/xp_empty_state.dart';
@@ -83,7 +83,7 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage>
                     radius: 26,
                     backgroundColor: color.withValues(alpha: 0.15),
                     foregroundColor: color,
-                    child: Icon(resolveIcon(current.icon), size: 26),
+                    child: AppIcon(name: current.icon, size: 26),
                   ),
                   const SizedBox(width: XpSpacing.m),
                   Expanded(
@@ -128,7 +128,7 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage>
                 child: OutlinedButton.icon(
                   onPressed: () =>
                       HistoricalSnapshotSheet.show(context, current),
-                  icon: const Icon(Icons.history, size: 18),
+                  icon: const AppIcon(icon: Icons.history, size: 18),
                   label: const Text('添加历史快照'),
                 ),
               ),
@@ -307,8 +307,8 @@ class _SnapTile extends StatelessWidget {
     final dt = DateTime.fromMillisecondsSinceEpoch(snap.timestamp);
     return ListTile(
       dense: true,
-      leading: Icon(
-        _snapIcon(snap.type),
+      leading: AppIcon(
+        icon: _snapIcon(snap.type),
         size: 20,
         color: colorScheme.onSurfaceVariant,
       ),

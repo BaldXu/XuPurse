@@ -7,6 +7,7 @@ import '../../data/database/app_database.dart';
 import '../../domain/services/currency_service.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
+import '../widgets/app_icon.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_skeleton.dart';
 import '../widgets/xp_fab.dart';
@@ -45,8 +46,8 @@ class _TagManagePageState extends ConsumerState<TagManagePage>
                   backgroundColor: _parseColor(
                     colorHex,
                   ).withValues(alpha: 0.15),
-                  child: Icon(
-                    Icons.label,
+                  child: AppIcon(
+                    icon: Icons.label,
                     size: 16,
                     color: _parseColor(colorHex),
                   ),

@@ -6,6 +6,7 @@ import '../layout/breakpoints.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/ai_chat_sheet.dart';
+import '../widgets/app_icon.dart';
 import 'statistics/stats_budget_section.dart';
 import 'statistics/stats_category_section.dart';
 import 'statistics/stats_overview_section.dart';
@@ -209,8 +210,8 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage>
           destinations: [
             for (final s in _Section.values)
               NavigationRailDestination(
-                icon: Icon(s.icon),
-                selectedIcon: Icon(s.selectedIcon),
+                icon: AppIcon(icon: s.icon),
+                selectedIcon: AppIcon(icon: s.selectedIcon),
                 label: Text(s.label),
               ),
           ],
@@ -326,7 +327,11 @@ class _RangeDropdown extends StatelessWidget {
           value: StatsRangePreset.custom,
           child: Row(
             children: [
-              Icon(Icons.date_range_outlined, size: 18, color: scheme.primary),
+              AppIcon(
+                icon: Icons.date_range_outlined,
+                size: 18,
+                color: scheme.primary,
+              ),
               const SizedBox(width: 8),
               Text(StatsRangePreset.custom.label),
             ],
@@ -343,8 +348,8 @@ class _RangeDropdown extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.calendar_month_outlined,
+            AppIcon(
+              icon: Icons.calendar_month_outlined,
               size: 16,
               color: scheme.primary,
             ),

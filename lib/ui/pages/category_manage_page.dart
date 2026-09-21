@@ -7,6 +7,7 @@ import '../../core/utils/ids.dart';
 import '../../data/database/app_database.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../widgets/xp_sheet.dart';
+import '../widgets/app_icon.dart';
 import '../widgets/xp_fab.dart';
 import '../widgets/xp_snack.dart';
 import '../../state/providers.dart';
@@ -163,7 +164,7 @@ class _CategoryTile extends StatelessWidget {
       leading: CircleAvatar(
         radius: 16,
         backgroundColor: color.withValues(alpha: 0.15),
-        child: Icon(Icons.bookmark, size: 16, color: color),
+        child: AppIcon(icon: Icons.bookmark, size: 16, color: color),
       ),
       title: Text(category.name),
       subtitle: category.parentId == null
