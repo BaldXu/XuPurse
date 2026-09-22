@@ -131,6 +131,55 @@ String spanLabel(int spanMs) {
   return '${days.round()}天';
 }
 
+/// 环比「上一周期」区间的日历对齐计算。
+///
+/// 不能用 `start - (end - start)` 滚动窗口：日历月天数不一（30/31/28），
+/// 本月 9/1~10/1 的 span=30 天，滚回去是 8/2~9/1，把上月 8/1 的账单
+/// 切掉（环比少算一整天的钱）。正确做法是按日历单位整体平移——
+/// 上月就是上月、去年就是去年、上周就是上周。
+({int start, int end}) prevCalendarRange(int start, int end) {
+  final s = DateTime.fromMillisecondsSinceEpoch(start);
+  final e = DateTime.fromMillisecondsSinceEpoch(end);
+  // 端点都是当日 00:00 且 end 恰为 start 的「下个整月/整年」→ 日历月/年。
+  final bool startIsMidnight = s.hour == 0 && s.minute == 0 && s.second == 0;
+  if (startIsMidnight &&
+      e.year == (s.month == 12 ? s.year + 1 : s.year) &&
+      e.month == (s.month == 12 ? 1 : s.month + 1)) {
+    // 本月 → 上月（含 12 月跨年；DateTime(month:0) 自动落到上一年 12 月）。
+    return (
+      start: DateTime(s.year, s.month - 1).millisecondsSinceEpoch,
+      end: DateTime(s.year, s.month).millisecondsSinceEpoch,
+    );
+  }
+  if (startIsMidnight &&
+      e.year == s.year + 1 &&
+      e.month == s.month &&
+      e.day == s.day) {
+    // 本年 → 去年（平移一年）。
+    return (
+      start: DateTime(s.year - 1, s.month, s.day).millisecondsSinceEpoch,
+      end: DateTime(e.year - 1, e.month, e.day).millisecondsSinceEpoch,
+    );
+  }
+  if (startIsMidnight &&
+      !e.isAfter(s.add(const Duration(days: 7))) &&
+      e.weekday == DateTime.monday &&
+      s.weekday == DateTime.monday) {
+    // 整周（周一起）→ 上一周。
+    return (
+      start: s.add(const Duration(days: -7)).millisecondsSinceEpoch,
+      end: e.add(const Duration(days: -7)).millisecondsSinceEpoch,
+    );
+  }
+  // 其余（自定义范围/非对齐区间）：按天数平移，但用「当日同时刻」平移
+  // 保证边界落在同一时刻（而非毫秒差），避免 DST/月末截断类错位。
+  final shiftDays = e.difference(s).inDays;
+  return (
+    start: s.subtract(Duration(days: shiftDays)).millisecondsSinceEpoch,
+    end: e.subtract(Duration(days: shiftDays)).millisecondsSinceEpoch,
+  );
+}
+
 /// 分类饼图/排行与标签条形共用的图表调色板。
 const piePalette = [
   Color(0xFF5470C6),

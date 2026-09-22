@@ -76,16 +76,16 @@ class _OverviewSectionState extends ConsumerState<StatsOverviewSection>
       widget.end,
       BillType.income,
     );
-    // 环比：与上一段等长区间对比
-    final span = widget.end - widget.start;
+    // 环比：与上一周期对比（日历对齐——上月=上月；滚动窗口会切掉月初账单）。
+    final prev = prevCalendarRange(widget.start, widget.end);
     final prevExpense = await repo.sumByType(
-      widget.start - span,
-      widget.start,
+      prev.start,
+      prev.end,
       BillType.expense,
     );
     final prevIncome = await repo.sumByType(
-      widget.start - span,
-      widget.start,
+      prev.start,
+      prev.end,
       BillType.income,
     );
     return _OverviewData(
@@ -93,7 +93,7 @@ class _OverviewSectionState extends ConsumerState<StatsOverviewSection>
       income: income,
       prevExpense: prevExpense,
       prevIncome: prevIncome,
-      days: span / 86400000,
+      days: (widget.end - widget.start) / 86400000,
     );
   }
 
