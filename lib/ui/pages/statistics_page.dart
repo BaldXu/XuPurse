@@ -52,6 +52,12 @@ enum _Section {
 
 class _StatisticsPageState extends ConsumerState<StatisticsPage>
     with XpPageScaffold {
+  // 二级分区 rail 须贴一级导航栏：壳层默认 720 限宽居中会把整块 body
+  // （含 rail）推到屏幕中间，rail 与一级导航栏之间空出大段灰底。
+  // 覆写为不限宽；分区内容自身已有 ContentWidthBox(960) 兜底居中。
+  @override
+  double get xpMaxWidth => double.infinity;
+
   _Section _section = _Section.overview;
   StatsRangePreset _preset = StatsRangePreset.thisMonth;
   DateTimeRange? _customRange;
