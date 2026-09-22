@@ -6,6 +6,9 @@ import '../../../core/constants/enums.dart';
 import '../../../core/utils/amount.dart';
 import '../../../data/database/app_database.dart';
 import '../../../state/providers.dart';
+import '../../tokens/design_tokens.dart';
+import '../../widgets/xp_card.dart';
+import '../../widgets/xp_empty_state.dart';
 import '../../widgets/xp_skeleton.dart';
 import 'stats_shared.dart';
 
@@ -93,37 +96,36 @@ class _BudgetSectionState extends ConsumerState<StatsBudgetSection>
           return const XpSkeletonList();
         }
         if (snap.hasError) {
-          return Center(child: Text('加载失败：${snap.error}'));
+          return XpErrorState(
+            message: '${snap.error}',
+            actionLabel: '重试',
+            onAction: () => setState(() => _future = _load()),
+          );
         }
         final items = snap.data ?? const <_BudgetExec>[];
         if (items.isEmpty) {
-          return const Card(
-            child: Padding(
-              padding: EdgeInsets.all(24),
-              child: Center(child: Text('本时段暂无预算')),
-            ),
+          return const XpCard(
+            padding: EdgeInsets.zero,
+            child: XpEmptyState(icon: Icons.savings_outlined, title: '本时段暂无预算'),
           );
         }
         return ListView(
           // 底部留出穿透导航栏的高度(extendBody 注入的 MediaQuery bottom)。
           padding: EdgeInsets.fromLTRB(
-            16,
-            16,
-            16,
+            XpSpacing.l,
+            XpSpacing.l,
+            XpSpacing.l,
             16 + MediaQuery.paddingOf(context).bottom,
           ),
           children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('预算执行', style: Theme.of(context).textTheme.titleSmall),
-                    const SizedBox(height: 12),
-                    for (final item in items) _BudgetExecRow(item: item),
-                  ],
-                ),
+            XpCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('预算执行', style: Theme.of(context).textTheme.titleSmall),
+                  const SizedBox(height: XpSpacing.m),
+                  for (final item in items) _BudgetExecRow(item: item),
+                ],
               ),
             ),
           ],
@@ -147,7 +149,7 @@ class _BudgetExecRow extends StatelessWidget {
         : (item.spent / b.amount).clamp(0.0, 1.0);
     final over = item.spent > b.amount;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: XpSpacing.s),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -163,11 +165,13 @@ class _BudgetExecRow extends StatelessWidget {
               Text(
                 '${formatYuan(item.spent)} / ${formatYuan(b.amount)}'
                 '${b.amount > 0 ? '（${(progress * 100).toStringAsFixed(0)}%）' : ''}',
-                style: textTheme.bodySmall?.copyWith(
-                  color: over
-                      ? Theme.of(context).colorScheme.error
-                      : Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+                style: textTheme.bodySmall
+                    ?.copyWith(
+                      color: over
+                          ? Theme.of(context).colorScheme.error
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
+                    )
+                    .tabular,
               ),
             ],
           ),

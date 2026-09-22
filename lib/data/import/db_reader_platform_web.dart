@@ -25,9 +25,7 @@ wasm.WasmSqlite3? _instance;
 
 Future<wasm.WasmSqlite3> _ensureWasm() async {
   if (_instance != null) return _instance!;
-  final loaded = await wasm.WasmSqlite3.loadFromUrl(
-    Uri.parse('sqlite3.wasm'),
-  );
+  final loaded = await wasm.WasmSqlite3.loadFromUrl(Uri.parse('sqlite3.wasm'));
   _instance = loaded;
   return loaded;
 }

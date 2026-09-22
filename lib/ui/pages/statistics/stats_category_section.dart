@@ -7,6 +7,8 @@ import '../../../core/utils/amount.dart';
 import '../../../data/database/app_database.dart';
 import '../../../state/providers.dart';
 import '../../tokens/design_tokens.dart';
+import '../../widgets/xp_card.dart';
+import '../../widgets/xp_empty_state.dart';
 import '../../widgets/xp_sheet.dart';
 import '../../widgets/xp_skeleton.dart';
 import 'stats_shared.dart';
@@ -78,15 +80,19 @@ class _CategorySectionState extends ConsumerState<StatsCategorySection>
           return const XpSkeletonList();
         }
         if (snap.hasError) {
-          return Center(child: Text('加载失败：${snap.error}'));
+          return XpErrorState(
+            message: '${snap.error}',
+            actionLabel: '重试',
+            onAction: () => setState(() => _future = _load()),
+          );
         }
         final d = snap.data!;
         return ListView(
           // 底部留出穿透导航栏的高度(extendBody 注入的 MediaQuery bottom)。
           padding: EdgeInsets.fromLTRB(
-            16,
-            16,
-            16,
+            XpSpacing.l,
+            XpSpacing.l,
+            XpSpacing.l,
             16 + MediaQuery.paddingOf(context).bottom,
           ),
           children: [
@@ -96,14 +102,14 @@ class _CategorySectionState extends ConsumerState<StatsCategorySection>
               categorySum: d.expenseSum,
               categories: d.categories,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: XpSpacing.l),
             _CategoryPieCard(
               title: '收入分类占比',
               emptyHint: '本时段暂无收入',
               categorySum: d.incomeSum,
               categories: d.categories,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: XpSpacing.l),
             _CategoryRankCard(start: widget.start, end: widget.end, data: d),
           ],
         );
@@ -140,66 +146,67 @@ class _CategoryRankCardState extends ConsumerState<_CategoryRankCard> {
     final ranked = widget.data.topLevelSum(leafSum);
     final total = ranked.fold<int>(0, (s, e) => s + e.amount);
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '分类金额排行',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+    return XpCard(
+      padding: const EdgeInsets.fromLTRB(
+        XpSpacing.l,
+        XpSpacing.m,
+        XpSpacing.l,
+        XpSpacing.s,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '分类金额排行',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                SegmentedButton<BillType>(
-                  showSelectedIcon: false,
-                  style: const ButtonStyle(
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  segments: const [
-                    ButtonSegment(value: BillType.expense, label: Text('支出')),
-                    ButtonSegment(value: BillType.income, label: Text('收入')),
-                  ],
-                  selected: {_type},
-                  onSelectionChanged: (s) => setState(() => _type = s.first),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '按一级分类合计金额排序，点击查看明细',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
               ),
+              SegmentedButton<BillType>(
+                showSelectedIcon: false,
+                style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                segments: const [
+                  ButtonSegment(value: BillType.expense, label: Text('支出')),
+                  ButtonSegment(value: BillType.income, label: Text('收入')),
+                ],
+                selected: {_type},
+                onSelectionChanged: (s) => setState(() => _type = s.first),
+              ),
+            ],
+          ),
+          const SizedBox(height: XpSpacing.xs),
+          Text(
+            '按一级分类合计金额排序，点击查看明细',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
-            const SizedBox(height: 8),
-            if (ranked.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 20),
-                child: Center(
-                  child: Text(
-                    _type == BillType.expense ? '本时段暂无支出' : '本时段暂无收入',
-                    style: theme.textTheme.bodySmall,
-                  ),
+          ),
+          const SizedBox(height: XpSpacing.s),
+          if (ranked.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: Text(
+                  _type == BillType.expense ? '本时段暂无支出' : '本时段暂无收入',
+                  style: theme.textTheme.bodySmall,
                 ),
-              )
-            else
-              for (var i = 0; i < ranked.length; i++)
-                _RankTile(
-                  rank: i + 1,
-                  name: _catName(widget.data.categories, ranked[i].categoryId),
-                  amount: ranked[i].amount,
-                  percent: total <= 0 ? 0 : ranked[i].amount / total,
-                  color: piePalette[i % piePalette.length],
-                  onTap: () => _showDetail(ranked[i].categoryId),
-                ),
-          ],
-        ),
+              ),
+            )
+          else
+            for (var i = 0; i < ranked.length; i++)
+              _RankTile(
+                rank: i + 1,
+                name: _catName(widget.data.categories, ranked[i].categoryId),
+                amount: ranked[i].amount,
+                percent: total <= 0 ? 0 : ranked[i].amount / total,
+                color: piePalette[i % piePalette.length],
+                onTap: () => _showDetail(ranked[i].categoryId),
+              ),
+        ],
       ),
     );
   }
@@ -282,7 +289,12 @@ class _CategoryDetailSheetState extends ConsumerState<_CategoryDetailSheet> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
+              padding: const EdgeInsets.fromLTRB(
+                XpSpacing.l,
+                14,
+                XpSpacing.s,
+                XpSpacing.s,
+              ),
               child: Row(
                 children: [
                   Expanded(
@@ -309,28 +321,42 @@ class _CategoryDetailSheetState extends ConsumerState<_CategoryDetailSheet> {
                     return const XpSkeletonList();
                   }
                   if (snap.hasError) {
-                    return Center(child: Text('加载失败：${snap.error}'));
+                    return XpErrorState(
+                      message: '${snap.error}',
+                      actionLabel: '重试',
+                      onAction: () => setState(() => _future = _load()),
+                    );
                   }
                   final bills = snap.data!;
                   if (bills.isEmpty) {
-                    return const Center(child: Text('该时间范围内暂无明细'));
+                    return const XpEmptyState(
+                      icon: Icons.receipt_long,
+                      title: '该时间范围内暂无明细',
+                    );
                   }
                   var total = 0;
                   for (final b in bills) {
                     total += b.amount;
                   }
                   return ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                    padding: const EdgeInsets.fromLTRB(
+                      XpSpacing.l,
+                      XpSpacing.s,
+                      XpSpacing.l,
+                      XpSpacing.xl,
+                    ),
                     itemCount: bills.length + 1,
                     itemBuilder: (context, i) {
                       if (i == 0) {
                         return Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.only(bottom: XpSpacing.s),
                           child: Text(
                             '共 ${bills.length} 笔，合计 ${formatYuan(total)}',
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
+                            style: theme.textTheme.labelMedium
+                                ?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                )
+                                .tabular,
                           ),
                         );
                       }
@@ -377,7 +403,7 @@ class _DetailRow extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: XpSpacing.s),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -402,12 +428,14 @@ class _DetailRow extends StatelessWidget {
           ),
           Text(
             '${isExpense ? '-' : '+'}${formatYuan(bill.amount)}',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: isExpense
-                  ? theme.colorScheme.onSurface
-                  : XpSemanticColors.income,
-            ),
+            style: theme.textTheme.bodyMedium
+                ?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: isExpense
+                      ? theme.colorScheme.onSurface
+                      : XpSemanticColors.income,
+                )
+                .tabular,
           ),
         ],
       ),
@@ -453,19 +481,19 @@ class _RankTile extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: XpSpacing.s),
             Container(
               width: 10,
               height: 10,
               decoration: BoxDecoration(color: color, shape: BoxShape.circle),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: XpSpacing.s),
             Expanded(child: Text(name, style: theme.textTheme.bodyMedium)),
             Text(
               formatYuan(amount),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(fontWeight: FontWeight.w600)
+                  .tabular,
             ),
             const SizedBox(width: 6),
             SizedBox(
@@ -473,9 +501,9 @@ class _RankTile extends StatelessWidget {
               child: Text(
                 '${(percent * 100).toStringAsFixed(1)}%',
                 textAlign: TextAlign.right,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+                style: theme.textTheme.labelSmall
+                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant)
+                    .tabular,
               ),
             ),
           ],
@@ -564,11 +592,9 @@ class _CategoryPieCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (categorySum.isEmpty) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Center(child: Text(emptyHint)),
-        ),
+      return XpCard(
+        padding: EdgeInsets.zero,
+        child: XpEmptyState(icon: Icons.pie_chart_outline, title: emptyHint),
       );
     }
     final sorted = [...categorySum]
@@ -596,57 +622,57 @@ class _CategoryPieCard extends StatelessWidget {
         ),
     ];
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                SizedBox(
-                  width: 140,
-                  height: 140,
-                  child: PieChart(
-                    PieChartData(
-                      sections: sections,
-                      sectionsSpace: 2,
-                      centerSpaceRadius: 28,
-                    ),
+    return XpCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: XpSpacing.m),
+          Row(
+            children: [
+              SizedBox(
+                width: 140,
+                height: 140,
+                child: PieChart(
+                  PieChartData(
+                    sections: sections,
+                    sectionsSpace: 2,
+                    centerSpaceRadius: 28,
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    children: [
-                      for (var i = 0; i < top5.length; i++)
-                        _legend(
-                          piePalette[i % piePalette.length],
-                          _catName(categories, top5[i].categoryId),
-                          '${formatYuan(top5[i].amount)}'
-                          '（${(top5[i].amount / total * 100).toStringAsFixed(0)}%）',
-                        ),
-                      if (otherAmount > 0)
-                        _legend(
-                          piePalette[5],
-                          '其他',
-                          '${formatYuan(otherAmount)}'
-                              '（${(otherAmount / total * 100).toStringAsFixed(0)}%）',
-                        ),
-                    ],
-                  ),
+              ),
+              const SizedBox(width: XpSpacing.l),
+              Expanded(
+                child: Column(
+                  children: [
+                    for (var i = 0; i < top5.length; i++)
+                      _legend(
+                        context,
+                        piePalette[i % piePalette.length],
+                        _catName(categories, top5[i].categoryId),
+                        '${formatYuan(top5[i].amount)}'
+                        '（${(top5[i].amount / total * 100).toStringAsFixed(0)}%）',
+                      ),
+                    if (otherAmount > 0)
+                      _legend(
+                        context,
+                        piePalette[5],
+                        '其他',
+                        '${formatYuan(otherAmount)}'
+                            '（${(otherAmount / total * 100).toStringAsFixed(0)}%）',
+                      ),
+                  ],
                 ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  Widget _legend(Color color, String name, String value) {
+  Widget _legend(BuildContext context, Color color, String name, String value) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
@@ -656,9 +682,14 @@ class _CategoryPieCard extends StatelessWidget {
             height: 10,
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
-          const SizedBox(width: 8),
-          Expanded(child: Text(name, style: const TextStyle(fontSize: 12))),
-          Text(value, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+          const SizedBox(width: XpSpacing.s),
+          Expanded(child: Text(name, style: theme.textTheme.bodyMedium)),
+          Text(
+            value,
+            style: theme.textTheme.labelSmall
+                ?.copyWith(color: theme.colorScheme.onSurfaceVariant)
+                .tabular,
+          ),
         ],
       ),
     );

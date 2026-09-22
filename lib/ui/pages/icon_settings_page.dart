@@ -5,6 +5,7 @@ import '../../state/icon_pack_provider.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../widgets/app_icon.dart';
 import '../widgets/xp_snack.dart';
+import '../tokens/design_tokens.dart';
 
 /// 图标选择页：展示全部图标包，选择后点右上角「确认」应用，整个 App 刷新图标。
 ///
@@ -61,17 +62,17 @@ class _IconSettingsPageState extends ConsumerState<IconSettingsPage>
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(XpSpacing.l),
         children: [
           Text('图标风格', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 4),
+          const SizedBox(height: XpSpacing.xs),
           Text(
             '选择图标包，点右上角「确认」后整 App 图标即时刷新。',
             style: Theme.of(
               context,
             ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: XpSpacing.l),
           for (final pack in IconPack.values) ...[
             _IconPackCard(
               pack: pack,
@@ -79,7 +80,7 @@ class _IconSettingsPageState extends ConsumerState<IconSettingsPage>
               active: current == pack,
               onTap: () => setState(() => _selected = pack),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: XpSpacing.l),
           ],
         ],
       ),
@@ -117,6 +118,8 @@ class _IconPackCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final titleColor = active ? scheme.primary : null;
+    // 选中态描边卡：自定义 shape 描边 + 动态底色，XpCard 不支持 color/shape
+    // 参数，保留裸 Card。
     return Card(
       elevation: 0,
       color: selected
@@ -133,7 +136,7 @@ class _IconPackCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(XpSpacing.l),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -146,7 +149,7 @@ class _IconPackCard extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: XpSpacing.s),
                   if (active)
                     Text(
                       '使用中',
@@ -164,7 +167,7 @@ class _IconPackCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: XpSpacing.m),
               Text(
                 pack == IconPack.minimal
                     ? 'Material 单色线性图标，跟随主题色渲染，简洁克制。'
@@ -173,7 +176,7 @@ class _IconPackCard extends StatelessWidget {
                   context,
                 ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: XpSpacing.m),
               // 预览条：强制按当前卡片图标包渲染，便于对比。
               Wrap(
                 spacing: 12,

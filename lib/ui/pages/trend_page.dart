@@ -7,8 +7,11 @@ import '../../data/database/app_database.dart';
 import '../../domain/services/trend_service.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
+import '../tokens/design_tokens.dart';
 import '../widgets/app_icon.dart';
 import '../widgets/bill_tile.dart' show kExpenseColor, kIncomeColor;
+import '../widgets/xp_card.dart';
+import '../widgets/xp_empty_state.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_skeleton.dart';
 import 'statistics/stats_shared.dart' show statsDataVersionProvider;
@@ -79,7 +82,11 @@ class _TrendPageState extends ConsumerState<TrendPage>
       appBar: appBar,
       body: snapsAsync.when(
         loading: () => const XpSkeletonPage(),
-        error: (e, _) => Center(child: Text('加载失败：$e')),
+        error: (e, _) => XpErrorState(
+          message: '$e',
+          actionLabel: '重试',
+          onAction: () => ref.invalidate(snapshotsProvider),
+        ),
         data: (snaps) {
           final points = aggregateTrendPoints(
             buildTrendPoints(
@@ -95,70 +102,82 @@ class _TrendPageState extends ConsumerState<TrendPage>
           return _TrendPageScope(
             granularity: _granularity,
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+              padding: const EdgeInsets.fromLTRB(
+                XpSpacing.l,
+                XpSpacing.s,
+                XpSpacing.l,
+                32,
+              ),
               children: [
                 // 筛选栏：范围 + 粒度（包卡，避免直接落在页背景上低对比）
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                    child: _FilterBar(
-                      range: _range,
-                      granularity: _granularity,
-                      custom: _custom,
-                      onRangeChanged: (r) {
-                        setState(() {
-                          _range = r;
-                          if (r == _Range.custom && _custom == null) {
-                            _pickCustomRange(minDataTime);
-                          }
-                        });
-                      },
-                      onGranularityChanged: (g) =>
-                          setState(() => _granularity = g),
-                      onPickCustom: () => _pickCustomRange(minDataTime),
-                    ),
+                XpCard(
+                  padding: const EdgeInsets.all(XpSpacing.m),
+                  child: _FilterBar(
+                    range: _range,
+                    granularity: _granularity,
+                    custom: _custom,
+                    onRangeChanged: (r) {
+                      setState(() {
+                        _range = r;
+                        if (r == _Range.custom && _custom == null) {
+                          _pickCustomRange(minDataTime);
+                        }
+                      });
+                    },
+                    onGranularityChanged: (g) =>
+                        setState(() => _granularity = g),
+                    onPickCustom: () => _pickCustomRange(minDataTime),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: XpSpacing.l),
                 // 总资产趋势（总资产 + 期间变化 + 主图表，包卡与下方卡片一致）
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '总资产趋势',
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w600),
+                XpCard(
+                  padding: const EdgeInsets.fromLTRB(
+                    XpSpacing.l,
+                    XpSpacing.m,
+                    XpSpacing.l,
+                    XpSpacing.l,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '总资产趋势',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '¥ ${formatYuan(total)}',
-                          style: Theme.of(context).textTheme.headlineMedium
-                              ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: XpSpacing.xs),
+                      Text(
+                        '¥ ${formatYuan(total)}',
+                        style: Theme.of(context).textTheme.headlineMedium
+                            ?.copyWith(fontWeight: FontWeight.w700)
+                            .tabular,
+                      ),
+                      if (points.length >= 2)
+                        Padding(
+                          padding: const EdgeInsets.only(top: XpSpacing.xs),
+                          child: _ChangeText(
+                            change: points.last.value - points.first.value,
+                            suffix: '（期间）',
+                          ),
                         ),
-                        if (points.length >= 2)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: _ChangeText(
-                              change: points.last.value - points.first.value,
-                              suffix: '（期间）',
-                            ),
-                          ),
-                        const SizedBox(height: 12),
-                        if (points.isEmpty)
-                          const _EmptyHint()
-                        else
-                          SizedBox(
-                            height: 220,
-                            child: _TrendChart(points: points),
-                          ),
-                      ],
-                    ),
+                      const SizedBox(height: XpSpacing.m),
+                      if (points.isEmpty)
+                        const XpEmptyState(
+                          icon: Icons.show_chart,
+                          title: '暂无资产数据',
+                          message: '记账或调账后这里会生成资产趋势',
+                        )
+                      else
+                        SizedBox(
+                          height: 220,
+                          child: _TrendChart(points: points),
+                        ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: XpSpacing.xl),
                 // 单账户余额趋势
                 _AccountTrendCard(
                   accounts: accounts
@@ -172,7 +191,7 @@ class _TrendPageState extends ConsumerState<TrendPage>
                       ? null
                       : selectedAccount.first.name,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: XpSpacing.xl),
                 // 累计收支净额
                 _CumulativeNetCard(range: range),
               ],
@@ -263,7 +282,9 @@ class _ChangeText extends StatelessWidget {
     final color = change >= 0 ? kIncomeColor : kExpenseColor;
     return Text(
       '${change >= 0 ? '+' : '-'}${formatYuan(change.abs())}$suffix',
-      style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: color),
+      style: Theme.of(
+        context,
+      ).textTheme.bodyMedium?.copyWith(color: color).tabular,
     );
   }
 }
@@ -321,7 +342,7 @@ class _FilterBar extends StatelessWidget {
               ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: XpSpacing.s),
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -373,80 +394,77 @@ class _AccountTrendCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final snapsAsync = ref.watch(snapshotsProvider);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-        child: snapsAsync.maybeWhen(
-          loading: () => const SizedBox(
-            height: 120,
-            child: Center(child: CircularProgressIndicator()),
+    return XpCard(
+      padding: const EdgeInsets.fromLTRB(
+        XpSpacing.l,
+        XpSpacing.m,
+        XpSpacing.l,
+        XpSpacing.l,
+      ),
+      child: snapsAsync.maybeWhen(
+        loading: () => const SizedBox(
+          height: 120,
+          child: XpSkeletonList(
+            itemCount: 2,
+            padding: EdgeInsets.symmetric(vertical: XpSpacing.s),
           ),
-          orElse: () {
-            final snaps = snapsAsync.value ?? const <BalanceSnapshot>[];
-            if (accounts.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Center(child: Text('暂无资产账户')),
-              );
-            }
-            final selected = selectedId ?? accounts.first.id;
-            final snapsOf = snaps
-                .where((s) => s.accountId == selected)
-                .toList();
-            final daily = buildTrendPoints(
-              snaps: snapsOf,
-              assetIds: {selected},
-              accounts: accounts,
-              start: range.start,
-              end: range.end,
-            );
-            final points = aggregateTrendPoints(daily, granularity);
-
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        initialValue: selected,
-                        decoration: const InputDecoration(
-                          labelText: '单账户余额趋势',
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                        ),
-                        items: [
-                          for (final a in accounts)
-                            DropdownMenuItem(value: a.id, child: Text(a.name)),
-                        ],
-                        onChanged: (v) => onSelected(v),
-                      ),
-                    ),
-                    if (points.length >= 2) ...[
-                      const SizedBox(width: 12),
-                      _ChangeText(
-                        change: points.last.value - points.first.value,
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 12),
-                if (points.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 24),
-                    child: Center(
-                      child: Text(
-                        accountName == null ? '选择账户查看余额趋势' : '该账户在所选范围内暂无快照',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ),
-                  )
-                else
-                  SizedBox(height: 200, child: _TrendChart(points: points)),
-              ],
-            );
-          },
         ),
+        orElse: () {
+          final snaps = snapsAsync.value ?? const <BalanceSnapshot>[];
+          if (accounts.isEmpty) {
+            return const XpEmptyState(
+              icon: Icons.account_balance_wallet_outlined,
+              title: '暂无资产账户',
+            );
+          }
+          final selected = selectedId ?? accounts.first.id;
+          final snapsOf = snaps.where((s) => s.accountId == selected).toList();
+          final daily = buildTrendPoints(
+            snaps: snapsOf,
+            assetIds: {selected},
+            accounts: accounts,
+            start: range.start,
+            end: range.end,
+          );
+          final points = aggregateTrendPoints(daily, granularity);
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      initialValue: selected,
+                      decoration: const InputDecoration(
+                        labelText: '单账户余额趋势',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: [
+                        for (final a in accounts)
+                          DropdownMenuItem(value: a.id, child: Text(a.name)),
+                      ],
+                      onChanged: (v) => onSelected(v),
+                    ),
+                  ),
+                  if (points.length >= 2) ...[
+                    const SizedBox(width: XpSpacing.m),
+                    _ChangeText(change: points.last.value - points.first.value),
+                  ],
+                ],
+              ),
+              const SizedBox(height: XpSpacing.m),
+              if (points.isEmpty)
+                XpEmptyState(
+                  icon: Icons.show_chart,
+                  title: accountName == null ? '选择账户查看余额趋势' : '该账户在所选范围内暂无快照',
+                )
+              else
+                SizedBox(height: 200, child: _TrendChart(points: points)),
+            ],
+          );
+        },
       ),
     );
   }
@@ -516,77 +534,89 @@ class _CumulativeNetCardState extends ConsumerState<_CumulativeNetCard> {
       _lastRange = range;
       _future = _loadFor(range);
     }
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '累计收支净额',
-              style: Theme.of(
-                context,
-              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+    return XpCard(
+      padding: const EdgeInsets.fromLTRB(
+        XpSpacing.l,
+        XpSpacing.m,
+        XpSpacing.l,
+        XpSpacing.l,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '累计收支净额',
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          Text(
+            '口径为记账流水（收入-支出累加，不含转账与「不计入收支」）；'
+            '仅有余额快照而无流水的历史数据不参与计算',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
-            Text(
-              '口径为记账流水（收入-支出累加，不含转账与「不计入收支」）；'
-              '仅有余额快照而无流水的历史数据不参与计算',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 12),
-            FutureBuilder<List<TrendPoint>>(
-              future: _future,
-              builder: (context, snap) {
-                if (snap.connectionState != ConnectionState.done) {
-                  return const SizedBox(
-                    height: 200,
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                }
-                if (snap.hasError) {
-                  return SizedBox(
-                    height: 200,
-                    child: Center(child: Text('加载失败：${snap.error}')),
-                  );
-                }
-                final points = aggregateTrendPoints(
-                  snap.data ?? const <TrendPoint>[],
-                  _granularityOf(context),
+          ),
+          const SizedBox(height: XpSpacing.m),
+          FutureBuilder<List<TrendPoint>>(
+            future: _future,
+            builder: (context, snap) {
+              if (snap.connectionState != ConnectionState.done) {
+                return const SizedBox(
+                  height: 200,
+                  child: XpSkeletonList(
+                    itemCount: 2,
+                    padding: EdgeInsets.symmetric(vertical: XpSpacing.s),
+                  ),
                 );
-                if (points.isEmpty) {
-                  return const SizedBox(
-                    height: 200,
-                    child: Center(child: Text('所选范围内暂无收支流水')),
-                  );
-                }
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          '净额 ${points.last.value >= 0 ? '+' : '-'}'
-                          '${formatYuan(points.last.value.abs())}',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(
-                                color: points.last.value >= 0
-                                    ? kIncomeColor
-                                    : kExpenseColor,
-                                fontWeight: FontWeight.w600,
-                              ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(height: 200, child: _TrendChart(points: points)),
-                  ],
+              }
+              if (snap.hasError) {
+                return XpErrorState(
+                  message: '${snap.error}',
+                  actionLabel: '重试',
+                  onAction: () =>
+                      setState(() => _future = _loadFor(widget.range)),
                 );
-              },
-            ),
-          ],
-        ),
+              }
+              final points = aggregateTrendPoints(
+                snap.data ?? const <TrendPoint>[],
+                _granularityOf(context),
+              );
+              if (points.isEmpty) {
+                return const SizedBox(
+                  height: 200,
+                  child: XpEmptyState(
+                    icon: Icons.stacked_line_chart,
+                    title: '所选范围内暂无收支流水',
+                  ),
+                );
+              }
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        '净额 ${points.last.value >= 0 ? '+' : '-'}'
+                        '${formatYuan(points.last.value.abs())}',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: points.last.value >= 0
+                                  ? kIncomeColor
+                                  : kExpenseColor,
+                              fontWeight: FontWeight.w600,
+                            )
+                            .tabular,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: XpSpacing.s),
+                  SizedBox(height: 200, child: _TrendChart(points: points)),
+                ],
+              );
+            },
+          ),
+        ],
       ),
     );
   }
@@ -743,36 +773,5 @@ class _TrendChart extends StatelessWidget {
       return '${(v / 1000).toStringAsFixed(1)}k';
     }
     return v.toStringAsFixed(0);
-  }
-}
-
-class _EmptyHint extends StatelessWidget {
-  const _EmptyHint();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AppIcon(
-            icon: Icons.show_chart,
-            size: 56,
-            color: Theme.of(
-              context,
-            ).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-          ),
-          const SizedBox(height: 12),
-          const Text('暂无资产数据'),
-          const SizedBox(height: 4),
-          Text(
-            '记账或调账后这里会生成资产趋势',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }

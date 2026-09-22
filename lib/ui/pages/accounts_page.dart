@@ -63,7 +63,12 @@ class _AccountsPageState extends ConsumerState<AccountsPage>
       loading: accountsAsync.isLoading && accountsAsync.value == null,
       body: accountsAsync.when(
         loading: () => const SizedBox.shrink(),
-        error: (e, _) => Center(child: Text('加载失败：$e')),
+        error: (e, _) => XpErrorState(
+          title: '资产加载失败',
+          message: '$e',
+          actionLabel: '重试',
+          onAction: () => ref.invalidate(accountsProvider),
+        ),
         data: (accounts) {
           final assetIds = accounts
               .where(
@@ -397,7 +402,12 @@ class _GroupHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, XpSpacing.l, 4, XpSpacing.s),
+      padding: const EdgeInsets.fromLTRB(
+        XpSpacing.xs,
+        XpSpacing.l,
+        XpSpacing.xs,
+        XpSpacing.s,
+      ),
       child: Align(
         alignment: Alignment.centerLeft,
         child: Text(

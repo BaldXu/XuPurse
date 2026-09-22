@@ -6,6 +6,8 @@ import '../../../core/constants/enums.dart';
 import '../../../core/utils/amount.dart';
 import '../../../state/providers.dart';
 import '../../tokens/design_tokens.dart';
+import '../../widgets/xp_card.dart';
+import '../../widgets/xp_empty_state.dart';
 import '../../widgets/xp_skeleton.dart';
 import 'stats_shared.dart';
 
@@ -66,15 +68,19 @@ class _TrendSectionState extends ConsumerState<StatsTrendSection>
           return const XpSkeletonList();
         }
         if (snap.hasError) {
-          return Center(child: Text('加载失败：${snap.error}'));
+          return XpErrorState(
+            message: '${snap.error}',
+            actionLabel: '重试',
+            onAction: () => setState(() => _future = _load()),
+          );
         }
         final d = snap.data!;
         return ListView(
           // 底部留出穿透导航栏的高度(extendBody 注入的 MediaQuery bottom)。
           padding: EdgeInsets.fromLTRB(
-            16,
-            16,
-            16,
+            XpSpacing.l,
+            XpSpacing.l,
+            XpSpacing.l,
             16 + MediaQuery.paddingOf(context).bottom,
           ),
           children: [
@@ -89,7 +95,7 @@ class _TrendSectionState extends ConsumerState<StatsTrendSection>
                 });
               },
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: XpSpacing.l),
             _TrendCompareCard(start: widget.start, end: widget.end),
           ],
         );
@@ -122,11 +128,9 @@ class _TrendCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (points.isEmpty) {
-      return const Card(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Center(child: Text('本时段暂无支出')),
-        ),
+      return const XpCard(
+        padding: EdgeInsets.zero,
+        child: XpEmptyState(icon: Icons.bar_chart, title: '本时段暂无支出'),
       );
     }
     final n = points.length;
@@ -149,122 +153,109 @@ class _TrendCard extends StatelessWidget {
           ],
         ),
     ];
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+    return XpCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                SegmentedButton<StatsGranularity>(
-                  showSelectedIcon: false,
-                  style: const ButtonStyle(
-                    visualDensity: VisualDensity.compact,
+              ),
+              SegmentedButton<StatsGranularity>(
+                showSelectedIcon: false,
+                style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                segments: const [
+                  ButtonSegment(value: StatsGranularity.day, label: Text('日')),
+                  ButtonSegment(value: StatsGranularity.week, label: Text('周')),
+                  ButtonSegment(
+                    value: StatsGranularity.month,
+                    label: Text('月'),
                   ),
-                  segments: const [
-                    ButtonSegment(
-                      value: StatsGranularity.day,
-                      label: Text('日'),
-                    ),
-                    ButtonSegment(
-                      value: StatsGranularity.week,
-                      label: Text('周'),
-                    ),
-                    ButtonSegment(
-                      value: StatsGranularity.month,
-                      label: Text('月'),
-                    ),
-                  ],
-                  selected: {granularity},
-                  onSelectionChanged: (s) => onGranularityChanged(s.first),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 160,
-              child: BarChart(
-                BarChartData(
-                  barGroups: groups,
-                  borderData: FlBorderData(show: false),
-                  gridData: const FlGridData(show: false),
-                  titlesData: FlTitlesData(
-                    leftTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    rightTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    topTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 24,
-                        interval: n > 8 ? (n / 6).ceilToDouble() : 1,
-                        getTitlesWidget: (v, _) {
-                          final i = v.toInt();
-                          if (i < 0 || i >= n) return const SizedBox();
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: Text(
-                              points[i].label,
-                              style: theme.textTheme.labelSmall,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
+                ],
+                selected: {granularity},
+                onSelectionChanged: (s) => onGranularityChanged(s.first),
+              ),
+            ],
+          ),
+          const SizedBox(height: XpSpacing.m),
+          SizedBox(
+            height: 160,
+            child: BarChart(
+              BarChartData(
+                barGroups: groups,
+                borderData: FlBorderData(show: false),
+                gridData: const FlGridData(show: false),
+                titlesData: FlTitlesData(
+                  leftTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
                   ),
-                  alignment: BarChartAlignment.spaceAround,
-                  // 悬浮提示：白底 + 灰边 + 真实金额
-                  barTouchData: BarTouchData(
-                    touchTooltipData: BarTouchTooltipData(
-                      getTooltipColor: (_) => Colors.white,
-                      tooltipBorder: BorderSide(
-                        color: theme.colorScheme.outline,
-                      ),
-                      tooltipPadding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                        final i = group.x.toInt();
-                        if (i < 0 || i >= points.length) return null;
-                        final p = points[i];
-                        return BarTooltipItem(
-                          '${p.label}\n¥ ${formatYuan(p.amount)}',
-                          TextStyle(
-                            color: theme.colorScheme.onSurface,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 24,
+                      interval: n > 8 ? (n / 6).ceilToDouble() : 1,
+                      getTitlesWidget: (v, _) {
+                        final i = v.toInt();
+                        if (i < 0 || i >= n) return const SizedBox();
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            points[i].label,
+                            style: theme.textTheme.labelSmall,
                           ),
                         );
                       },
                     ),
                   ),
                 ),
+                alignment: BarChartAlignment.spaceAround,
+                // 悬浮提示：白底 + 灰边 + 真实金额
+                barTouchData: BarTouchData(
+                  touchTooltipData: BarTouchTooltipData(
+                    getTooltipColor: (_) => Colors.white,
+                    tooltipBorder: BorderSide(color: theme.colorScheme.outline),
+                    tooltipPadding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                      final i = group.x.toInt();
+                      if (i < 0 || i >= points.length) return null;
+                      final p = points[i];
+                      return BarTooltipItem(
+                        '${p.label}\n¥ ${formatYuan(p.amount)}',
+                        TextStyle(
+                          color: theme.colorScheme.onSurface,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      );
+                    },
+                  ),
+                ),
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              '峰值 ${formatYuan(maxAmount)}',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+          ),
+          const SizedBox(height: XpSpacing.xs),
+          Text(
+            '峰值 ${formatYuan(maxAmount)}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -374,77 +365,77 @@ class _TrendCompareCardState extends ConsumerState<_TrendCompareCard> {
           );
         }
         if (snap.hasError) {
-          return Card(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Center(child: Text('加载失败：${snap.error}')),
-            ),
+          return XpErrorState(
+            message: '${snap.error}',
+            actionLabel: '重试',
+            onAction: () => setState(() => _future = _load()),
           );
         }
         final d = snap.data!;
         if (d.rows.isEmpty) {
-          return const Card(
-            child: Padding(
-              padding: EdgeInsets.all(24),
-              child: Center(child: Text('本时段暂无支出')),
-            ),
+          return const XpCard(
+            padding: EdgeInsets.zero,
+            child: XpEmptyState(icon: Icons.compare_arrows, title: '本时段暂无支出'),
           );
         }
         final totalChange = d.rows.fold<int>(
           0,
           (s, r) => s + (r.current - r.previous),
         );
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '分类环比',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+        return XpCard(
+          padding: const EdgeInsets.fromLTRB(
+            XpSpacing.l,
+            XpSpacing.m,
+            XpSpacing.l,
+            XpSpacing.s,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '分类环比',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '与上一周期（${spanLabel(d.spanMs)}）对比，各一级分类支出浮动',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+              ),
+              const SizedBox(height: XpSpacing.xs),
+              Text(
+                '与上一周期（${spanLabel(d.spanMs)}）对比，各一级分类支出浮动',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
-                const SizedBox(height: 8),
-                for (final row in d.rows) _CompareRowTile(row: row),
-                const SizedBox(height: 8),
-                const Divider(height: 1),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '合计变动',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        totalChange >= 0
-                            ? '+${formatYuan(totalChange)}'
-                            : '-${formatYuan(totalChange.abs())}',
+              ),
+              const SizedBox(height: XpSpacing.s),
+              for (final row in d.rows) _CompareRowTile(row: row),
+              const SizedBox(height: XpSpacing.s),
+              const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: XpSpacing.s),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '合计变动',
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: totalChange >= 0
-                              ? XpSemanticColors.expense
-                              : XpSemanticColors.income,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                    Text(
+                      totalChange >= 0
+                          ? '+${formatYuan(totalChange)}'
+                          : '-${formatYuan(totalChange.abs())}',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: totalChange >= 0
+                            ? XpSemanticColors.expense
+                            : XpSemanticColors.income,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       }),
@@ -495,25 +486,27 @@ class _CompareRowTile extends StatelessWidget {
               '${formatYuan(row.previous)} → ${formatYuan(row.current)}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+              style: theme.textTheme.labelSmall
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant)
+                  .tabular,
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: XpSpacing.s),
           SizedBox(
             width: 74,
             child: Text(
               diff == 0 ? '持平' : '${up ? '+' : '-'}${formatYuan(diff.abs())}',
               textAlign: TextAlign.right,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: diff == 0
-                    ? theme.colorScheme.onSurfaceVariant
-                    : up
-                    ? XpSemanticColors.expense
-                    : XpSemanticColors.income,
-              ),
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: diff == 0
+                        ? theme.colorScheme.onSurfaceVariant
+                        : up
+                        ? XpSemanticColors.expense
+                        : XpSemanticColors.income,
+                  )
+                  .tabular,
             ),
           ),
         ],

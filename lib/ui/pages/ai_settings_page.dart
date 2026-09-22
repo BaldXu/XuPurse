@@ -6,67 +6,80 @@ import '../../domain/ai/ai_service.dart';
 import '../layout/breakpoints.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
-import '../widgets/app_icon.dart';
+import '../widgets/xp_card.dart';
+import '../widgets/xp_empty_state.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_fab.dart';
 import '../widgets/xp_snack.dart';
 
 /// AI 设置页：多配置管理（新增/编辑/删除/启用停用/切换当前）+ 连通性测试。
-class AiSettingsPage extends ConsumerWidget {
+class AiSettingsPage extends ConsumerStatefulWidget {
   const AiSettingsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AiSettingsPage> createState() => _AiSettingsPageState();
+}
+
+class _AiSettingsPageState extends ConsumerState<AiSettingsPage>
+    with XpPageScaffold<AiSettingsPage> {
+  @override
+  Widget build(BuildContext context) {
     final aiState = ref.watch(aiConfigProvider);
     final notifier = ref.read(aiConfigProvider.notifier);
 
-    return Scaffold(
+    return buildXpScaffold(
       appBar: AppBar(title: const Text('AI 设置')),
-      body: XpEntrance(
-        child: ContentWidthBox(
-          child: aiState.configs.isEmpty
-              ? _EmptyConfigHint(onAdd: () => _edit(context, ref, null))
-              : ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                  children: [
-                    Text(
-                      '已保存 ${aiState.configs.length} 份配置，点击卡片切换当前使用',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    for (final config in aiState.configs)
-                      _ConfigCard(
-                        config: config,
-                        isCurrent: aiState.current?.id == config.id,
-                        onTap: () => notifier.select(config.id),
-                        onEdit: () => _edit(context, ref, config),
-                        onDelete: () => _confirmDelete(context, ref, config),
-                        onToggleEnabled: (v) =>
-                            notifier.setEnabled(config.id, v),
-                      ),
-                    const SizedBox(height: 8),
-                    OutlinedButton.icon(
-                      onPressed: () => _edit(context, ref, null),
-                      icon: const Icon(Icons.add),
-                      label: const Text('新增配置'),
-                    ),
-                    const SizedBox(height: 16),
-                    Text('隐私说明', style: Theme.of(context).textTheme.titleSmall),
-                    const SizedBox(height: 4),
-                    Text(
-                      'API Key 仅保存在本机（浏览器本地存储），不会上传到除所配置 '
-                      'AI 服务商以外的任何服务器；对话内容仅发送给你所配置的 '
-                      'API 端点；系统提示词内置隐私规矩，限制 AI 索取敏感信息。',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+      body: aiState.configs.isEmpty
+          ? XpEmptyState(
+              icon: Icons.smart_toy_outlined,
+              title: '尚未配置 AI',
+              message: '支持 OpenAI 兼容 / Anthropic 兼容协议\n可保存多份配置随时切换',
+              actionLabel: '新增配置',
+              onAction: () => _edit(context, ref, null),
+            )
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(
+                XpSpacing.l,
+                XpSpacing.s,
+                XpSpacing.l,
+                32,
+              ),
+              children: [
+                Text(
+                  '已保存 ${aiState.configs.length} 份配置，点击卡片切换当前使用',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
-        ),
-      ),
+                const SizedBox(height: XpSpacing.s),
+                for (final config in aiState.configs)
+                  _ConfigCard(
+                    config: config,
+                    isCurrent: aiState.current?.id == config.id,
+                    onTap: () => notifier.select(config.id),
+                    onEdit: () => _edit(context, ref, config),
+                    onDelete: () => _confirmDelete(context, ref, config),
+                    onToggleEnabled: (v) => notifier.setEnabled(config.id, v),
+                  ),
+                const SizedBox(height: XpSpacing.s),
+                OutlinedButton.icon(
+                  onPressed: () => _edit(context, ref, null),
+                  icon: const Icon(Icons.add),
+                  label: const Text('新增配置'),
+                ),
+                const SizedBox(height: XpSpacing.l),
+                Text('隐私说明', style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: XpSpacing.xs),
+                Text(
+                  'API Key 仅保存在本机（浏览器本地存储），不会上传到除所配置 '
+                  'AI 服务商以外的任何服务器；对话内容仅发送给你所配置的 '
+                  'API 端点；系统提示词内置隐私规矩，限制 AI 索取敏感信息。',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
       floatingActionButton: aiState.configs.isEmpty
           ? null
           : XpFab(
@@ -82,9 +95,9 @@ class AiSettingsPage extends ConsumerWidget {
     WidgetRef ref,
     AiConfig? existing,
   ) async {
-    await Navigator.of(context).push(
-      XpRoute(builder: (_) => _AiConfigEditPage(existing: existing)),
-    );
+    await Navigator.of(
+      context,
+    ).push(XpRoute(builder: (_) => _AiConfigEditPage(existing: existing)));
   }
 
   Future<void> _confirmDelete(
@@ -102,46 +115,6 @@ class AiSettingsPage extends ConsumerWidget {
     if (ok && context.mounted) {
       await ref.read(aiConfigProvider.notifier).remove(config.id);
     }
-  }
-}
-
-class _EmptyConfigHint extends StatelessWidget {
-  const _EmptyConfigHint({required this.onAdd});
-
-  final VoidCallback onAdd;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AppIcon(
-            icon: Icons.smart_toy_outlined,
-            size: 56,
-            color: Theme.of(
-              context,
-            ).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-          ),
-          const SizedBox(height: 12),
-          const Text('尚未配置 AI'),
-          const SizedBox(height: 4),
-          Text(
-            '支持 OpenAI 兼容 / Anthropic 兼容协议\n可保存多份配置随时切换',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: onAdd,
-            icon: const Icon(Icons.add),
-            label: const Text('新增配置'),
-          ),
-        ],
-      ),
-    );
   }
 }
 
@@ -165,91 +138,93 @@ class _ConfigCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: XpSpacing.s),
+      child: XpCard(
+        padding: const EdgeInsets.fromLTRB(
+          XpSpacing.l,
+          XpSpacing.m,
+          XpSpacing.s,
+          XpSpacing.m,
+        ),
         onTap: config.enabled ? onTap : null,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-          child: Row(
-            children: [
-              // 当前配置指示（Radio 已弃用手动 groupValue，用图标替代）
-              Icon(
-                isCurrent
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_unchecked,
-                size: 20,
-                color: isCurrent
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            config.name,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              decoration: config.enabled
-                                  ? null
-                                  : TextDecoration.lineThrough,
-                            ),
-                            overflow: TextOverflow.ellipsis,
+        child: Row(
+          children: [
+            // 当前配置指示（Radio 已弃用手动 groupValue，用图标替代）
+            Icon(
+              isCurrent
+                  ? Icons.radio_button_checked
+                  : Icons.radio_button_unchecked,
+              size: 20,
+              color: isCurrent
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: XpSpacing.s),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          config.name,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            decoration: config.enabled
+                                ? null
+                                : TextDecoration.lineThrough,
                           ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.secondaryContainer,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            config.protocol.label,
-                            style: theme.textTheme.labelSmall,
-                          ),
+                      ),
+                      const SizedBox(width: XpSpacing.s),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 1,
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${config.model} · ${config.baseUrl}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.secondaryContainer,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          config.protocol.label,
+                          style: theme.textTheme.labelSmall,
+                        ),
                       ),
-                      overflow: TextOverflow.ellipsis,
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${config.model} · ${config.baseUrl}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
-                    Text(
-                      'Key：${config.maskedKey}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    'Key：${config.maskedKey}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              Switch(value: config.enabled, onChanged: onToggleEnabled),
-              IconButton(
-                tooltip: '编辑',
-                icon: const Icon(Icons.edit_outlined, size: 20),
-                onPressed: onEdit,
-              ),
-              IconButton(
-                tooltip: '删除',
-                icon: const Icon(Icons.delete_outline, size: 20),
-                onPressed: onDelete,
-              ),
-            ],
-          ),
+            ),
+            Switch(value: config.enabled, onChanged: onToggleEnabled),
+            IconButton(
+              tooltip: '编辑',
+              icon: const Icon(Icons.edit_outlined, size: 20),
+              onPressed: onEdit,
+            ),
+            IconButton(
+              tooltip: '删除',
+              icon: const Icon(Icons.delete_outline, size: 20),
+              onPressed: onDelete,
+            ),
+          ],
         ),
       ),
     );
@@ -316,7 +291,7 @@ class _AiConfigEditPageState extends ConsumerState<_AiConfigEditPage>
       appBar: AppBar(title: Text(_isEditing ? '编辑配置' : '新增配置')),
       body: ContentWidthBox(
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(XpSpacing.l),
           children: [
             SegmentedButton<AiProtocol>(
               segments: AiProtocol.values
@@ -335,7 +310,7 @@ class _AiConfigEditPageState extends ConsumerState<_AiConfigEditPage>
                 });
               },
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: XpSpacing.l),
             TextField(
               controller: _name,
               decoration: const InputDecoration(
@@ -344,7 +319,7 @@ class _AiConfigEditPageState extends ConsumerState<_AiConfigEditPage>
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: XpSpacing.m),
             TextField(
               controller: _baseUrl,
               decoration: InputDecoration(
@@ -356,7 +331,7 @@ class _AiConfigEditPageState extends ConsumerState<_AiConfigEditPage>
                 border: const OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: XpSpacing.m),
             TextField(
               controller: _apiKey,
               obscureText: _obscureKey,
@@ -373,7 +348,7 @@ class _AiConfigEditPageState extends ConsumerState<_AiConfigEditPage>
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: XpSpacing.m),
             TextField(
               controller: _model,
               decoration: InputDecoration(
@@ -384,7 +359,7 @@ class _AiConfigEditPageState extends ConsumerState<_AiConfigEditPage>
                 border: const OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: XpSpacing.m),
             Row(
               children: [
                 Expanded(
@@ -400,7 +375,7 @@ class _AiConfigEditPageState extends ConsumerState<_AiConfigEditPage>
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: XpSpacing.m),
                 Expanded(
                   child: TextField(
                     controller: _maxTokens,
@@ -414,10 +389,10 @@ class _AiConfigEditPageState extends ConsumerState<_AiConfigEditPage>
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: XpSpacing.l),
             if (_testResult != null && _testResult != 'ok')
               Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.only(bottom: XpSpacing.s),
                 child: Text(
                   '测试失败：$_testResult',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -427,7 +402,7 @@ class _AiConfigEditPageState extends ConsumerState<_AiConfigEditPage>
               ),
             if (_testResult == 'ok')
               Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.only(bottom: XpSpacing.s),
                 child: Text(
                   '✓ 连接成功',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -441,8 +416,8 @@ class _AiConfigEditPageState extends ConsumerState<_AiConfigEditPage>
                   onPressed: _testing ? null : _test,
                   icon: _testing
                       ? const SizedBox(
-                          width: 16,
-                          height: 16,
+                          width: XpSpacing.l,
+                          height: XpSpacing.l,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.network_check),

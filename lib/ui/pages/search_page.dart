@@ -13,6 +13,7 @@ import '../widgets/bill_tile.dart';
 import '../widgets/xp_empty_state.dart';
 import '../widgets/xp_skeleton.dart';
 import 'bookkeeping_sheet.dart';
+import '../tokens/design_tokens.dart';
 
 /// 搜索页：关键词（备注/分类/标签）+ 类型/账户/分类/时间段/金额 多条件筛选。
 class SearchPage extends ConsumerStatefulWidget {
@@ -51,7 +52,12 @@ class _SearchPageState extends ConsumerState<SearchPage>
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            padding: const EdgeInsets.fromLTRB(
+              XpSpacing.l,
+              XpSpacing.s,
+              XpSpacing.l,
+              XpSpacing.xs,
+            ),
             child: TextField(
               controller: _keywordCtrl,
               decoration: InputDecoration(
@@ -77,7 +83,7 @@ class _SearchPageState extends ConsumerState<SearchPage>
             height: 44,
             child: ListView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(horizontal: XpSpacing.m),
               children: [
                 _filterChip(
                   '全部',
@@ -112,7 +118,7 @@ class _SearchPageState extends ConsumerState<SearchPage>
             height: 44,
             child: ListView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(horizontal: XpSpacing.m),
               children: [
                 DropdownButton<String?>(
                   value: _accountId,
@@ -124,7 +130,7 @@ class _SearchPageState extends ConsumerState<SearchPage>
                   ],
                   onChanged: (v) => setState(() => _accountId = v),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: XpSpacing.s),
                 DropdownButton<String?>(
                   value: _categoryId,
                   hint: const Text('全部分类'),
@@ -141,7 +147,10 @@ class _SearchPageState extends ConsumerState<SearchPage>
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            padding: const EdgeInsets.symmetric(
+              horizontal: XpSpacing.l,
+              vertical: XpSpacing.xs,
+            ),
             child: Row(
               children: [
                 Expanded(
@@ -155,7 +164,7 @@ class _SearchPageState extends ConsumerState<SearchPage>
                   ),
                 ),
                 const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  padding: EdgeInsets.symmetric(horizontal: XpSpacing.s),
                   child: Text('—'),
                 ),
                 Expanded(
@@ -180,7 +189,10 @@ class _SearchPageState extends ConsumerState<SearchPage>
 
   Widget _filterChip(String label, bool selected, VoidCallback onTap) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: XpSpacing.xs,
+        vertical: XpSpacing.s,
+      ),
       child: ChoiceChip(
         label: Text(label),
         selected: selected,
@@ -201,7 +213,12 @@ class _SearchPageState extends ConsumerState<SearchPage>
     final allAsync = ref.watch(_allBillsProvider);
     return billTagsAsync.when(
       loading: () => const XpSkeletonList(itemCount: 8),
-      error: (e, _) => Center(child: Text('加载失败：$e')),
+      error: (e, _) => XpErrorState(
+        title: '标签数据加载失败',
+        message: '$e',
+        actionLabel: '重试',
+        onAction: () => ref.invalidate(_allBillTagsProvider),
+      ),
       data: (billTags) {
         final tagNameById = {for (final t in tags) t.id: t.name};
         final billTagIds = <String, Set<String>>{};
@@ -210,7 +227,12 @@ class _SearchPageState extends ConsumerState<SearchPage>
         }
         return allAsync.when(
           loading: () => const XpSkeletonList(itemCount: 8),
-          error: (e, _) => Center(child: Text('加载失败：$e')),
+          error: (e, _) => XpErrorState(
+            title: '账单加载失败',
+            message: '$e',
+            actionLabel: '重试',
+            onAction: () => ref.invalidate(_allBillsProvider),
+          ),
           data: (all) {
             final filtered = _filter(
               all,
@@ -255,7 +277,7 @@ class _SearchPageState extends ConsumerState<SearchPage>
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: XpSpacing.l),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: SegmentedButton<bool>(
@@ -443,12 +465,19 @@ class _AnalysisViewState extends ConsumerState<_AnalysisView> {
       future: _billTagsFuture,
       builder: (context, snap) {
         if (snap.hasError) {
-          return Center(child: Text('加载失败：${snap.error}'));
+          return XpErrorState(
+            title: '标签数据加载失败',
+            message: '${snap.error}',
+            actionLabel: '重试',
+            onAction: () => setState(() {
+              _billTagsFuture = ref.read(billRepoProvider).allBillTags();
+            }),
+          );
         }
         final billTags = snap.data ?? const <({String billId, String tagId})>[];
         final tagCounts = _tagCounts(widget.bills, billTags);
         return ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(XpSpacing.l),
           children: [
             SegmentedButton<_FocusType>(
               showSelectedIcon: false,
@@ -460,7 +489,7 @@ class _AnalysisViewState extends ConsumerState<_AnalysisView> {
               selected: {_focus},
               onSelectionChanged: (s) => setState(() => _focus = s.first),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: XpSpacing.s),
             Align(
               alignment: Alignment.centerLeft,
               child: SegmentedButton<bool>(
@@ -474,27 +503,27 @@ class _AnalysisViewState extends ConsumerState<_AnalysisView> {
                 onSelectionChanged: (s) => setState(() => _byMonth = s.first),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: XpSpacing.m),
             Text('趋势', style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 8),
+            const SizedBox(height: XpSpacing.s),
             SizedBox(
               height: 180,
               child: series.isEmpty
-                  ? const Center(child: Text('暂无趋势数据'))
+                  ? const XpEmptyState(icon: Icons.show_chart, title: '暂无趋势数据')
                   : _TrendLine(points: series, byMonth: _byMonth),
             ),
             if (_focus != _FocusType.balance) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: XpSpacing.l),
               Text('分类占比', style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 8),
+              const SizedBox(height: XpSpacing.s),
               SizedBox(
                 height: 140,
                 child: _FocusPie(sums: cats, categories: widget.categories),
               ),
             ],
-            const SizedBox(height: 16),
+            const SizedBox(height: XpSpacing.l),
             Text('标签词云', style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 8),
+            const SizedBox(height: XpSpacing.s),
             _TagCloud(counts: tagCounts, tags: tags),
             const SizedBox(height: 32),
           ],
@@ -608,7 +637,7 @@ class _TrendLine extends StatelessWidget {
                 final i = v.toInt();
                 if (i < 0 || i >= points.length) return const SizedBox();
                 return Padding(
-                  padding: const EdgeInsets.only(top: 4),
+                  padding: const EdgeInsets.only(top: XpSpacing.xs),
                   child: Text(
                     _xLabel(points[i].time, byMonth),
                     style: Theme.of(context).textTheme.labelSmall,
@@ -673,6 +702,7 @@ class _FocusPie extends StatelessWidget {
   Widget build(BuildContext context) {
     final sorted = [...sums]..sort((a, b) => b.amount.compareTo(a.amount));
     final total = sorted.fold<int>(0, (s, e) => s + e.amount);
+    // 图表内嵌小空态（140 高受限），标准 XpEmptyState 含 32 padding 会溢出，保留轻量 Text。
     if (total == 0) return const Center(child: Text('暂无数据'));
     final top5 = sorted.take(5).toList();
     final other = total - top5.fold<int>(0, (s, e) => s + e.amount);
@@ -720,7 +750,7 @@ class _FocusPie extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: XpSpacing.l),
         Expanded(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,

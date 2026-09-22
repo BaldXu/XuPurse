@@ -10,6 +10,8 @@ import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/app_icon.dart';
+import '../widgets/xp_card.dart';
+import '../widgets/xp_empty_state.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_snack.dart';
 
@@ -36,7 +38,12 @@ class _AccountManagePageState extends ConsumerState<AccountManagePage>
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            padding: const EdgeInsets.fromLTRB(
+              XpSpacing.l,
+              XpSpacing.s,
+              XpSpacing.l,
+              XpSpacing.xs,
+            ),
             child: Text(
               '勾选账户后可「合并」或「批量改币种」。合并时保留其中一个账户，'
               '其余账户的账单/快照等全部转入保留账户。',
@@ -48,10 +55,20 @@ class _AccountManagePageState extends ConsumerState<AccountManagePage>
           Expanded(
             child: accountsAsync.when(
               loading: () => const SizedBox.shrink(),
-              error: (e, _) => Center(child: Text('加载失败：$e')),
+              error: (e, _) => XpErrorState(
+                title: '账户加载失败',
+                message: '$e',
+                actionLabel: '重试',
+                onAction: () => ref.invalidate(accountsProvider),
+              ),
               data: (accounts) {
                 if (accounts.isEmpty) {
-                  return const Center(child: Text('还没有账户'));
+                  return const Center(
+                    child: XpEmptyState(
+                      icon: Icons.account_balance_wallet_outlined,
+                      title: '还没有账户',
+                    ),
+                  );
                 }
                 // 名称匹配度高的账户排前面（疑似重复优先），方便观察与合并。
                 final sorted = _sortedBySimilarity(accounts);
@@ -64,14 +81,19 @@ class _AccountManagePageState extends ConsumerState<AccountManagePage>
                   (s, a) => s + a.currentBalance,
                 );
                 return ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                  padding: const EdgeInsets.fromLTRB(
+                    XpSpacing.l,
+                    XpSpacing.xs,
+                    XpSpacing.l,
+                    XpSpacing.l,
+                  ),
                   children: [
                     // 总余额小计行
                     Padding(
                       padding: const EdgeInsets.only(
-                        left: 4,
-                        right: 4,
-                        bottom: 8,
+                        left: XpSpacing.xs,
+                        right: XpSpacing.xs,
+                        bottom: XpSpacing.s,
                       ),
                       child: Row(
                         children: [
@@ -94,7 +116,8 @@ class _AccountManagePageState extends ConsumerState<AccountManagePage>
                         ],
                       ),
                     ),
-                    Card(
+                    XpCard(
+                      padding: EdgeInsets.zero,
                       clipBehavior: Clip.antiAlias,
                       child: Column(
                         children: [
@@ -134,7 +157,7 @@ class _AccountManagePageState extends ConsumerState<AccountManagePage>
             SafeArea(
               top: false,
               child: Padding(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(XpSpacing.m),
                 child: Row(
                   children: [
                     Expanded(
@@ -146,7 +169,7 @@ class _AccountManagePageState extends ConsumerState<AccountManagePage>
                         label: Text('合并（${_selected.length}）'),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: XpSpacing.s),
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: _busy ? null : _changeCurrency,
@@ -199,7 +222,7 @@ class _AccountManagePageState extends ConsumerState<AccountManagePage>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text('选择保留的账户（其余账户将并入它；默认选中最后活跃最新的账户）：'),
-              const SizedBox(height: 8),
+              const SizedBox(height: XpSpacing.s),
               RadioGroup<String>(
                 groupValue: targetId,
                 onChanged: (v) => setDialogState(() => targetId = v),
@@ -218,7 +241,7 @@ class _AccountManagePageState extends ConsumerState<AccountManagePage>
                   ],
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: XpSpacing.s),
               TextField(
                 controller: nameCtrl,
                 decoration: const InputDecoration(
@@ -227,7 +250,7 @@ class _AccountManagePageState extends ConsumerState<AccountManagePage>
                   isDense: true,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: XpSpacing.s),
               Text(
                 '合并后余额以保留账户为准；被合并账户的账单、快照等将全部转移。',
                 style: Theme.of(ctx).textTheme.bodySmall?.copyWith(

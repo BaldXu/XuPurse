@@ -66,20 +66,10 @@ mixin XpAsyncView<T extends StatefulWidget> on State<T> {
     Object e, {
     VoidCallback? onRetry,
   }) {
-    final scheme = Theme.of(context).colorScheme;
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.error_outline, size: 40, color: scheme.error),
-          const SizedBox(height: 8),
-          Text('加载失败：$e', style: TextStyle(color: scheme.onSurfaceVariant)),
-          if (onRetry != null) ...[
-            const SizedBox(height: 12),
-            FilledButton.tonal(onPressed: onRetry, child: const Text('重试')),
-          ],
-        ],
-      ),
+    return XpErrorState(
+      message: '$e',
+      actionLabel: onRetry == null ? null : '重试',
+      onAction: onRetry,
     );
   }
 

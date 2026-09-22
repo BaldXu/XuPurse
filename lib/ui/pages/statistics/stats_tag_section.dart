@@ -5,6 +5,9 @@ import '../../../core/constants/enums.dart';
 import '../../../core/utils/amount.dart';
 import '../../../data/database/app_database.dart';
 import '../../../state/providers.dart';
+import '../../tokens/design_tokens.dart';
+import '../../widgets/xp_card.dart';
+import '../../widgets/xp_empty_state.dart';
 import '../../widgets/xp_skeleton.dart';
 import 'stats_shared.dart';
 
@@ -66,15 +69,17 @@ class _TagSectionState extends ConsumerState<StatsTagSection>
           return const XpSkeletonList();
         }
         if (snap.hasError) {
-          return Center(child: Text('加载失败：${snap.error}'));
+          return XpErrorState(
+            message: '${snap.error}',
+            actionLabel: '重试',
+            onAction: () => setState(() => _future = _load()),
+          );
         }
         final d = snap.data!;
         if (d.sum.isEmpty) {
-          return const Card(
-            child: Padding(
-              padding: EdgeInsets.all(24),
-              child: Center(child: Text('本时段暂无标签支出')),
-            ),
+          return const XpCard(
+            padding: EdgeInsets.zero,
+            child: XpEmptyState(icon: Icons.label_outline, title: '本时段暂无标签支出'),
           );
         }
         final total = d.sum.fold<int>(0, (s, e) => s + e.amount);
@@ -83,33 +88,30 @@ class _TagSectionState extends ConsumerState<StatsTagSection>
         return ListView(
           // 底部留出穿透导航栏的高度(extendBody 注入的 MediaQuery bottom)。
           padding: EdgeInsets.fromLTRB(
-            16,
-            16,
-            16,
+            XpSpacing.l,
+            XpSpacing.l,
+            XpSpacing.l,
             16 + MediaQuery.paddingOf(context).bottom,
           ),
           children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '标签支出 Top',
-                      style: Theme.of(context).textTheme.titleSmall,
+            XpCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '标签支出 Top',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: XpSpacing.m),
+                  for (var i = 0; i < sorted.length; i++)
+                    _TagBar(
+                      color: piePalette[i % piePalette.length],
+                      name: _tagName(d.tags, sorted[i].tagId),
+                      amount: sorted[i].amount,
+                      total: total,
+                      ratio: maxAmount > 0 ? sorted[i].amount / maxAmount : 0,
                     ),
-                    const SizedBox(height: 12),
-                    for (var i = 0; i < sorted.length; i++)
-                      _TagBar(
-                        color: piePalette[i % piePalette.length],
-                        name: _tagName(d.tags, sorted[i].tagId),
-                        amount: sorted[i].amount,
-                        total: total,
-                        ratio: maxAmount > 0 ? sorted[i].amount / maxAmount : 0,
-                      ),
-                  ],
-                ),
+                ],
               ),
             ),
           ],
@@ -154,12 +156,12 @@ class _TagBar extends StatelessWidget {
             height: 10,
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: XpSpacing.s),
           SizedBox(
             width: 64,
             child: Text(
               name,
-              style: const TextStyle(fontSize: 12),
+              style: theme.textTheme.labelMedium,
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -174,11 +176,13 @@ class _TagBar extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: XpSpacing.s),
           Text(
             '${formatYuan(amount)}'
             '（${total > 0 ? (amount / total * 100).toStringAsFixed(0) : 0}%）',
-            style: const TextStyle(fontSize: 11, color: Colors.grey),
+            style: theme.textTheme.labelSmall
+                ?.copyWith(color: theme.colorScheme.onSurfaceVariant)
+                .tabular,
           ),
         ],
       ),

@@ -12,6 +12,7 @@ import 'bookkeeping_sheet.dart';
 import 'home_page.dart';
 import 'mine_page.dart';
 import 'statistics_page.dart';
+import '../tokens/design_tokens.dart';
 
 /// 主导航壳：明细 / 资产 / 统计 / 我的。
 ///
@@ -81,7 +82,12 @@ class _MainShellState extends ConsumerState<MainShell> {
               extended: true,
               minExtendedWidth: 168,
               leading: const Padding(
-                padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
+                padding: EdgeInsets.fromLTRB(
+                  XpSpacing.l,
+                  XpSpacing.s,
+                  XpSpacing.l,
+                  XpSpacing.s,
+                ),
                 child: Text(
                   'XuPurse',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),

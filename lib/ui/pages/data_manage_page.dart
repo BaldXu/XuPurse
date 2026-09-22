@@ -9,6 +9,7 @@ import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/app_icon.dart';
+import '../widgets/xp_card.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_snack.dart';
 import 'import_page.dart';
@@ -108,9 +109,15 @@ class _DataManagePageState extends ConsumerState<DataManagePage>
     return buildXpScaffold(
       appBar: AppBar(title: const Text('数据管理')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+        padding: const EdgeInsets.fromLTRB(
+          XpSpacing.l,
+          XpSpacing.s,
+          XpSpacing.l,
+          32,
+        ),
         children: [
-          Card(
+          XpCard(
+            padding: EdgeInsets.zero,
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
@@ -141,7 +148,8 @@ class _DataManagePageState extends ConsumerState<DataManagePage>
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: XpSpacing.xl),
+          // 危险操作提示条（errorContainer 语义色），非常规卡片表面，保留裸 Card。
           Card(
             clipBehavior: Clip.antiAlias,
             color: Theme.of(
@@ -219,7 +227,7 @@ class _LongPressDeleteButtonState extends State<_LongPressDeleteButton> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: XpSpacing.s),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

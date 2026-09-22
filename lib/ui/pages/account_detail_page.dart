@@ -12,6 +12,7 @@ import '../widgets/adjust_sheet.dart';
 import '../widgets/app_icon.dart';
 import '../widgets/bill_tile.dart';
 import '../widgets/historical_snapshot_sheet.dart';
+import '../widgets/xp_card.dart';
 import '../widgets/xp_empty_state.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_skeleton.dart';
@@ -74,42 +75,40 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage>
         ),
         children: [
           // ── 账户 Hero 卡 ──
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(XpSpacing.xl),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 26,
-                    backgroundColor: color.withValues(alpha: 0.15),
-                    foregroundColor: color,
-                    child: AppIcon(name: current.icon, size: 26),
-                  ),
-                  const SizedBox(width: XpSpacing.m),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(current.name, style: textTheme.titleMedium),
-                        const SizedBox(height: 2),
-                        Text(
-                          '初始 ${formatYuan(current.initialBalance)}'
-                          ' · ${_categoryLabel(current.category)}',
-                          style: textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
+          XpCard(
+            padding: const EdgeInsets.all(XpSpacing.xl),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 26,
+                  backgroundColor: color.withValues(alpha: 0.15),
+                  foregroundColor: color,
+                  child: AppIcon(name: current.icon, size: 26),
+                ),
+                const SizedBox(width: XpSpacing.m),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(current.name, style: textTheme.titleMedium),
+                      const SizedBox(height: 2),
+                      Text(
+                        '初始 ${formatYuan(current.initialBalance)}'
+                        ' · ${_categoryLabel(current.category)}',
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  Text(
-                    '¥${formatYuan(current.currentBalance)}',
-                    style: textTheme.headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.w700)
-                        .tabular,
-                  ),
-                ],
-              ),
+                ),
+                Text(
+                  '¥${formatYuan(current.currentBalance)}',
+                  style: textTheme.headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.w700)
+                      .tabular,
+                ),
+              ],
             ),
           ),
           const SizedBox(height: XpSpacing.m),
@@ -148,7 +147,13 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage>
             ),
             error: (e, _) => Padding(
               padding: const EdgeInsets.symmetric(vertical: XpSpacing.l),
-              child: Center(child: Text('流水加载失败：$e')),
+              child: XpErrorState(
+                title: '流水加载失败',
+                message: '$e',
+                actionLabel: '重试',
+                onAction: () =>
+                    ref.invalidate(accountBillsProvider(current.id)),
+              ),
             ),
             data: (bills) {
               if (bills.isEmpty) {
@@ -161,7 +166,8 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage>
                   ),
                 );
               }
-              return Card(
+              return XpCard(
+                padding: EdgeInsets.zero,
                 clipBehavior: Clip.antiAlias,
                 child: Column(
                   children: [
@@ -193,19 +199,17 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage>
           ),
           const SizedBox(height: XpSpacing.xs),
           if (accountSnaps.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: XpSpacing.m),
-              child: Center(
-                child: Text(
-                  '暂无快照',
-                  style: textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: XpSpacing.m),
+              child: XpEmptyState(
+                icon: Icons.bookmark_outline,
+                title: '暂无快照',
+                message: '记账或调账后，这里会记录余额变动轨迹',
               ),
             )
           else
-            Card(
+            XpCard(
+              padding: EdgeInsets.zero,
               clipBehavior: Clip.antiAlias,
               child: Column(
                 children: [

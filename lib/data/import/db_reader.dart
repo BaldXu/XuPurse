@@ -4,7 +4,8 @@ import 'dart:typed_data';
 import 'package:sqlite3/common.dart';
 
 import 'db_reader_platform_io.dart'
-    if (dart.library.js_interop) 'db_reader_platform_web.dart' as platform;
+    if (dart.library.js_interop) 'db_reader_platform_web.dart'
+    as platform;
 
 /// 打开内存中的第三方 .db 文件字节流（跨平台：Native 走 FFI，Web 走 WASM）。
 ///

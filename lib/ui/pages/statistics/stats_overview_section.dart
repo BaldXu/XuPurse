@@ -5,6 +5,8 @@ import '../../../core/constants/enums.dart';
 import '../../../core/utils/amount.dart';
 import '../../../state/providers.dart';
 import '../../tokens/design_tokens.dart';
+import '../../widgets/xp_card.dart';
+import '../../widgets/xp_empty_state.dart';
 import '../../widgets/xp_skeleton.dart';
 import 'stats_shared.dart';
 
@@ -104,16 +106,20 @@ class _OverviewSectionState extends ConsumerState<StatsOverviewSection>
           return const XpSkeletonList();
         }
         if (snap.hasError) {
-          return Center(child: Text('加载失败：${snap.error}'));
+          return XpErrorState(
+            message: '${snap.error}',
+            actionLabel: '重试',
+            onAction: () => setState(() => _future = _load()),
+          );
         }
         final d = snap.data!;
         final balance = d.income - d.expense;
         return ListView(
           // 底部留出穿透导航栏的高度(extendBody 注入的 MediaQuery bottom)。
           padding: EdgeInsets.fromLTRB(
-            16,
-            16,
-            16,
+            XpSpacing.l,
+            XpSpacing.l,
+            XpSpacing.l,
             16 + MediaQuery.paddingOf(context).bottom,
           ),
           children: [
@@ -122,14 +128,14 @@ class _OverviewSectionState extends ConsumerState<StatsOverviewSection>
               income: d.income,
               balance: balance,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: XpSpacing.l),
             _CompareCard(
               expense: d.expense,
               income: d.income,
               prevExpense: d.prevExpense,
               prevIncome: d.prevIncome,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: XpSpacing.l),
             _DailyCard(expense: d.expense, income: d.income, days: d.days),
           ],
         );
@@ -151,21 +157,18 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            _cell(context, '支出', formatYuan(expense), XpSemanticColors.expense),
-            _cell(context, '收入', formatYuan(income), XpSemanticColors.income),
-            _cell(
-              context,
-              '结余',
-              formatYuan(balance),
-              balance >= 0 ? XpSemanticColors.income : XpSemanticColors.expense,
-            ),
-          ],
-        ),
+    return XpCard(
+      child: Row(
+        children: [
+          _cell(context, '支出', formatYuan(expense), XpSemanticColors.expense),
+          _cell(context, '收入', formatYuan(income), XpSemanticColors.income),
+          _cell(
+            context,
+            '结余',
+            formatYuan(balance),
+            balance >= 0 ? XpSemanticColors.income : XpSemanticColors.expense,
+          ),
+        ],
       ),
     );
   }
@@ -180,13 +183,12 @@ class _SummaryCard extends StatelessWidget {
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: XpSpacing.xs),
           Text(
             value,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w700,
-            ),
+            style: Theme.of(context).textTheme.titleMedium
+                ?.copyWith(color: color, fontWeight: FontWeight.w700)
+                .tabular,
           ),
         ],
       ),
@@ -210,19 +212,16 @@ class _CompareCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('环比对比', style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 12),
-            _row(context, '支出', expense, prevExpense, upIsGood: false),
-            const SizedBox(height: 8),
-            _row(context, '收入', income, prevIncome, upIsGood: true),
-          ],
-        ),
+    return XpCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('环比对比', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: XpSpacing.m),
+          _row(context, '支出', expense, prevExpense, upIsGood: false),
+          const SizedBox(height: XpSpacing.s),
+          _row(context, '收入', income, prevIncome, upIsGood: true),
+        ],
       ),
     );
   }
@@ -255,16 +254,18 @@ class _CompareCard extends StatelessWidget {
         Expanded(
           child: Text(
             formatYuan(current),
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+            style: Theme.of(context).textTheme.bodyMedium
+                ?.copyWith(fontWeight: FontWeight.w600)
+                .tabular,
           ),
         ),
         Text(
           pct == null
               ? '上期 $label 无数据'
               : '$arrow ${pct.abs().toStringAsFixed(1)}%',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: color),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: color).tabular,
         ),
       ],
     );
@@ -286,16 +287,13 @@ class _DailyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final d = days > 0 ? days : 1.0;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            _cell(context, '日均支出', formatYuan((expense / d).round())),
-            _cell(context, '日均收入', formatYuan((income / d).round())),
-            _cell(context, '统计天数', days.toStringAsFixed(0)),
-          ],
-        ),
+    return XpCard(
+      child: Row(
+        children: [
+          _cell(context, '日均支出', formatYuan((expense / d).round())),
+          _cell(context, '日均收入', formatYuan((income / d).round())),
+          _cell(context, '统计天数', days.toStringAsFixed(0)),
+        ],
       ),
     );
   }
@@ -310,12 +308,12 @@ class _DailyCard extends StatelessWidget {
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: XpSpacing.xs),
           Text(
             value,
-            style: Theme.of(
-              context,
-            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+            style: Theme.of(context).textTheme.titleSmall
+                ?.copyWith(fontWeight: FontWeight.w600)
+                .tabular,
           ),
         ],
       ),

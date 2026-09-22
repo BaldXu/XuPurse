@@ -7,6 +7,7 @@ import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/app_icon.dart';
 import '../widgets/color_picker_dialog.dart';
+import '../widgets/xp_card.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_snack.dart';
 import 'icon_settings_page.dart';
@@ -190,11 +191,11 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
     return buildXpScaffold(
       appBar: appBar,
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(XpSpacing.l),
         children: [
           // ---- 第一层：预设主题（浅色） ----
           Text('预设主题', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 4),
+          const SizedBox(height: XpSpacing.xs),
           Text(
             '点按应用；长按用户自建主题可删除（内置与当前使用中的不可删）。'
             '深色外观由下方「暗色模式」控制，不与浅色主题混排。',
@@ -202,7 +203,7 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
               context,
             ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: XpSpacing.l),
           Wrap(
             spacing: 20,
             runSpacing: 20,
@@ -223,21 +224,23 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
                 ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: XpSpacing.xl),
           const Divider(height: 1),
-          const SizedBox(height: 24),
+          const SizedBox(height: XpSpacing.xl),
 
           // ---- 暗色模式（独立分区：跟随系统开关，不占浅色预设位） ----
           Text('暗色模式', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 4),
+          const SizedBox(height: XpSpacing.xs),
           Text(
             '跟随系统深色设置自动切换（内置克莱因蓝暗色变体），无需手动选择。',
             style: Theme.of(
               context,
             ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           ),
-          const SizedBox(height: 12),
-          Card(
+          const SizedBox(height: XpSpacing.m),
+          XpCard(
+            padding: EdgeInsets.zero,
+            clipBehavior: Clip.antiAlias,
             child: ListTile(
               leading: AppIcon(
                 icon: Icons.dark_mode_outlined,
@@ -250,13 +253,13 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
               },
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: XpSpacing.xl),
           const Divider(height: 1),
-          const SizedBox(height: 24),
+          const SizedBox(height: XpSpacing.xl),
 
           // ---- 第二层：自定义主题设置 ----
           Text('自定义主题', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 4),
+          const SizedBox(height: XpSpacing.xs),
           Text(
             state.current.isPreset
                 ? '四个颜色项均为单选项：选中后打开取色器，取色确认后'
@@ -267,79 +270,78 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
               context,
             ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           ),
-          const SizedBox(height: 12),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    controller: _nameCtrl,
-                    decoration: const InputDecoration(
-                      labelText: '主题名称',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
+          const SizedBox(height: XpSpacing.m),
+          XpCard(
+            padding: const EdgeInsets.symmetric(
+              horizontal: XpSpacing.l,
+              vertical: XpSpacing.s,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: _nameCtrl,
+                  decoration: const InputDecoration(
+                    labelText: '主题名称',
+                    border: OutlineInputBorder(),
+                    isDense: true,
                   ),
-                  RadioGroup<String>(
-                    groupValue: _editing,
-                    onChanged: (v) {
-                      if (v != null) _pickColor(v);
-                    },
-                    child: Column(
-                      children: [
-                        _colorRow(field: 'seed', label: '主题色', color: _seed),
-                        _colorRow(
-                          field: 'background',
-                          label: '页面背景色',
-                          color: _background,
-                        ),
-                        _colorRow(
-                          field: 'card',
-                          label: '卡片背景色',
-                          color: _cardColor,
-                          enabled: !ref.watch(frostedGlassProvider).cardsOn,
-                          disabledHint: '卡片磨砂开启时，卡片背景固定为白色',
-                        ),
-                        _colorRow(
-                          field: 'sheet',
-                          label: '弹窗背景色',
-                          color: _sheetColor,
-                          enabled: !ref.watch(frostedGlassProvider).sheetOn,
-                          disabledHint: '弹窗磨砂开启时，弹窗背景固定为白色',
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: _saveCustom,
-                      icon: const Icon(Icons.add),
-                      label: Text(
-                        state.current.isPreset ? '另存为自定义主题' : '保存并生效',
+                ),
+                RadioGroup<String>(
+                  groupValue: _editing,
+                  onChanged: (v) {
+                    if (v != null) _pickColor(v);
+                  },
+                  child: Column(
+                    children: [
+                      _colorRow(field: 'seed', label: '主题色', color: _seed),
+                      _colorRow(
+                        field: 'background',
+                        label: '页面背景色',
+                        color: _background,
                       ),
-                    ),
+                      _colorRow(
+                        field: 'card',
+                        label: '卡片背景色',
+                        color: _cardColor,
+                        enabled: !ref.watch(frostedGlassProvider).cardsOn,
+                        disabledHint: '卡片磨砂开启时，卡片背景固定为白色',
+                      ),
+                      _colorRow(
+                        field: 'sheet',
+                        label: '弹窗背景色',
+                        color: _sheetColor,
+                        enabled: !ref.watch(frostedGlassProvider).sheetOn,
+                        disabledHint: '弹窗磨砂开启时，弹窗背景固定为白色',
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: XpSpacing.s),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _saveCustom,
+                    icon: const Icon(Icons.add),
+                    label: Text(state.current.isPreset ? '另存为自定义主题' : '保存并生效'),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: XpSpacing.xl),
           _buildAppearanceSection(state),
 
           // ---- 图标包（全局开关，独立于主题预设） ----
-          const SizedBox(height: 24),
+          const SizedBox(height: XpSpacing.xl),
           const Divider(height: 1),
-          const SizedBox(height: 24),
+          const SizedBox(height: XpSpacing.xl),
           _buildIconSection(),
 
           // ---- 磨砂玻璃（全局开关，独立于主题预设） ----
-          const SizedBox(height: 24),
+          const SizedBox(height: XpSpacing.xl),
           const Divider(height: 1),
-          const SizedBox(height: 24),
+          const SizedBox(height: XpSpacing.xl),
           _buildFrostedSection(),
         ],
       ),
@@ -356,81 +358,74 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('外观定制', style: Theme.of(context).textTheme.titleSmall),
-        const SizedBox(height: 4),
+        const SizedBox(height: XpSpacing.xs),
         Text(
           editable ? '修改实时生效并保存到「${theme.name}」。' : '内置预设不可修改;先保存一个自定义主题再定制。',
           style: Theme.of(
             context,
           ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
         ),
-        const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Column(
-              children: [
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('动画'),
-                  subtitle: const Text('页面转场动画'),
-                  trailing: Switch(
-                    value: theme.animationsEnabled,
-                    onChanged: editable
-                        ? (v) => notifier.updateCurrentTheme(
-                            theme.copyWith(animationsEnabled: v),
-                          )
-                        : null,
-                  ),
+        const SizedBox(height: XpSpacing.m),
+        XpCard(
+          padding: const EdgeInsets.symmetric(
+            horizontal: XpSpacing.l,
+            vertical: XpSpacing.s,
+          ),
+          child: Column(
+            children: [
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('动画'),
+                subtitle: const Text('页面转场动画'),
+                trailing: Switch(
+                  value: theme.animationsEnabled,
+                  onChanged: editable
+                      ? (v) => notifier.updateCurrentTheme(
+                          theme.copyWith(animationsEnabled: v),
+                        )
+                      : null,
                 ),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('卡片样式'),
-                  trailing: DropdownMenu<XpCardStyle>(
-                    initialSelection: theme.cardStyle,
-                    enabled: editable,
-                    dropdownMenuEntries: const [
-                      DropdownMenuEntry(value: XpCardStyle.filled, label: '填充'),
-                      DropdownMenuEntry(
-                        value: XpCardStyle.outlined,
-                        label: '描边',
-                      ),
-                      DropdownMenuEntry(
-                        value: XpCardStyle.elevated,
-                        label: '浮起',
-                      ),
-                    ],
-                    onSelected: (v) {
-                      if (v != null) {
-                        notifier.updateCurrentTheme(
-                          theme.copyWith(cardStyle: v),
-                        );
-                      }
-                    },
-                  ),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('卡片样式'),
+                trailing: DropdownMenu<XpCardStyle>(
+                  initialSelection: theme.cardStyle,
+                  enabled: editable,
+                  dropdownMenuEntries: const [
+                    DropdownMenuEntry(value: XpCardStyle.filled, label: '填充'),
+                    DropdownMenuEntry(value: XpCardStyle.outlined, label: '描边'),
+                    DropdownMenuEntry(value: XpCardStyle.elevated, label: '浮起'),
+                  ],
+                  onSelected: (v) {
+                    if (v != null) {
+                      notifier.updateCurrentTheme(theme.copyWith(cardStyle: v));
+                    }
+                  },
                 ),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('卡片圆角'),
-                  subtitle: Text(
-                    theme.cardRadius == null ? '默认 12' : '${theme.cardRadius}',
-                  ),
-                  trailing: SegmentedButton<double>(
-                    selected: {theme.cardRadius ?? 12},
-                    showSelectedIcon: false,
-                    segments: const [
-                      ButtonSegment(value: 8, label: Text('小')),
-                      ButtonSegment(value: 12, label: Text('中')),
-                      ButtonSegment(value: 16, label: Text('大')),
-                    ],
-                    onSelectionChanged: editable
-                        ? (sel) => notifier.updateCurrentTheme(
-                            theme.copyWith(cardRadius: sel.first),
-                          )
-                        : null,
-                  ),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('卡片圆角'),
+                subtitle: Text(
+                  theme.cardRadius == null ? '默认 12' : '${theme.cardRadius}',
                 ),
-              ],
-            ),
+                trailing: SegmentedButton<double>(
+                  selected: {theme.cardRadius ?? 12},
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(value: 8, label: Text('小')),
+                    ButtonSegment(value: 12, label: Text('中')),
+                    ButtonSegment(value: 16, label: Text('大')),
+                  ],
+                  onSelectionChanged: editable
+                      ? (sel) => notifier.updateCurrentTheme(
+                          theme.copyWith(cardRadius: sel.first),
+                        )
+                      : null,
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -446,15 +441,17 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('图标', style: Theme.of(context).textTheme.titleSmall),
-        const SizedBox(height: 4),
+        const SizedBox(height: XpSpacing.xs),
         Text(
           '分类与账户图标的整体风格，可切换 Twitter 表情（twemoji）。',
           style: Theme.of(
             context,
           ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
         ),
-        const SizedBox(height: 12),
-        Card(
+        const SizedBox(height: XpSpacing.m),
+        XpCard(
+          padding: EdgeInsets.zero,
+          clipBehavior: Clip.antiAlias,
           child: ListTile(
             leading: AppIcon(
               icon: Icons.emoji_emotions_outlined,
@@ -482,15 +479,17 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('磨砂玻璃', style: Theme.of(context).textTheme.titleSmall),
-        const SizedBox(height: 4),
+        const SizedBox(height: XpSpacing.xs),
         Text(
           '白色高斯模糊质感：标题栏/导航栏、卡片与弹窗可分别开关。',
           style: Theme.of(
             context,
           ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
         ),
-        const SizedBox(height: 12),
-        Card(
+        const SizedBox(height: XpSpacing.m),
+        XpCard(
+          padding: EdgeInsets.zero,
+          clipBehavior: Clip.antiAlias,
           child: Column(
             children: [
               ListTile(
@@ -642,7 +641,7 @@ class _ThemeBall extends StatelessWidget {
           child: Container(
             width: 52,
             height: 52,
-            padding: const EdgeInsets.all(4),
+            padding: const EdgeInsets.all(XpSpacing.xs),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: outerColor,

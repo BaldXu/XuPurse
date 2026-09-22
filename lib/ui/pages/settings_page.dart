@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../widgets/app_icon.dart';
+import '../widgets/xp_card.dart';
 import 'budget_manage_page.dart';
 import 'category_manage_page.dart';
 import 'currency_settings_page.dart';
 import 'ledger_manage_page.dart';
 import 'tag_manage_page.dart';
+import '../tokens/design_tokens.dart';
 
 /// 设置页：基础数据与偏好入口（分类/标签/预算/业务记录/汇率）。
 class SettingsPage extends StatefulWidget {
@@ -23,9 +25,15 @@ class _SettingsPageState extends State<SettingsPage>
     return buildXpScaffold(
       appBar: AppBar(title: const Text('设置')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+        padding: const EdgeInsets.fromLTRB(
+          XpSpacing.l,
+          XpSpacing.s,
+          XpSpacing.l,
+          32,
+        ),
         children: [
-          Card(
+          XpCard(
+            padding: EdgeInsets.zero,
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: [

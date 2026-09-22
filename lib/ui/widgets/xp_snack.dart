@@ -11,7 +11,9 @@ void showXpSnack(BuildContext context, String message, {bool error = false}) {
         content: Text(message),
         behavior: SnackBarBehavior.floating,
         backgroundColor: error ? scheme.errorContainer : null,
-        duration: error ? const Duration(seconds: 4) : const Duration(seconds: 2),
+        duration: error
+            ? const Duration(seconds: 4)
+            : const Duration(seconds: 2),
       ),
     );
 }

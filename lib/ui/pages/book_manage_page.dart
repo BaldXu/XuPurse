@@ -5,10 +5,13 @@ import '../../data/database/global_database.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../widgets/app_icon.dart';
+import '../widgets/xp_card.dart';
+import '../widgets/xp_empty_state.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_fab.dart';
 import '../widgets/xp_snack.dart';
 import '../widgets/xp_skeleton.dart';
+import '../tokens/design_tokens.dart';
 
 /// 账本管理页：新建 / 切换 / 删除账本（切换后重建数据源）。
 class BookManagePage extends ConsumerStatefulWidget {
@@ -130,38 +133,58 @@ class _BookManagePageState extends ConsumerState<BookManagePage>
             return const XpSkeletonList(itemCount: 4);
           }
           if (snap.hasError) {
-            return Center(child: Text('加载失败：${snap.error}'));
+            return XpErrorState(
+              title: '账本加载失败',
+              message: '${snap.error}',
+              actionLabel: '重试',
+              onAction: () => setState(() => _booksFuture = _loadBooks()),
+            );
           }
           final books = snap.data ?? const <Book>[];
           if (books.isEmpty) {
-            return const Center(child: Text('暂无账本'));
+            return const Center(
+              child: XpEmptyState(
+                icon: Icons.menu_book_outlined,
+                title: '暂无账本',
+              ),
+            );
           }
           return ListView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+            padding: const EdgeInsets.fromLTRB(
+              XpSpacing.l,
+              XpSpacing.s,
+              XpSpacing.l,
+              96,
+            ),
             itemCount: books.length,
             itemBuilder: (context, i) {
               final book = books[i];
               final isCurrent = book.id == currentId;
-              return Card(
-                child: ListTile(
-                  leading: AppIcon(
-                    icon: isCurrent
-                        ? Icons.check_circle
-                        : Icons.menu_book_outlined,
-                    color: isCurrent
-                        ? Theme.of(context).colorScheme.primary
-                        : null,
+              return Padding(
+                padding: const EdgeInsets.only(bottom: XpSpacing.s),
+                child: XpCard(
+                  padding: EdgeInsets.zero,
+                  clipBehavior: Clip.antiAlias,
+                  child: ListTile(
+                    leading: AppIcon(
+                      icon: isCurrent
+                          ? Icons.check_circle
+                          : Icons.menu_book_outlined,
+                      color: isCurrent
+                          ? Theme.of(context).colorScheme.primary
+                          : null,
+                    ),
+                    title: Text(book.name),
+                    subtitle: Text(
+                      '本位币 ${book.baseCurrency}${isCurrent ? ' · 当前' : ''}',
+                    ),
+                    trailing: IconButton(
+                      tooltip: '删除',
+                      icon: const Icon(Icons.delete_outline),
+                      onPressed: () => _deleteBook(book),
+                    ),
+                    onTap: () => _switchBook(book.id),
                   ),
-                  title: Text(book.name),
-                  subtitle: Text(
-                    '本位币 ${book.baseCurrency}${isCurrent ? ' · 当前' : ''}',
-                  ),
-                  trailing: IconButton(
-                    tooltip: '删除',
-                    icon: const Icon(Icons.delete_outline),
-                    onPressed: () => _deleteBook(book),
-                  ),
-                  onTap: () => _switchBook(book.id),
                 ),
               );
             },

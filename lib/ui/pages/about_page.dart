@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../widgets/app_icon.dart';
+import '../tokens/design_tokens.dart';
 
 /// 应用信息页：名称、版本、简介。
 class AboutPage extends StatefulWidget {
@@ -27,7 +28,7 @@ class _AboutPageState extends State<AboutPage> with XpPageScaffold<AboutPage> {
               size: 64,
               color: scheme.primary,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: XpSpacing.m),
             Center(
               child: Text(
                 'XuPurse',
@@ -36,7 +37,7 @@ class _AboutPageState extends State<AboutPage> with XpPageScaffold<AboutPage> {
                 ),
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: XpSpacing.xs),
             Center(
               child: Text(
                 'v0.1.0',
@@ -45,7 +46,7 @@ class _AboutPageState extends State<AboutPage> with XpPageScaffold<AboutPage> {
                 ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: XpSpacing.xl),
             Text(
               '本地优先的记账应用：适配一木 / 昼虎 / 钱迹第三方数据库导入，'
               '支持多币种、多账本、资产趋势与统计。数据完全保存在本地。',

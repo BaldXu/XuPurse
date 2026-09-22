@@ -8,9 +8,11 @@ import '../../data/database/app_database.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/app_icon.dart';
+import '../widgets/xp_empty_state.dart';
 import '../widgets/xp_fab.dart';
 import '../widgets/xp_snack.dart';
 import '../../state/providers.dart';
+import '../tokens/design_tokens.dart';
 
 /// 分类管理页（两级树；支出/收入/转账 三 tab）。
 class CategoryManagePage extends ConsumerStatefulWidget {
@@ -65,7 +67,11 @@ class _CategoryList extends ConsumerWidget {
     final all = ref.watch(categoriesProvider).valueOrNull ?? [];
     final typed = all.where((c) => c.type == type.name).toList();
     if (typed.isEmpty) {
-      return const Center(child: Text('暂无分类，点击右下角新增'));
+      return const XpEmptyState(
+        icon: Icons.category_outlined,
+        title: '暂无分类',
+        message: '点击右下角新增',
+      );
     }
     final parents = typed.where((c) => c.parentId == null).toList();
     final childrenByParent = <String, List<Category>>{};
@@ -237,9 +243,9 @@ class _CategoryFormSheetState extends ConsumerState<CategoryFormSheet> {
 
     return Padding(
       padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 16,
+        left: XpSpacing.l,
+        right: XpSpacing.l,
+        top: XpSpacing.l,
         bottom: MediaQuery.of(context).viewInsets.bottom + 16,
       ),
       child: SingleChildScrollView(
@@ -251,7 +257,7 @@ class _CategoryFormSheetState extends ConsumerState<CategoryFormSheet> {
               widget.category == null ? '新增分类' : '编辑分类',
               style: Theme.of(context).textTheme.titleMedium,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: XpSpacing.l),
             SegmentedButton<BillType>(
               segments: const [
                 ButtonSegment(value: BillType.expense, label: Text('支出')),
@@ -264,7 +270,7 @@ class _CategoryFormSheetState extends ConsumerState<CategoryFormSheet> {
                 _parentId = null;
               }),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: XpSpacing.m),
             TextField(
               controller: _nameCtrl,
               decoration: const InputDecoration(
@@ -272,7 +278,7 @@ class _CategoryFormSheetState extends ConsumerState<CategoryFormSheet> {
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: XpSpacing.m),
             DropdownButtonFormField<String?>(
               initialValue: _parentId,
               decoration: const InputDecoration(
@@ -289,7 +295,7 @@ class _CategoryFormSheetState extends ConsumerState<CategoryFormSheet> {
               ],
               onChanged: (v) => setState(() => _parentId = v),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: XpSpacing.m),
             TextField(
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
@@ -298,7 +304,7 @@ class _CategoryFormSheetState extends ConsumerState<CategoryFormSheet> {
               ),
               onChanged: (v) => _sort = int.tryParse(v) ?? 0,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: XpSpacing.m),
             Wrap(
               spacing: 8,
               children: [

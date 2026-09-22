@@ -13,6 +13,7 @@ import '../widgets/xp_snack.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/app_icon.dart';
 import '../widgets/bill_tile.dart' show kExpenseColor, kIncomeColor;
+import '../tokens/design_tokens.dart';
 
 /// 记账弹窗：支出 / 收入 / 转账 + 数字键盘 + 二级分类 + 账户选择。
 ///
@@ -339,7 +340,7 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
           // 内容多时可滑动，避免挤压显得局促。
           Flexible(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.only(bottom: XpSpacing.s),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -396,7 +397,7 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
     if (categoriesAsync.isLoading) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(24),
+          padding: EdgeInsets.all(XpSpacing.xl),
           child: CircularProgressIndicator(),
         ),
       );
@@ -412,7 +413,10 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
     }
     final accent = _type == BillType.expense ? kExpenseColor : kIncomeColor;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: XpSpacing.m,
+        vertical: XpSpacing.s,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -446,7 +450,7 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
                 scrollDirection: Axis.horizontal,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.only(right: XpSpacing.s),
                     child: ChoiceChip(
                       label: const Text('全部'),
                       selected: _subId == _parentId,
@@ -455,7 +459,7 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
                   ),
                   for (final sub in childrenOf[_parentId]!)
                     Padding(
-                      padding: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.only(right: XpSpacing.s),
                       child: ChoiceChip(
                         label: Text(sub.name),
                         selected: _subId == sub.id,
@@ -476,14 +480,17 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
     if (accountsAsync.isLoading) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(24),
+          padding: EdgeInsets.all(XpSpacing.xl),
           child: CircularProgressIndicator(),
         ),
       );
     }
     final accounts = accountsAsync.value ?? const <Account>[];
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: XpSpacing.l,
+        vertical: XpSpacing.s,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -493,16 +500,16 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
             selectedId: _accountId,
             onChanged: (id) => setState(() => _accountId = id),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: XpSpacing.s),
           const Center(child: Icon(Icons.south)),
-          const SizedBox(height: 8),
+          const SizedBox(height: XpSpacing.s),
           _AccountPicker(
             label: '转入账户',
             accounts: accounts,
             selectedId: _incomeAccountId,
             onChanged: (id) => setState(() => _incomeAccountId = id),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: XpSpacing.s),
           TextField(
             controller: _feeController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -522,7 +529,12 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
     final accounts = ref.watch(accountsProvider).value ?? const <Account>[];
     final tags = ref.watch(tagsProvider).valueOrNull ?? const <Tag>[];
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      padding: const EdgeInsets.fromLTRB(
+        XpSpacing.l,
+        XpSpacing.m,
+        XpSpacing.l,
+        XpSpacing.m,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -564,7 +576,7 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
             ],
           ),
           if (_type != BillType.transfer) ...[
-            const SizedBox(height: 4),
+            const SizedBox(height: XpSpacing.xs),
             _buildExcludeToggle(scheme),
           ],
         ],
@@ -575,7 +587,7 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
   /// 「不计入收支」开关：仅记流水与余额，不参与收入/支出统计。
   Widget _buildExcludeToggle(ColorScheme scheme) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: XpSpacing.xs),
       child: Row(
         children: [
           AppIcon(
@@ -619,7 +631,7 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
           '记账币种（账户 $accCur${selected == accCur ? '' : ' · 当前 $selected'}）',
           style: Theme.of(context).textTheme.labelMedium,
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: XpSpacing.xs),
         SizedBox(
           height: 36,
           child: ListView(
@@ -649,7 +661,7 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('标签', style: Theme.of(context).textTheme.labelMedium),
-        const SizedBox(height: 4),
+        const SizedBox(height: XpSpacing.xs),
         SizedBox(
           height: 36,
           child: ListView(
@@ -708,7 +720,12 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
     final billCur = _effectiveCurrency;
     // 金额显示区局部刷新：按键只重建这里（P7）
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      padding: const EdgeInsets.fromLTRB(
+        XpSpacing.m,
+        0,
+        XpSpacing.m,
+        XpSpacing.m,
+      ),
       child: Column(
         children: [
           ValueListenableBuilder<String>(
@@ -733,7 +750,7 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
                           billCur == 'CNY' ? '¥' : billCur,
                           style: amountStyle?.copyWith(color: scheme.primary),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: XpSpacing.s),
                         Expanded(
                           child: Align(
                             alignment: Alignment.centerRight,
@@ -805,7 +822,7 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
                     SizedBox(
                       height: 2 * _keyHeight,
                       child: Padding(
-                        padding: const EdgeInsets.all(4),
+                        padding: const EdgeInsets.all(XpSpacing.xs),
                         child: FilledButton(
                           onPressed: _save,
                           child: Text(_isEdit ? '更新' : '保存'),
@@ -837,7 +854,7 @@ class _KeyButton extends StatelessWidget {
     return SizedBox(
       height: _keyHeight,
       child: Padding(
-        padding: const EdgeInsets.all(4),
+        padding: const EdgeInsets.all(XpSpacing.xs),
         child: OutlinedButton(
           onPressed: onTap,
           style: OutlinedButton.styleFrom(
@@ -881,7 +898,7 @@ class _CategoryCell extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(XpSpacing.s),
             decoration: BoxDecoration(
               color: selected ? accent.withValues(alpha: 0.18) : null,
               shape: BoxShape.circle,
@@ -890,7 +907,7 @@ class _CategoryCell extends StatelessWidget {
             ),
             child: AppIcon(name: category.icon, size: 24, color: color),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: XpSpacing.xs),
           Text(
             category.name,
             maxLines: 1,
@@ -927,7 +944,7 @@ class _AccountPicker extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: Theme.of(context).textTheme.labelMedium),
-        const SizedBox(height: 4),
+        const SizedBox(height: XpSpacing.xs),
         SizedBox(
           height: 44,
           child: ListView(
@@ -935,7 +952,7 @@ class _AccountPicker extends StatelessWidget {
             children: [
               for (final acc in accounts)
                 Padding(
-                  padding: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.only(right: XpSpacing.s),
                   child: ChoiceChip(
                     avatar: AppIcon(
                       name: acc.icon,

@@ -8,11 +8,13 @@ import '../../core/utils/ids.dart';
 import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
+import '../widgets/xp_card.dart';
 import '../widgets/xp_fab.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_snack.dart';
 import '../widgets/xp_empty_state.dart';
 import '../widgets/xp_skeleton.dart';
+import '../tokens/design_tokens.dart';
 
 /// 预算管理页（卡片 + 进度 + 表单 + 删除）。
 class BudgetManagePage extends ConsumerStatefulWidget {
@@ -31,7 +33,12 @@ class _BudgetManagePageState extends ConsumerState<BudgetManagePage>
       appBar: AppBar(title: const Text('预算管理')),
       body: budgetsAsync.when(
         loading: () => const XpSkeletonList(itemCount: 4),
-        error: (e, _) => Center(child: Text('加载失败：$e')),
+        error: (e, _) => XpErrorState(
+          title: '预算加载失败',
+          message: '$e',
+          actionLabel: '重试',
+          onAction: () => ref.invalidate(_budgetsWithUsageProvider),
+        ),
         data: (items) {
           if (items.isEmpty) {
             return const Center(
@@ -129,10 +136,9 @@ class _BudgetCard extends StatelessWidget {
         ? null
         : DateTime.fromMillisecondsSinceEpoch(b.startTime!);
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: XpCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -152,7 +158,7 @@ class _BudgetCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: XpSpacing.s),
             Row(
               children: [
                 Text(
@@ -168,7 +174,7 @@ class _BudgetCard extends StatelessWidget {
                   ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: XpSpacing.s),
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
@@ -250,9 +256,9 @@ class _BudgetFormSheetState extends ConsumerState<BudgetFormSheet> {
 
     return Padding(
       padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 16,
+        left: XpSpacing.l,
+        right: XpSpacing.l,
+        top: XpSpacing.l,
         bottom: MediaQuery.of(context).viewInsets.bottom + 16,
       ),
       child: SingleChildScrollView(
@@ -264,7 +270,7 @@ class _BudgetFormSheetState extends ConsumerState<BudgetFormSheet> {
               widget.budget == null ? '新增预算' : '编辑预算',
               style: Theme.of(context).textTheme.titleMedium,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: XpSpacing.l),
             TextField(
               controller: _nameCtrl,
               decoration: const InputDecoration(
@@ -272,7 +278,7 @@ class _BudgetFormSheetState extends ConsumerState<BudgetFormSheet> {
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: XpSpacing.m),
             TextField(
               controller: _amountCtrl,
               keyboardType: const TextInputType.numberWithOptions(
@@ -283,7 +289,7 @@ class _BudgetFormSheetState extends ConsumerState<BudgetFormSheet> {
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: XpSpacing.m),
             SegmentedButton<BillType>(
               segments: const [
                 ButtonSegment(value: BillType.expense, label: Text('支出')),
@@ -295,7 +301,7 @@ class _BudgetFormSheetState extends ConsumerState<BudgetFormSheet> {
                 _categoryId = null;
               }),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: XpSpacing.m),
             SegmentedButton<BudgetPeriodType>(
               segments: const [
                 ButtonSegment(value: BudgetPeriodType.month, label: Text('月度')),
@@ -305,7 +311,7 @@ class _BudgetFormSheetState extends ConsumerState<BudgetFormSheet> {
               onSelectionChanged: (s) => setState(() => _period = s.first),
             ),
             if (_type == BillType.expense) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: XpSpacing.m),
               DropdownButtonFormField<String?>(
                 key: ValueKey(_categoryId),
                 initialValue: _categoryId,

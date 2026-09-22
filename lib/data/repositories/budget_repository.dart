@@ -9,20 +9,16 @@ class BudgetRepository {
   final AppDatabase _db;
 
   Stream<List<Budget>> watchAll() => (_db.select(
-        _db.budgets,
-      )..orderBy([
-          (t) => OrderingTerm.asc(t.createdAt),
-        ]))
-          .watch();
+    _db.budgets,
+  )..orderBy([(t) => OrderingTerm.asc(t.createdAt)])).watch();
 
   Future<List<Budget>> getAll() => (_db.select(
-        _db.budgets,
-      )..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
-          .get();
+    _db.budgets,
+  )..orderBy([(t) => OrderingTerm.asc(t.createdAt)])).get();
 
-  Future<Budget?> getById(String id) =>
-      (_db.select(_db.budgets)..where((t) => t.id.equals(id)))
-          .getSingleOrNull();
+  Future<Budget?> getById(String id) => (_db.select(
+    _db.budgets,
+  )..where((t) => t.id.equals(id))).getSingleOrNull();
 
   Future<void> insert(BudgetsCompanion entry) =>
       _db.into(_db.budgets).insert(entry);

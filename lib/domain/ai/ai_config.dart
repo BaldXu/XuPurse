@@ -122,20 +122,17 @@ class AiState {
     if (configs.isEmpty) return null;
     return configs.firstWhere(
       (c) => c.id == currentId && c.enabled,
-      orElse: () => configs.firstWhere(
-        (c) => c.enabled,
-        orElse: () => configs.first,
-      ),
+      orElse: () =>
+          configs.firstWhere((c) => c.enabled, orElse: () => configs.first),
     );
   }
 
   bool get isConfigured => current != null && current!.apiKey.isNotEmpty;
 
-  AiState copyWith({List<AiConfig>? configs, String? currentId}) =>
-      AiState(
-        configs: configs ?? this.configs,
-        currentId: currentId ?? this.currentId,
-      );
+  AiState copyWith({List<AiConfig>? configs, String? currentId}) => AiState(
+    configs: configs ?? this.configs,
+    currentId: currentId ?? this.currentId,
+  );
 }
 
 /// AI 配置状态（多配置管理），持久化到 SharedPreferences。
@@ -227,7 +224,8 @@ class AiConfigNotifier extends Notifier<AiState> {
   /// 启用/停用配置。
   Future<void> setEnabled(String id, bool enabled) async {
     final configs = [
-      for (final c in state.configs) c.id == id ? c.copyWith(enabled: enabled) : c,
+      for (final c in state.configs)
+        c.id == id ? c.copyWith(enabled: enabled) : c,
     ];
     final next = AiState(configs: configs, currentId: state.currentId);
     await _persist(next);

@@ -6,6 +6,8 @@ import '../../domain/ai/ai_service.dart';
 import '../../domain/ai/stats_context.dart';
 import '../tokens/design_tokens.dart';
 import 'app_icon.dart';
+import 'xp_empty_state.dart';
+import 'xp_sheet.dart';
 
 /// 统计页 AI 悬浮按钮：已配置 AI 时显示，点击弹出底部聊天窗口。
 class AiFab extends ConsumerWidget {
@@ -28,15 +30,7 @@ class AiFab extends ConsumerWidget {
 
 /// 弹出 AI 聊天窗口（底部上移动画）。
 void showAiChatSheet(BuildContext context) {
-  showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (_) => const _AiChatSheet(),
-  );
+  showXpSheet<void>(context: context, builder: (_) => const _AiChatSheet());
 }
 
 class _AiChatSheet extends ConsumerStatefulWidget {
@@ -196,155 +190,160 @@ class _AiChatSheetState extends ConsumerState<_AiChatSheet> {
   Widget build(BuildContext context) {
     final conversations = ref.watch(aiChatProvider);
     final conv = _current(conversations);
-    final height = MediaQuery.sizeOf(context).height;
 
-    return SizedBox(
-      height: height * 0.85,
-      child: Column(
-        children: [
-          // 顶部栏：标题 + 历史 + 新建
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
-            child: Row(
-              children: [
-                const AppIcon(icon: Icons.smart_toy_outlined, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'AI 财务分析助手',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+    return Column(
+      children: [
+        // 顶部栏：标题 + 历史 + 新建
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            XpSpacing.l,
+            XpSpacing.m,
+            XpSpacing.s,
+            XpSpacing.s,
+          ),
+          child: Row(
+            children: [
+              const AppIcon(icon: Icons.smart_toy_outlined, size: 20),
+              const SizedBox(width: XpSpacing.s),
+              Expanded(
+                child: Text(
+                  'AI 财务分析助手',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
+              ),
+              IconButton(
+                tooltip: '历史对话',
+                icon: const AppIcon(icon: Icons.history, size: 22),
+                onPressed: () => _showHistoryDrawer(conversations),
+              ),
+              // 思考模式开关（仅对疑似支持思考的模型显示；默认关闭）
+              if (_modelSupportsThinking)
                 IconButton(
-                  tooltip: '历史对话',
-                  icon: const AppIcon(icon: Icons.history, size: 22),
-                  onPressed: () => _showHistoryDrawer(conversations),
-                ),
-                // 思考模式开关（仅对疑似支持思考的模型显示；默认关闭）
-                if (_modelSupportsThinking)
-                  IconButton(
-                    tooltip: _thinking ? '思考模式：开（点击关闭）' : '思考模式：关（点击开启）',
-                    icon: Icon(
-                      _thinking ? Icons.psychology : Icons.psychology_outlined,
-                      size: 22,
-                      color: _thinking
-                          ? Theme.of(context).colorScheme.primary
-                          : Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                    onPressed: () => setState(() => _thinking = !_thinking),
-                  ),
-                // 附带统计数据开关（聚合口径，保护隐私）
-                IconButton(
-                  tooltip: _attachStats ? '附带统计数据：开（点击关闭）' : '附带统计数据：关（点击开启）',
+                  tooltip: _thinking ? '思考模式：开（点击关闭）' : '思考模式：关（点击开启）',
                   icon: Icon(
-                    _attachStats
-                        ? Icons.dataset_linked
-                        : Icons.dataset_linked_outlined,
+                    _thinking ? Icons.psychology : Icons.psychology_outlined,
                     size: 22,
-                    color: _attachStats
+                    color: _thinking
                         ? Theme.of(context).colorScheme.primary
                         : Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
-                  onPressed: () {
-                    setState(() {
-                      _attachStats = !_attachStats;
-                      if (!_attachStats) _statsCache = null;
-                    });
+                  onPressed: () => setState(() => _thinking = !_thinking),
+                ),
+              // 附带统计数据开关（聚合口径，保护隐私）
+              IconButton(
+                tooltip: _attachStats ? '附带统计数据：开（点击关闭）' : '附带统计数据：关（点击开启）',
+                icon: Icon(
+                  _attachStats
+                      ? Icons.dataset_linked
+                      : Icons.dataset_linked_outlined,
+                  size: 22,
+                  color: _attachStats
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _attachStats = !_attachStats;
+                    if (!_attachStats) _statsCache = null;
+                  });
+                },
+              ),
+              IconButton(
+                tooltip: '新建对话',
+                icon: const AppIcon(icon: Icons.add_comment_outlined, size: 22),
+                onPressed: _sending ? null : _newConversation,
+              ),
+              IconButton(
+                tooltip: '收起',
+                icon: const Icon(Icons.keyboard_arrow_down, size: 24),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        // 消息区
+        Expanded(
+          child: conv == null || conv.messages.isEmpty
+              ? _ChatEmptyHint(
+                  onSuggestion: (s) {
+                    _inputCtrl.text = s;
                   },
-                ),
-                IconButton(
-                  tooltip: '新建对话',
-                  icon: const AppIcon(
-                    icon: Icons.add_comment_outlined,
-                    size: 22,
+                )
+              : ListView.builder(
+                  controller: _scrollCtrl,
+                  padding: const EdgeInsets.fromLTRB(
+                    XpSpacing.l,
+                    XpSpacing.m,
+                    XpSpacing.l,
+                    XpSpacing.s,
                   ),
-                  onPressed: _sending ? null : _newConversation,
+                  itemCount: conv.messages.length,
+                  itemBuilder: (context, i) =>
+                      _MessageBubble(message: conv.messages[i]),
                 ),
-                IconButton(
-                  tooltip: '收起',
-                  icon: const Icon(Icons.keyboard_arrow_down, size: 24),
-                  onPressed: () => Navigator.of(context).pop(),
+        ),
+        // 输入区
+        const Divider(height: 1),
+        SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              XpSpacing.m,
+              XpSpacing.s,
+              XpSpacing.m,
+              XpSpacing.m,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _inputCtrl,
+                    minLines: 1,
+                    maxLines: 4,
+                    textInputAction: TextInputAction.newline,
+                    decoration: const InputDecoration(
+                      hintText: '描述你的问题，或粘贴数据摘要…',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: XpSpacing.s),
+                IconButton.filled(
+                  tooltip: '发送',
+                  onPressed: _sending ? null : _send,
+                  icon: _sending
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.send, size: 20),
                 ),
               ],
             ),
           ),
-          const Divider(height: 1),
-          // 消息区
-          Expanded(
-            child: conv == null || conv.messages.isEmpty
-                ? _ChatEmptyHint(
-                    onSuggestion: (s) {
-                      _inputCtrl.text = s;
-                    },
-                  )
-                : ListView.builder(
-                    controller: _scrollCtrl,
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                    itemCount: conv.messages.length,
-                    itemBuilder: (context, i) =>
-                        _MessageBubble(message: conv.messages[i]),
-                  ),
-          ),
-          // 输入区
-          const Divider(height: 1),
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _inputCtrl,
-                      minLines: 1,
-                      maxLines: 4,
-                      textInputAction: TextInputAction.newline,
-                      decoration: const InputDecoration(
-                        hintText: '描述你的问题，或粘贴数据摘要…',
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton.filled(
-                    tooltip: '发送',
-                    onPressed: _sending ? null : _send,
-                    icon: _sending
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.send, size: 20),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   void _showHistoryDrawer(List<AiConversation> conversations) {
-    showModalBottomSheet<void>(
+    showXpSheet<void>(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
       builder: (sheetCtx) => SafeArea(
+        top: false,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(XpSpacing.l),
               child: Row(
                 children: [
                   Text('历史对话', style: Theme.of(sheetCtx).textTheme.titleMedium),
@@ -362,11 +361,12 @@ class _AiChatSheetState extends ConsumerState<_AiChatSheet> {
             ),
             const Divider(height: 1),
             if (conversations.isEmpty)
-              const Padding(padding: EdgeInsets.all(24), child: Text('暂无历史对话'))
+              const Expanded(
+                child: XpEmptyState(icon: Icons.history, title: '暂无历史对话'),
+              )
             else
-              Flexible(
+              Expanded(
                 child: ListView.builder(
-                  shrinkWrap: true,
                   itemCount: conversations.length,
                   itemBuilder: (context, i) {
                     final c = conversations[i];
@@ -425,7 +425,7 @@ class _ChatEmptyHint extends StatelessWidget {
     final theme = Theme.of(context);
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(XpSpacing.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -434,16 +434,16 @@ class _ChatEmptyHint extends StatelessWidget {
               size: 48,
               color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: XpSpacing.m),
             Text('把统计数据发给我，我来帮你分析', style: theme.textTheme.bodyMedium),
-            const SizedBox(height: 4),
+            const SizedBox(height: XpSpacing.xs),
             Text(
               '建议只粘贴汇总数据，避免发送敏感账户信息',
               style: theme.textTheme.labelSmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: XpSpacing.l),
             Wrap(
               spacing: 8,
               runSpacing: 8,

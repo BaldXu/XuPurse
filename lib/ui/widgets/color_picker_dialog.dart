@@ -56,9 +56,9 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
             pos: _sv,
             onChanged: (o) => setState(() => _sv = o),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: XpSpacing.m),
           _HueBar(hue: _hue, onChanged: (h) => setState(() => _hue = h)),
-          const SizedBox(height: 12),
+          const SizedBox(height: XpSpacing.m),
           Row(
             children: [
               Container(
@@ -73,7 +73,7 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: XpSpacing.m),
               Text(_hex(_color), style: Theme.of(context).textTheme.bodyMedium),
             ],
           ),
@@ -202,12 +202,12 @@ class _HueBar extends StatelessWidget {
           onChanged((d.localPosition.dx / _width).clamp(0.0, 1.0) * 360),
       child: SizedBox(
         width: _width,
-        height: 24,
+        height: XpSpacing.xl,
         child: Stack(
           alignment: Alignment.centerLeft,
           children: [
             Container(
-              height: 24,
+              height: XpSpacing.xl,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(XpRadius.m),
                 gradient: const LinearGradient(colors: _colors),

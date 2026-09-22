@@ -152,7 +152,8 @@ MappedImport mapQianjiToXuPurse(
   final lendCatId =
       ctx.fallbackCategoryId(BillType.expense, ['loan-out']) ?? '';
   final collectCatId =
-      ctx.fallbackCategoryId(BillType.income, ['other-income', 'yimu-901']) ?? '';
+      ctx.fallbackCategoryId(BillType.income, ['other-income', 'yimu-901']) ??
+      '';
 
   String resolveCategoryId(Map<String, Object?> qianjiBill, BillType type) {
     final categoryId = asInt(qianjiBill['categoryid']) ?? 0;

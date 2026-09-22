@@ -248,7 +248,8 @@ MappedImport mapYimuToXuPurse(
   final lendCatId =
       ctx.fallbackCategoryId(BillType.expense, ['loan-out']) ?? '';
   final collectCatId =
-      ctx.fallbackCategoryId(BillType.income, ['other-income', 'yimu-901']) ?? '';
+      ctx.fallbackCategoryId(BillType.income, ['other-income', 'yimu-901']) ??
+      '';
   final instalmentCatId =
       ctx.fallbackCategoryId(BillType.expense, ['other-expenses']) ?? '';
 

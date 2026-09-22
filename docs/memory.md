@@ -138,6 +138,13 @@ XuPurse —— 用 Flutter 从 0 重写 cent-xyx 的记账软件（三端 Web / 
 **第三波：设计语言统一（治「丑 / 漏卡片」）**——审计结论：基建（token/XpCard/页面壳）完整，问题是二级页大量「绕过基建」
 - 修复优先级：statistics/ 6 分区（14+ 裸 Card 缺按压/磨砂 + KPI/排行金额漏 tabular）> trend（4 裸 Card + 裸转圈 + 裸文本空态）> theme_settings（5 裸 Card，设置分组与 mine 样板不一致）> ai_settings（全库唯一裸 Scaffold 绕开 buildXpScaffold + 残留 XpEntrance）> settings（图标色块未对齐 mine）> ai_chat_sheet（全库唯一裸 showModalBottomSheet）
 - 系统性收口：错误态统一（xpWhen 已提供但页面没用）、空态三分法（有的 XpEmptyState 有的裸 Text）、间距字面量、裸 Card 全局盘点（import/account_detail/data_manage/currency/book/budget/ledger/icon_settings）
+- **第三波完成 ✅（2026-09-22）**：
+  - 裸 Card 全局收口（w3-1~w3-3、w3-7）：statistics 6 分区 / trend / theme_settings / 各管理页全部换 XpCard；语义色（errorContainer）与自定义描边卡保留裸 Card + 注释
+  - ai_settings 裸 Scaffold → buildXpScaffold（w3-4）、settings 图标色块对齐 mine（w3-5）、ai_chat_sheet 裸 showModalBottomSheet → showXpSheet（w3-6）
+  - 错误态统一（w3-8）：12 处裸错误文本 → XpErrorState（search×3 / tag_manage / ledger×4 / accounts / home / account_detail / account_manage / budget_manage / book_manage；currency_settings 卡内 inline 保留轻量 Text + 注释）；重试动作用 ref.invalidate（FutureBuilder 场景 setState 重取）
+  - 空态三分法收口（w3-9）：category_manage 页面级 → XpEmptyState；search_page 趋势区（180 高）→ XpEmptyState；饼图区（140 高）放不下标准 32 padding → 保留轻量 Text + 注释
+  - 间距字面量收口（w3-10）：全库 365 处 4/8/12/16/24 → XpSpacing.xs/s/m/l/xl（32 文件 + 14 补漏，13 处补注 design_tokens import）；含非 token 值（6/40/三元）的 mixed 形态保守保留
+  - 验收：dart format 全库 0 changed、flutter analyze 全库 0 issue、flutter test 99 全过
 
 ### 常规待办
 1. **阶段 3 整体验收**（ui-refactor-plan §五）：analyze 全库零问题（当前已 0）→ 真机亮/暗两套全页走查（含磨砂三子项开关 × 图标包切换两态）→ DevTools 帧率 → 主题迁移清除/保留双场景；暗色模式下白色磨砂的可读性待用户反馈（固定白色为用户明确要求）

@@ -12,11 +12,7 @@ bool isWideScreen(BuildContext context) =>
 
 /// 宽屏下把内容限宽并水平居中，窄屏原样返回（铺满）。
 class ContentWidthBox extends StatelessWidget {
-  const ContentWidthBox({
-    super.key,
-    required this.child,
-    this.maxWidth = 720,
-  });
+  const ContentWidthBox({super.key, required this.child, this.maxWidth = 720});
 
   final Widget child;
   final double maxWidth;

@@ -27,7 +27,8 @@ class Accounts extends Table {
   IntColumn get initialBalance => integer().withDefault(const Constant(0))();
   IntColumn get currentBalance => integer().withDefault(const Constant(0))();
   TextColumn get currency => text().withDefault(const Constant('CNY'))();
-  BoolColumn get includeInAssets => boolean().withDefault(const Constant(true))();
+  BoolColumn get includeInAssets =>
+      boolean().withDefault(const Constant(true))();
   IntColumn get creditLimit => integer().nullable()();
   TextColumn get cardCode => text().nullable()();
   IntColumn get statementDate => integer().nullable()();
@@ -57,7 +58,8 @@ class Categories extends Table {
   TextColumn get color => text().nullable()();
   TextColumn get parentId => text().nullable()();
   BoolColumn get customName => boolean().withDefault(const Constant(false))();
-  BoolColumn get defaultSelect => boolean().withDefault(const Constant(false))();
+  BoolColumn get defaultSelect =>
+      boolean().withDefault(const Constant(false))();
   IntColumn get sort => integer().withDefault(const Constant(0))();
   TextColumn get seedKey => text().nullable()(); // 种子分类固定键（幂等）
   IntColumn get createdAt => integer()();
@@ -275,5 +277,7 @@ class ImportMappings extends Table {
   Set<Column> get primaryKey => {id};
 
   @override
-  List<Set<Column>> get uniqueKeys => [{provider, entityType, sourceId}];
+  List<Set<Column>> get uniqueKeys => [
+    {provider, entityType, sourceId},
+  ];
 }

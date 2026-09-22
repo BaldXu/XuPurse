@@ -107,7 +107,8 @@ MappedImport mapZhouhuToXuPurse(
     final name = rawName.isEmpty ? '未命名分类' : rawName;
     final type = asInt(cat['type']) == 2 ? BillType.income : BillType.expense;
     // 优先挂靠一木体系种子分类（精确 key → 模糊包含匹配）
-    final seedKey = _zhouhuSeedKey(rawName) ??
+    final seedKey =
+        _zhouhuSeedKey(rawName) ??
         CategoryFuzzyMatcher.seedKeyByContain(rawName, type);
     final seed = seedKey == null ? null : ctx.categoryBySeedKey(seedKey);
     if (seed != null) {
@@ -421,32 +422,32 @@ MappedImport mapZhouhuToXuPurse(
 /// 昼虎 basedata.* 资源 key → 中文分类名
 /// 昼虎分类 key → XuPurse 种子 key（一木体系；直接挂靠，不再新建翻译名分类）。
 const _zhouhuCategoryKeyMap = <String, String>{
-  'basedata.diet': 'food',           // 餐饮 → 食品餐饮
+  'basedata.diet': 'food', // 餐饮 → 食品餐饮
   'basedata.daily': 'daily-necessities', // 日常 → 日用
-  'basedata.traffic': 'transport',   // 交通 → 出行交通
+  'basedata.traffic': 'transport', // 交通 → 出行交通
   'basedata.social': 'relationship', // 社交 → 送礼人情
   'basedata.residential': 'housing', // 居住 → 居家生活
-  'basedata.gift': 'gifts',          // 礼物
+  'basedata.gift': 'gifts', // 礼物
   'basedata.communication': 'phone-broadband', // 通讯 → 话费宽带
-  'basedata.dress': 'clothing',      // 服饰 → 服装
+  'basedata.dress': 'clothing', // 服饰 → 服装
   'basedata.recreation': 'entertainment', // 娱乐 → 休闲娱乐
-  'basedata.beautify': 'beauty',     // 美容 → 理发美容
-  'basedata.medical': 'medical',     // 医疗 → 健康医疗
-  'basedata.tax': 'other-expenses',  // 税费 → 其他
+  'basedata.beautify': 'beauty', // 美容 → 理发美容
+  'basedata.medical': 'medical', // 医疗 → 健康医疗
+  'basedata.tax': 'other-expenses', // 税费 → 其他
   'basedata.education': 'education', // 教育 → 文化教育
-  'basedata.baby': 'baby-toys',      // 育儿 → 母婴玩具
-  'basedata.pet': 'pet-supplies',    // 宠物 → 宠物用品
-  'basedata.travel': 'travel',       // 旅行 → 旅游度假
-  'basedata.wage': 'wage',           // 工资
-  'basedata.bonus': 'bonus',         // 奖金
+  'basedata.baby': 'baby-toys', // 育儿 → 母婴玩具
+  'basedata.pet': 'pet-supplies', // 宠物 → 宠物用品
+  'basedata.travel': 'travel', // 旅行 → 旅游度假
+  'basedata.wage': 'wage', // 工资
+  'basedata.bonus': 'bonus', // 奖金
   'basedata.investment': 'invest-profit', // 投资 → 理财盈利
-  'basedata.parttime_job': 'part-time',   // 兼职 → 兼职外快
+  'basedata.parttime_job': 'part-time', // 兼职 → 兼职外快
   'basedata.myself': 'other-income', // 自己 → 其他
-  'basedata.wife': 'other-income',   // 妻子 → 其他
+  'basedata.wife': 'other-income', // 妻子 → 其他
   'basedata.husband': 'other-income', // 丈夫 → 其他
-  'basedata.child': 'other-income',  // 孩子 → 其他
+  'basedata.child': 'other-income', // 孩子 → 其他
   'basedata.parent': 'other-income', // 父母 → 其他
-  'basedata.home': 'other-income',   // 家庭 → 其他
+  'basedata.home': 'other-income', // 家庭 → 其他
   'basedata.monthly': 'other-expenses', // 月度预算 → 其他
 };
 

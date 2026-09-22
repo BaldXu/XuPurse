@@ -94,7 +94,12 @@ class _LendList extends ConsumerWidget {
     final lendsAsync = ref.watch(_lendsProvider);
     return lendsAsync.when(
       loading: () => const XpSkeletonList(itemCount: 4),
-      error: (e, _) => Center(child: Text('加载失败：$e')),
+      error: (e, _) => XpErrorState(
+        title: '借贷记录加载失败',
+        message: '$e',
+        actionLabel: '重试',
+        onAction: () => ref.invalidate(_lendsProvider),
+      ),
       data: (lends) {
         if (lends.isEmpty) {
           return const XpEmptyState(
@@ -150,7 +155,12 @@ class _ReimbursementList extends ConsumerWidget {
     final itemsAsync = ref.watch(_reimbursementsProvider);
     return itemsAsync.when(
       loading: () => const XpSkeletonList(itemCount: 4),
-      error: (e, _) => Center(child: Text('加载失败：$e')),
+      error: (e, _) => XpErrorState(
+        title: '报销记录加载失败',
+        message: '$e',
+        actionLabel: '重试',
+        onAction: () => ref.invalidate(_reimbursementsProvider),
+      ),
       data: (items) {
         if (items.isEmpty) {
           return const XpEmptyState(
@@ -195,7 +205,12 @@ class _RefundList extends ConsumerWidget {
     final itemsAsync = ref.watch(_refundsProvider);
     return itemsAsync.when(
       loading: () => const XpSkeletonList(itemCount: 4),
-      error: (e, _) => Center(child: Text('加载失败：$e')),
+      error: (e, _) => XpErrorState(
+        title: '退款记录加载失败',
+        message: '$e',
+        actionLabel: '重试',
+        onAction: () => ref.invalidate(_refundsProvider),
+      ),
       data: (items) {
         if (items.isEmpty) {
           return const XpEmptyState(icon: Icons.replay, title: '暂无退款记录');
@@ -237,7 +252,12 @@ class _InstalmentList extends ConsumerWidget {
     final itemsAsync = ref.watch(_instalmentsProvider);
     return itemsAsync.when(
       loading: () => const XpSkeletonList(itemCount: 4),
-      error: (e, _) => Center(child: Text('加载失败：$e')),
+      error: (e, _) => XpErrorState(
+        title: '分期记录加载失败',
+        message: '$e',
+        actionLabel: '重试',
+        onAction: () => ref.invalidate(_instalmentsProvider),
+      ),
       data: (items) {
         if (items.isEmpty) {
           return const XpEmptyState(

@@ -100,7 +100,12 @@ class _HomePageState extends ConsumerState<HomePage>
               ),
               error: (e, _) => SliverFillRemaining(
                 hasScrollBody: false,
-                child: Center(child: Text('加载失败：$e')),
+                child: XpErrorState(
+                  title: '账单加载失败',
+                  message: '$e',
+                  actionLabel: '重试',
+                  onAction: () => ref.invalidate(billsProvider),
+                ),
               ),
               data: (bills) {
                 if (bills.isEmpty) {

@@ -70,7 +70,7 @@ class _XpCardState extends State<XpCard> {
     ).read(frostedGlassProvider).cardsOn;
 
     final Widget padded = Padding(
-      padding: widget.padding ?? const EdgeInsets.all(16),
+      padding: widget.padding ?? const EdgeInsets.all(XpSpacing.l),
       child: widget.child,
     );
 

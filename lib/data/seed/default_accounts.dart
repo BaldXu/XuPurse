@@ -20,8 +20,36 @@ class SeedAccount {
 }
 
 const List<SeedAccount> defaultAccounts = [
-  SeedAccount(name: '支付宝', category: 'fund', type: 'alipay', icon: 'account_balance_wallet', color: '#1677ff', initialBalance: 0),
-  SeedAccount(name: '微信支付', category: 'fund', type: 'wechat', icon: 'chat', color: '#07c160', initialBalance: 0),
-  SeedAccount(name: '现金', category: 'fund', type: 'cash', icon: 'payments', color: '#f59e0b', initialBalance: 0),
-  SeedAccount(name: '银行卡', category: 'fund', type: 'bank', icon: 'account_balance', color: '#3b82f6', initialBalance: 0),
+  SeedAccount(
+    name: '支付宝',
+    category: 'fund',
+    type: 'alipay',
+    icon: 'account_balance_wallet',
+    color: '#1677ff',
+    initialBalance: 0,
+  ),
+  SeedAccount(
+    name: '微信支付',
+    category: 'fund',
+    type: 'wechat',
+    icon: 'chat',
+    color: '#07c160',
+    initialBalance: 0,
+  ),
+  SeedAccount(
+    name: '现金',
+    category: 'fund',
+    type: 'cash',
+    icon: 'payments',
+    color: '#f59e0b',
+    initialBalance: 0,
+  ),
+  SeedAccount(
+    name: '银行卡',
+    category: 'fund',
+    type: 'bank',
+    icon: 'account_balance',
+    color: '#3b82f6',
+    initialBalance: 0,
+  ),
 ];

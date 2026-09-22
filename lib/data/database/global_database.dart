@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart'
-    if (dart.library.js_interop) 'native_web_stub.dart' show NativeDatabase;
+    if (dart.library.js_interop) 'native_web_stub.dart'
+    show NativeDatabase;
 import 'package:drift_flutter/drift_flutter.dart';
 
 import 'tables.dart';
@@ -13,14 +14,14 @@ class GlobalDatabase extends _$GlobalDatabase {
   GlobalDatabase(super.e);
 
   factory GlobalDatabase.open() => GlobalDatabase(
-        driftDatabase(
-          name: 'xupurse',
-          web: DriftWebOptions(
-            sqlite3Wasm: Uri.parse('sqlite3.wasm'),
-            driftWorker: Uri.parse('drift_worker.js'),
-          ),
-        ),
-      );
+    driftDatabase(
+      name: 'xupurse',
+      web: DriftWebOptions(
+        sqlite3Wasm: Uri.parse('sqlite3.wasm'),
+        driftWorker: Uri.parse('drift_worker.js'),
+      ),
+    ),
+  );
 
   factory GlobalDatabase.memory() => GlobalDatabase(NativeDatabase.memory());
 

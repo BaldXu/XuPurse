@@ -18,7 +18,11 @@ class AiMessage {
   /// 请求失败时的错误说明（仅 assistant 消息可能出现）。
   final String? error;
 
-  Map<String, Object?> toJson() => {'role': role, 'content': content, if (error != null) 'error': error};
+  Map<String, Object?> toJson() => {
+    'role': role,
+    'content': content,
+    if (error != null) 'error': error,
+  };
 
   static AiMessage fromJson(Map<String, Object?> json) => AiMessage(
     role: json['role'] as String,
@@ -43,14 +47,17 @@ class AiConversation {
   final int createdAt;
   final int updatedAt;
 
-  AiConversation copyWith({List<AiMessage>? messages, int? updatedAt, String? title}) =>
-      AiConversation(
-        id: id,
-        title: title ?? this.title,
-        messages: messages ?? this.messages,
-        createdAt: createdAt,
-        updatedAt: updatedAt ?? this.updatedAt,
-      );
+  AiConversation copyWith({
+    List<AiMessage>? messages,
+    int? updatedAt,
+    String? title,
+  }) => AiConversation(
+    id: id,
+    title: title ?? this.title,
+    messages: messages ?? this.messages,
+    createdAt: createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
 
   Map<String, Object?> toJson() => {
     'id': id,
@@ -73,8 +80,9 @@ class AiConversation {
 }
 
 /// 会话历史状态（多会话管理），持久化到 SharedPreferences。
-final aiChatProvider =
-    NotifierProvider<AiChatNotifier, List<AiConversation>>(AiChatNotifier.new);
+final aiChatProvider = NotifierProvider<AiChatNotifier, List<AiConversation>>(
+  AiChatNotifier.new,
+);
 
 class AiChatNotifier extends Notifier<List<AiConversation>> {
   static const _key = 'ai_conversations';
@@ -103,10 +111,7 @@ class AiChatNotifier extends Notifier<List<AiConversation>> {
   Future<void> _persist(List<AiConversation> next) async {
     final prefs = _prefs ?? await SharedPreferencesLike.getInstance();
     _prefs = prefs;
-    await prefs.setString(
-      _key,
-      jsonEncode([for (final c in next) c.toJson()]),
-    );
+    await prefs.setString(_key, jsonEncode([for (final c in next) c.toJson()]));
   }
 
   /// 新建对话并置顶返回。
@@ -213,10 +218,26 @@ class AiClient {
   static bool modelSupportsThinking(String model) {
     final m = model.toLowerCase();
     const keywords = [
-      'reasoner', 'thinking', 'r1', 'qwq', 'o1', 'o3', 'o4-',
-      'deepseek-v4', 'deepseek-v3.2', 'seed-1.6', 'seed-1-6',
-      'claude-3-7', 'claude-4', 'claude-sonnet', 'claude-opus', 'claude-haiku',
-      'gemini-2.5', 'glm-4.5', 'glm-4.6', 'kimi-k2',
+      'reasoner',
+      'thinking',
+      'r1',
+      'qwq',
+      'o1',
+      'o3',
+      'o4-',
+      'deepseek-v4',
+      'deepseek-v3.2',
+      'seed-1.6',
+      'seed-1-6',
+      'claude-3-7',
+      'claude-4',
+      'claude-sonnet',
+      'claude-opus',
+      'claude-haiku',
+      'gemini-2.5',
+      'glm-4.5',
+      'glm-4.6',
+      'kimi-k2',
     ];
     return keywords.any(m.contains);
   }
@@ -287,9 +308,9 @@ class AiClient {
     bool enableThinking = false,
   }) {
     final msgs = [
-      ...history.where((m) => m.error == null).map(
-        (m) => {'role': m.role, 'content': m.content},
-      ),
+      ...history
+          .where((m) => m.error == null)
+          .map((m) => {'role': m.role, 'content': m.content}),
       {'role': 'user', 'content': userMessage},
     ];
     return switch (_config.protocol) {
@@ -303,9 +324,7 @@ class AiClient {
         ],
         // 思考模式开关：仅对支持的模型显式关闭/开启（火山方舟风格参数）
         if (modelSupportsThinking(_config.model))
-          'thinking': {
-            'type': enableThinking ? 'enabled' : 'disabled',
-          },
+          'thinking': {'type': enableThinking ? 'enabled' : 'disabled'},
       },
       AiProtocol.anthropic => {
         'model': _config.model,

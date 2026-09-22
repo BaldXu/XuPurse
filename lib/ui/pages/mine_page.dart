@@ -220,7 +220,12 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 0, 4, XpSpacing.s),
+      padding: const EdgeInsets.fromLTRB(
+        XpSpacing.xs,
+        0,
+        XpSpacing.xs,
+        XpSpacing.s,
+      ),
       child: Align(
         alignment: Alignment.centerLeft,
         child: Text(

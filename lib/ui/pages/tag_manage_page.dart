@@ -8,10 +8,12 @@ import '../../domain/services/currency_service.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../widgets/app_icon.dart';
+import '../widgets/xp_empty_state.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_skeleton.dart';
 import '../widgets/xp_fab.dart';
 import '../widgets/xp_snack.dart';
+import '../tokens/design_tokens.dart';
 
 /// 标签管理页（列表 + 新增/编辑/删除）。
 class TagManagePage extends ConsumerStatefulWidget {
@@ -30,10 +32,21 @@ class _TagManagePageState extends ConsumerState<TagManagePage>
       appBar: AppBar(title: const Text('标签管理')),
       body: tagsAsync.when(
         loading: () => const XpSkeletonList(itemCount: 3),
-        error: (e, _) => Center(child: Text('加载失败：$e')),
+        error: (e, _) => XpErrorState(
+          title: '标签加载失败',
+          message: '$e',
+          actionLabel: '重试',
+          onAction: () => ref.invalidate(tagsProvider),
+        ),
         data: (tags) {
           if (tags.isEmpty) {
-            return const Center(child: Text('暂无标签，点击右下角新增'));
+            return const Center(
+              child: XpEmptyState(
+                icon: Icons.label_outline,
+                title: '暂无标签',
+                message: '点击右下角新增',
+              ),
+            );
           }
           return ListView.builder(
             itemCount: tags.length,
@@ -149,9 +162,9 @@ class _TagFormSheetState extends ConsumerState<_TagFormSheet> {
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 16,
+        left: XpSpacing.l,
+        right: XpSpacing.l,
+        top: XpSpacing.l,
         bottom: MediaQuery.of(context).viewInsets.bottom + 16,
       ),
       child: SingleChildScrollView(
@@ -163,7 +176,7 @@ class _TagFormSheetState extends ConsumerState<_TagFormSheet> {
               widget.tag == null ? '新增标签' : '编辑标签',
               style: Theme.of(context).textTheme.titleMedium,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: XpSpacing.l),
             TextField(
               controller: _nameCtrl,
               decoration: const InputDecoration(
@@ -171,7 +184,7 @@ class _TagFormSheetState extends ConsumerState<_TagFormSheet> {
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: XpSpacing.m),
             TextField(
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
@@ -180,7 +193,7 @@ class _TagFormSheetState extends ConsumerState<_TagFormSheet> {
               ),
               onChanged: (v) => _sort = int.tryParse(v) ?? 0,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: XpSpacing.m),
             Wrap(
               spacing: 8,
               children: [
@@ -201,7 +214,7 @@ class _TagFormSheetState extends ConsumerState<_TagFormSheet> {
                   ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: XpSpacing.m),
             DropdownButtonFormField<String?>(
               key: ValueKey(_preferCurrency),
               initialValue: _preferCurrency,

@@ -102,8 +102,8 @@ class _HistoricalSnapshotSheetState
 
     return Padding(
       padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
+        left: XpSpacing.l,
+        right: XpSpacing.l,
         bottom: MediaQuery.of(context).viewInsets.bottom + 16,
       ),
       child: Column(
@@ -114,20 +114,20 @@ class _HistoricalSnapshotSheetState
             '添加历史快照 · ${widget.account.name}',
             style: Theme.of(context).textTheme.titleMedium,
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: XpSpacing.xs),
           Text(
             '记录某个时间点的账户余额，用于趋势回溯；不会改变当前余额。',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: XpSpacing.m),
           OutlinedButton.icon(
             onPressed: _pickTime,
             icon: const AppIcon(icon: Icons.event, size: 18),
             label: Text('$_time.year-$m-$d $hh:$mm'),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: XpSpacing.m),
           TextField(
             controller: _balanceCtrl,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -143,7 +143,7 @@ class _HistoricalSnapshotSheetState
               border: OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: XpSpacing.m),
           TextField(
             controller: _noteCtrl,
             decoration: const InputDecoration(
@@ -151,7 +151,7 @@ class _HistoricalSnapshotSheetState
               border: OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: XpSpacing.l),
           FilledButton(
             onPressed: _saving ? null : _save,
             child: Text(_saving ? '保存中…' : '保存'),

@@ -7,7 +7,9 @@ import '../../data/import/import_models.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../widgets/app_icon.dart';
+import '../widgets/xp_card.dart';
 import '../widgets/xp_sheet.dart';
+import '../tokens/design_tokens.dart';
 
 /// 数据导入页（一木 / 昼虎 / 钱迹）。
 ///
@@ -42,19 +44,21 @@ class _ImportPageState extends ConsumerState<ImportPage>
       body: _result != null
           ? _buildResult()
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(XpSpacing.l),
               children: [
                 if (_importing) ...[
                   const LinearProgressIndicator(),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: XpSpacing.l),
                 ],
                 _buildSourceSelector(),
-                const SizedBox(height: 16),
+                const SizedBox(height: XpSpacing.l),
                 _buildFilePicker(),
                 if (_error != null) _buildError(),
                 if (_preview != null) ...[
-                  const SizedBox(height: 16),
-                  Card(
+                  const SizedBox(height: XpSpacing.l),
+                  XpCard(
+                    padding: EdgeInsets.zero,
+                    clipBehavior: Clip.antiAlias,
                     child: ListTile(
                       leading: const AppIcon(icon: Icons.visibility),
                       title: const Text('已生成预览'),
@@ -81,7 +85,7 @@ class _ImportPageState extends ConsumerState<ImportPage>
             context,
           ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: XpSpacing.s),
         RadioGroup<ImportSource>(
           groupValue: _source,
           onChanged: (v) => setState(() {
@@ -94,12 +98,16 @@ class _ImportPageState extends ConsumerState<ImportPage>
           child: Column(
             children: [
               for (final entry in _sourceInfo.entries)
-                Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: RadioListTile<ImportSource>(
-                    value: entry.key,
-                    title: Text(entry.value.name),
-                    subtitle: Text(entry.value.desc),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: XpSpacing.s),
+                  child: XpCard(
+                    padding: EdgeInsets.zero,
+                    clipBehavior: Clip.antiAlias,
+                    child: RadioListTile<ImportSource>(
+                      value: entry.key,
+                      title: Text(entry.value.name),
+                      subtitle: Text(entry.value.desc),
+                    ),
                   ),
                 ),
             ],
@@ -116,15 +124,17 @@ class _ImportPageState extends ConsumerState<ImportPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 16),
+        const SizedBox(height: XpSpacing.l),
         Text(
           '2 · 选择文件',
           style: Theme.of(
             context,
           ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
         ),
-        const SizedBox(height: 8),
-        Card(
+        const SizedBox(height: XpSpacing.s),
+        XpCard(
+          padding: EdgeInsets.zero,
+          clipBehavior: Clip.antiAlias,
           child: ListTile(
             enabled: enabled,
             leading: const AppIcon(icon: Icons.folder_open),
@@ -192,17 +202,18 @@ class _ImportPageState extends ConsumerState<ImportPage>
   }
 
   Widget _buildError() {
+    // 语义色提示条（errorContainer），非常规卡片表面，保留裸 Card。
     return Card(
       color: Theme.of(context).colorScheme.errorContainer,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(XpSpacing.m),
         child: Row(
           children: [
             Icon(
               Icons.error_outline,
               color: Theme.of(context).colorScheme.onErrorContainer,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: XpSpacing.s),
             Expanded(child: Text(_error!)),
           ],
         ),
@@ -259,14 +270,14 @@ class _ImportPageState extends ConsumerState<ImportPage>
     final colorScheme = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(XpSpacing.xl),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.check_circle, size: 64, color: colorScheme.primary),
-            const SizedBox(height: 16),
+            const SizedBox(height: XpSpacing.l),
             Text('导入完成', style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: 24),
+            const SizedBox(height: XpSpacing.xl),
             _ResultRow(label: '新增', value: '${r.created}'),
             _ResultRow(label: '更新', value: '${r.updated}'),
             if (r.skipped > 0)
@@ -327,7 +338,12 @@ class _ImportPreviewSheetState extends ConsumerState<_ImportPreviewSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 8, 0),
+              padding: const EdgeInsets.fromLTRB(
+                XpSpacing.l,
+                XpSpacing.l,
+                XpSpacing.s,
+                0,
+              ),
               child: Row(
                 children: [
                   Expanded(
@@ -345,7 +361,12 @@ class _ImportPreviewSheetState extends ConsumerState<_ImportPreviewSheet> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              padding: const EdgeInsets.fromLTRB(
+                XpSpacing.l,
+                XpSpacing.s,
+                XpSpacing.l,
+                0,
+              ),
               child: SegmentedButton<ImportMode>(
                 segments: const [
                   ButtonSegment(
@@ -365,7 +386,12 @@ class _ImportPreviewSheetState extends ConsumerState<_ImportPreviewSheet> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              padding: const EdgeInsets.fromLTRB(
+                XpSpacing.l,
+                XpSpacing.s,
+                XpSpacing.l,
+                0,
+              ),
               child: Text(
                 _mode == ImportMode.overwrite
                     ? '覆盖：已导入过的记录用本次文件数据覆盖，以第三方数据为准。'
@@ -377,22 +403,27 @@ class _ImportPreviewSheetState extends ConsumerState<_ImportPreviewSheet> {
             ),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(XpSpacing.l),
                 children: [
                   _buildStats(),
                   if (preview.mergeCandidates.isNotEmpty) ...[
-                    const SizedBox(height: 16),
+                    const SizedBox(height: XpSpacing.l),
                     _buildMergeCandidates(),
                   ],
                   if (preview.mapped.warnings.isNotEmpty) ...[
-                    const SizedBox(height: 16),
+                    const SizedBox(height: XpSpacing.l),
                     _buildWarnings(),
                   ],
                 ],
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              padding: const EdgeInsets.fromLTRB(
+                XpSpacing.l,
+                0,
+                XpSpacing.l,
+                XpSpacing.l,
+              ),
               child: FilledButton.icon(
                 onPressed: () => Navigator.pop(context, (
                   mode: _mode,
@@ -435,43 +466,40 @@ class _ImportPreviewSheetState extends ConsumerState<_ImportPreviewSheet> {
     final verb = incremental ? '跳过' : '覆盖';
     final icon = incremental ? Icons.skip_next : Icons.refresh;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text('内容', style: Theme.of(context).textTheme.titleSmall),
-                const Spacer(),
-                Text(
-                  '共 ${stats.totalCreated} 新增 · ${stats.totalUpdated} $verb',
-                  style: Theme.of(context).textTheme.labelMedium,
+    return XpCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text('内容', style: Theme.of(context).textTheme.titleSmall),
+              const Spacer(),
+              Text(
+                '共 ${stats.totalCreated} 新增 · ${stats.totalUpdated} $verb',
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
+            ],
+          ),
+          const SizedBox(height: XpSpacing.m),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final type in ordered)
+                Chip(
+                  label: Text('${_entityName(type)} ${names[type]}'),
+                  avatar: stats.createdOf(type) > 0
+                      ? const Icon(Icons.add, size: 16)
+                      : AppIcon(icon: icon, size: 16),
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final type in ordered)
-                  Chip(
-                    label: Text('${_entityName(type)} ${names[type]}'),
-                    avatar: stats.createdOf(type) > 0
-                        ? const Icon(Icons.add, size: 16)
-                        : AppIcon(icon: icon, size: 16),
-                  ),
-                if (preview.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(8),
-                    child: Text('未检测到可导入的数据'),
-                  ),
-              ],
-            ),
-          ],
-        ),
+              if (preview.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(XpSpacing.s),
+                  child: Text('未检测到可导入的数据'),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -495,45 +523,42 @@ class _ImportPreviewSheetState extends ConsumerState<_ImportPreviewSheet> {
   // ---------- 同名账户合并 ----------
 
   Widget _buildMergeCandidates() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('同名账户合并', style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 4),
-            Text(
-              '检测到与现有账户同名的账户。合并方向按数据时间戳决定（更新更晚的'
-              '账户作为保留方）；勾选后账单将归入保留账户且不会新增重复账户。'
-              '保留账户继承导入数据的权威余额，其余引用一并转移。',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 8),
-            for (final c in preview.mergeCandidates)
-              CheckboxListTile(
-                value: _mergeSelections.contains(c.sourceId),
-                onChanged: (v) => setState(() {
-                  if (v == true) {
-                    _mergeSelections.add(c.sourceId);
-                  } else {
-                    _mergeSelections.remove(c.sourceId);
-                  }
-                }),
-                title: Text('「${c.name}」→「${c.targetName ?? '新账户'}」'),
-                subtitle: c.autoMerge
-                    ? null
-                    : Text(
-                        '${c.conflictReason ?? '存在冲突'}，请确认是否合并',
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
-                        ),
+    return XpCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('同名账户合并', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: XpSpacing.xs),
+          Text(
+            '检测到与现有账户同名的账户。合并方向按数据时间戳决定（更新更晚的'
+            '账户作为保留方）；勾选后账单将归入保留账户且不会新增重复账户。'
+            '保留账户继承导入数据的权威余额，其余引用一并转移。',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: XpSpacing.s),
+          for (final c in preview.mergeCandidates)
+            CheckboxListTile(
+              value: _mergeSelections.contains(c.sourceId),
+              onChanged: (v) => setState(() {
+                if (v == true) {
+                  _mergeSelections.add(c.sourceId);
+                } else {
+                  _mergeSelections.remove(c.sourceId);
+                }
+              }),
+              title: Text('「${c.name}」→「${c.targetName ?? '新账户'}」'),
+              subtitle: c.autoMerge
+                  ? null
+                  : Text(
+                      '${c.conflictReason ?? '存在冲突'}，请确认是否合并',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
                       ),
-                controlAffinity: ListTileControlAffinity.leading,
-                dense: true,
-              ),
-          ],
-        ),
+                    ),
+              controlAffinity: ListTileControlAffinity.leading,
+              dense: true,
+            ),
+        ],
       ),
     );
   }
@@ -541,15 +566,16 @@ class _ImportPreviewSheetState extends ConsumerState<_ImportPreviewSheet> {
   // ---------- 警告 ----------
 
   Widget _buildWarnings() {
+    // 语义色提示条（surfaceContainerHighest），非常规卡片表面，保留裸 Card。
     return Card(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(XpSpacing.m),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('导入提示', style: Theme.of(context).textTheme.labelLarge),
-            const SizedBox(height: 4),
+            const SizedBox(height: XpSpacing.xs),
             for (final w in preview.mapped.warnings)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
@@ -574,7 +600,7 @@ class _ResultRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: XpSpacing.xs),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -584,7 +610,7 @@ class _ResultRow extends StatelessWidget {
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: XpSpacing.m),
           Text(value, style: Theme.of(context).textTheme.titleMedium),
         ],
       ),

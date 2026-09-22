@@ -177,7 +177,7 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage>
                 },
               ),
               Padding(
-                padding: const EdgeInsets.only(top: 4),
+                padding: const EdgeInsets.only(top: XpSpacing.xs),
                 child: Text(
                   _rangeDetail,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -185,7 +185,7 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage>
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: XpSpacing.s),
             ],
           ),
         ),
@@ -234,7 +234,7 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage>
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             itemCount: _Section.values.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 8),
+            separatorBuilder: (_, _) => const SizedBox(width: XpSpacing.s),
             itemBuilder: (context, i) {
               final s = _Section.values[i];
               final selected = i == _section.index;
@@ -319,7 +319,7 @@ class _RangeDropdown extends StatelessWidget {
                 children: [
                   if (preset == p)
                     Icon(Icons.check, size: 18, color: scheme.primary),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: XpSpacing.s),
                   Text(p.label),
                 ],
               ),
@@ -334,14 +334,14 @@ class _RangeDropdown extends StatelessWidget {
                 size: 18,
                 color: scheme.primary,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: XpSpacing.s),
               Text(StatsRangePreset.custom.label),
             ],
           ),
         ),
       ],
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16),
+        margin: const EdgeInsets.symmetric(horizontal: XpSpacing.l),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: scheme.surfaceContainerHighest,
@@ -357,7 +357,7 @@ class _RangeDropdown extends StatelessWidget {
             ),
             const SizedBox(width: 6),
             Text(label, style: Theme.of(context).textTheme.labelMedium),
-            const SizedBox(width: 4),
+            const SizedBox(width: XpSpacing.xs),
             Icon(
               Icons.arrow_drop_down,
               size: 18,

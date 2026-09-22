@@ -89,8 +89,8 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
     final textTheme = Theme.of(context).textTheme;
     return Padding(
       padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
+        left: XpSpacing.l,
+        right: XpSpacing.l,
         bottom: MediaQuery.of(context).viewInsets.bottom + 16,
       ),
       child: SingleChildScrollView(
@@ -99,7 +99,7 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(_isEdit ? '编辑账户' : '新建账户', style: textTheme.titleMedium),
-            const SizedBox(height: 12),
+            const SizedBox(height: XpSpacing.m),
             TextField(
               controller: _nameCtrl,
               autofocus: !_isEdit,
@@ -108,7 +108,7 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: XpSpacing.m),
             SegmentedButton<AccountCategory>(
               segments: AccountCategory.values
                   .map(
@@ -121,7 +121,7 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
               selected: {_category},
               onSelectionChanged: (s) => setState(() => _category = s.first),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: XpSpacing.m),
             Wrap(
               spacing: 8,
               runSpacing: 0,
@@ -135,7 +135,7 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
                   )
                   .toList(),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: XpSpacing.m),
             // 图标选择
             SizedBox(
               height: 56,
@@ -144,7 +144,7 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
                 children: _iconChoices
                     .map(
                       (key) => Padding(
-                        padding: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.only(right: XpSpacing.s),
                         child: ChoiceChip(
                           label: AppIcon(
                             name: key,
@@ -162,7 +162,7 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
               ),
             ),
             if (!_isEdit) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: XpSpacing.m),
               TextField(
                 controller: _initialCtrl,
                 keyboardType: const TextInputType.numberWithOptions(
@@ -183,7 +183,7 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
             ],
             // fund 账户恒计入总资产（口径对齐 cent-xyx），开关仅对 debt/record 有意义
             if (_category != AccountCategory.fund) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: XpSpacing.m),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('计入总资产'),
@@ -191,7 +191,7 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
                 onChanged: (v) => setState(() => _includeInAssets = v),
               ),
             ],
-            const SizedBox(height: 12),
+            const SizedBox(height: XpSpacing.m),
             TextField(
               controller: _remarkCtrl,
               decoration: const InputDecoration(
@@ -199,7 +199,7 @@ class _AccountFormSheetState extends ConsumerState<AccountFormSheet> {
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: XpSpacing.l),
             FilledButton(
               onPressed: _saving ? null : _save,
               child: Text(_saving ? '保存中…' : '保存'),
