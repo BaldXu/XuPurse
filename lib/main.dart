@@ -11,6 +11,10 @@ import 'state/theme_provider.dart';
 import 'ui/pages/main_shell.dart';
 import 'ui/theme.dart';
 
+/// 全局导航 key：供性能基线采集（lib/main_profile.dart）程序化导航使用，
+/// 生产路径无业务依赖。
+final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await CurrencyService.init();
@@ -52,6 +56,7 @@ class XuPurseApp extends ConsumerWidget {
     final cardFrosted = ref.watch(frostedGlassProvider).cardsOn;
     return MaterialApp(
       title: 'XuPurse',
+      navigatorKey: appNavigatorKey,
       theme: buildAppTheme(
         Brightness.light,
         theme,

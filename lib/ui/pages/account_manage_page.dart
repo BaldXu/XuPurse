@@ -31,8 +31,8 @@ class _AccountManagePageState extends ConsumerState<AccountManagePage>
     final accountsAsync = ref.watch(accountsProvider);
     return buildXpScaffold(
       appBar: AppBar(title: const Text('账户管理')),
-      // 整页骨架:账户流未就绪时以骨架呈现
-      loading: accountsAsync.isLoading,
+      // 整页骨架：仅「无旧数据的首载」呈现；刷新期保留旧值不算 loading
+      loading: accountsAsync.isLoading && accountsAsync.value == null,
       body: Column(
         children: [
           Padding(

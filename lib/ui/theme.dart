@@ -40,9 +40,30 @@ class _ZeroTransitionPageTransitionsBuilder extends PageTransitionsBuilder {
 /// 重算模糊快照,进二级页明显闪烁;Zoom(M3 默认):toImage 快照在
 /// Impeller/Vulkan 阻塞 UI 线程;PredictiveBack:磨砂铺开时实测定稿移除;
 /// FadeForwards(Android U):本质仍是交叉淡化且 800ms 更长。
-/// CupertinoPageTransitionsBuilder 纯 Transform 滑动 + 旧页视差,
-/// 整页零 Opacity,对磨砂模糊层与快照均无负担,是 Flutter iOS 长期
-/// 使用的成熟实现;animationsEnabled=false 时走零时长。
+/// 原 CupertinoPageTransitionsBuilder 纯 Transform 滑动,但整页(含磨砂栏)
+/// 一起移动 → 栏 BackdropFilter 采样区每帧变化 → 转场每帧重算模糊
+/// (真机实测 raster 尖峰 34-42ms 的来源)。
+/// 2026-09-22 第二轮 B1 改为 iOS push 原生拆层结构:route 级零移动
+/// (XpPageTransitionsBuilder),由页面壳 XpRouteBar/XpRouteBody 自驱——
+/// 栏固定 cross-fade(采样区不变 → 模糊零重算) + 内容区滑动(无模糊,
+/// ClipRect 限制在栏下,不侵入栏采样区);旧页不做视差移动(静止被覆盖,
+/// 同 iOS pop 的底层页)。animationsEnabled=false 时走零时长。
+
+/// 页面转场拆层 builder:整页零移动,动画由页面壳自驱(见上方说明)。
+class XpPageTransitionsBuilder extends PageTransitionsBuilder {
+  const XpPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T>? route,
+    BuildContext? context,
+    Animation<double> animation,
+    Animation<double>? secondaryAnimation,
+    Widget child,
+  ) {
+    return child;
+  }
+}
 
 ThemeData buildAppTheme(
   Brightness brightness,
@@ -156,7 +177,7 @@ ThemeData buildAppTheme(
         for (final platform in TargetPlatform.values)
           platform: !animOn
               ? const _ZeroTransitionPageTransitionsBuilder()
-              : const CupertinoPageTransitionsBuilder(),
+              : const XpPageTransitionsBuilder(),
       },
     ),
   );

@@ -13,7 +13,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('showXpSheet：内容懒加载淡入 + 默认 85% 高度', (tester) async {
+  testWidgets('showXpSheet：内容首帧即构建 + 默认 85% 高度', (tester) async {
     await ThemeNotifier.init();
     await FrostedGlassNotifier.init();
     final container = ProviderContainer();
@@ -38,10 +38,11 @@ void main() {
 
     await tester.tap(find.text('打开弹窗'));
     await tester.pump(); // 路由首帧（动画刚开始）
-    // 懒加载：滑入动画结束前内容尚未构建
-    expect(find.text('弹窗内容'), findsNothing, reason: '内容应懒加载，动画中不构建');
+    // 性能重写后内容首帧即构建（此时弹窗在屏幕外，构建成本不可见），
+    // 避免「滑完才懒构建」在动画结束帧打出 build 尖刺。
+    expect(find.text('弹窗内容'), findsOneWidget, reason: '内容应首帧即构建');
 
-    await tester.pumpAndSettle(); // 动画完成 + 内容淡入完成
+    await tester.pumpAndSettle(); // 动画完成 + 磨砂淡入完成
     expect(find.text('弹窗内容'), findsOneWidget);
 
     // 默认高度 = 屏幕 85%

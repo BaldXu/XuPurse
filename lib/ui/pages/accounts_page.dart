@@ -59,8 +59,8 @@ class _AccountsPageState extends ConsumerState<AccountsPage>
           ),
         ],
       ),
-      // 整页骨架:账户流未就绪时整页以骨架呈现,就绪后淡入
-      loading: accountsAsync.isLoading,
+      // 整页骨架：仅「无旧数据的首载」呈现；刷新期保留旧值不算 loading
+      loading: accountsAsync.isLoading && accountsAsync.value == null,
       body: accountsAsync.when(
         loading: () => const SizedBox.shrink(),
         error: (e, _) => Center(child: Text('加载失败：$e')),

@@ -45,6 +45,14 @@ mixin XpPageScaffold<T extends StatefulWidget> on State<T> {
             duration: XpMotion.component,
             switchInCurve: XpMotion.easeOut,
             switchOutCurve: XpMotion.easeIn,
+            // 骨架淡入淡出；真实内容不加壳级透明度过渡 —— 内容自己的
+            // XpStaggerIn/转场已负责入场，两层淡入叠加会「闪两下」。
+            transitionBuilder: (child, animation) {
+              final isSkeleton = (child.key as ValueKey<bool>?)?.value ?? true;
+              return isSkeleton
+                  ? FadeTransition(opacity: animation, child: child)
+                  : child;
+            },
             child: KeyedSubtree(
               key: ValueKey<bool>(loading),
               child: loading
@@ -70,13 +78,16 @@ mixin XpPageScaffold<T extends StatefulWidget> on State<T> {
             ),
           );
         }
+        final bar = appBar;
         return Scaffold(
           extendBodyBehindAppBar: frosted,
-          appBar: frosted ? XpFrostedShell(child: appBar) : appBar,
+          appBar: bar == null
+              ? null
+              : XpRouteBar(child: frosted ? XpFrostedShell(child: bar) : bar),
           floatingActionButton: floatingActionButton,
           bottomNavigationBar: bottomNavigationBar,
           resizeToAvoidBottomInset: resizeToAvoidBottomInset,
-          body: content,
+          body: XpRouteBody(child: content),
         );
       },
     );
@@ -132,6 +143,58 @@ class _XpEntranceState extends State<XpEntrance>
           offset: Offset(0, 8 * (1 - _curve.value)),
           child: child,
         ),
+      ),
+    );
+  }
+}
+
+/// 转场拆层-栏:固定不动,不参与转场动画(读当前 route 动画,仅为确认存在)。
+///
+/// 配合 [XpPageTransitionsBuilder](route 级零移动)使用:栏静止、内容滑动。
+/// **严禁对栏做透明度/移动动画**——磨砂栏 BackdropFilter 在透明度动画下
+/// 每帧重算模糊快照(theme.dart 已记录该候选方案实测缺陷)。栏固定后
+/// 采样区不变,且内容滑动被 [XpRouteBody] 的 ClipRect 限制在栏下不侵入
+/// 采样区 → 转场全程零模糊重算(iOS push 原生结构,栏即时显示)。
+class XpRouteBar extends StatelessWidget implements PreferredSizeWidget {
+  const XpRouteBar({super.key, required this.child});
+
+  final PreferredSizeWidget child;
+
+  @override
+  Size get preferredSize => child.preferredSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return child;
+  }
+}
+
+/// 转场拆层-内容区:横向滑动(读当前 route 动画)。
+///
+/// 只滑动内容区(栏以下),不带动磨砂栏;ClipRect 把滑动范围限制在 body
+/// 区域——内容滑入时不会侵入固定栏区域,栏磨砂采样内容保持不变,
+/// 零模糊重算。pop 时动画反向,内容自动右滑出(iOS pop 同款)。
+class XpRouteBody extends StatelessWidget {
+  const XpRouteBody({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final anim = ModalRoute.of(context)?.animation;
+    if (anim == null) return child;
+    final curved = CurvedAnimation(
+      parent: anim,
+      curve: Curves.fastEaseInToSlowEaseOut,
+      reverseCurve: Curves.fastEaseInToSlowEaseOut.flipped,
+    );
+    return ClipRect(
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(1, 0),
+          end: Offset.zero,
+        ).animate(curved),
+        child: child,
       ),
     );
   }

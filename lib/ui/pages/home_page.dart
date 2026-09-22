@@ -49,8 +49,9 @@ class _HomePageState extends ConsumerState<HomePage>
           ),
         ],
       ),
-      // 整页骨架:账单流未就绪时 Hero/过滤栏/列表整体以骨架呈现,就绪后淡入
-      loading: billsAsync.isLoading,
+      // 整页骨架：仅在「无旧数据的首载」时呈现；刷新期 Riverpod 保留旧值
+      // 仍 isLoading=true，不能算 loading，否则整页骨架闪一下再回来
+      loading: billsAsync.isLoading && billsAsync.value == null,
       body: NotificationListener<ScrollNotification>(
         onNotification: (n) {
           // 自定义范围下整段已加载，无需分页

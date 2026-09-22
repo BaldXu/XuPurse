@@ -40,7 +40,8 @@ class BookkeepingSheet extends ConsumerStatefulWidget {
 
 class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
   late BillType _type;
-  String _amountText = '';
+  // 金额局部刷新：键盘按键只更新 notifier + 金额显示区，不再整页 setState
+  final ValueNotifier<String> _amountText = ValueNotifier('');
   String? _parentId;
   String? _subId;
   String? _accountId;
@@ -63,9 +64,16 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
     super.initState();
     final bill = widget.initialBill;
     _type = bill == null ? BillType.expense : BillType.values.byName(bill.type);
+    // 默认分类兜底：分类流就绪时补选（原逻辑写在 build 内，已移出）
+    ref.listenManual(
+      categoriesProvider,
+      (_, __) => _ensureDefaultCategory(),
+      fireImmediately: true,
+    );
     if (bill != null) {
       // 外币账单编辑时显示原外币金额（保存时按当前汇率重新换算）
-      _amountText = bill.currencyCode != null && bill.currencyAmount != null
+      _amountText.value =
+          bill.currencyCode != null && bill.currencyAmount != null
           ? formatYuan(bill.currencyAmount!)
           : formatYuan(bill.amount);
       _parentId = bill.categoryId;
@@ -78,6 +86,25 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
       if (bill.type == BillType.transfer.name) _loadTransferFee();
       _loadTags();
     }
+  }
+
+  /// 无选中时兜底默认分类（从 build 内移出，避免构建期间写状态）。
+  void _ensureDefaultCategory() {
+    if (_parentId != null) return;
+    final all = ref.read(categoriesProvider).valueOrNull ?? const <Category>[];
+    final type = _type == BillType.expense ? BillType.expense : BillType.income;
+    final parents = all
+        .where((c) => c.type == type.name && c.parentId == null)
+        .toList();
+    if (parents.isEmpty) return;
+    final def = all.firstWhere(
+      (c) => c.type == type.name && c.defaultSelect,
+      orElse: () => parents.first,
+    );
+    _parentId = def.id;
+    // 一级分类没有子分类时直接视为已选中，保存时无需再点
+    final hasSubs = all.any((c) => c.type == type.name && c.parentId == def.id);
+    if (!hasSubs) _subId = def.id;
   }
 
   /// 编辑模式：回填账单标签（避免保存时清空原标签）。
@@ -114,6 +141,7 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
 
   @override
   void dispose() {
+    _amountText.dispose();
     _commentController.dispose();
     _feeController.dispose();
     super.dispose();
@@ -122,52 +150,42 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
   // ---------- 输入 ----------
 
   void _append(String ch) {
-    setState(() {
-      if (ch == '.') {
-        if (!_amountText.contains('.')) {
-          _amountText = _amountText.isEmpty ? '0.' : '$_amountText.';
-        }
-        return;
+    final cur = _amountText.value;
+    String next = cur;
+    if (ch == '.') {
+      if (!cur.contains('.')) {
+        next = cur.isEmpty ? '0.' : '$cur.';
       }
-      if (ch == '00') {
-        if (_amountText.isNotEmpty &&
-            _amountText != '0' &&
-            !_amountText.contains('.')) {
-          _amountText += '00';
-        }
-        return;
+    } else if (ch == '00') {
+      if (cur.isNotEmpty && cur != '0' && !cur.contains('.')) {
+        next =
+            '$cur'
+            '00';
       }
+    } else {
       // 数字
-      final intPart = _amountText.split('.').first;
-      if (_amountText.contains('.')) {
-        final frac = _amountText.split('.')[1];
-        if (frac.length >= 2) return; // 最多两位小数
-        _amountText += ch;
-      } else {
-        if (intPart.length >= 9) return;
-        if (_amountText == '0') {
-          _amountText = ch;
-        } else {
-          _amountText += ch;
-        }
+      final intPart = cur.split('.').first;
+      if (cur.contains('.')) {
+        final frac = cur.split('.')[1];
+        if (frac.length < 2) next = cur + ch; // 最多两位小数
+      } else if (intPart.length < 9) {
+        next = cur == '0' ? ch : cur + ch;
       }
-    });
+    }
+    if (next != cur) _amountText.value = next;
   }
 
   void _backspace() {
-    setState(() {
-      if (_amountText.isNotEmpty) {
-        _amountText = _amountText.substring(0, _amountText.length - 1);
-      }
-    });
+    final cur = _amountText.value;
+    if (cur.isNotEmpty) _amountText.value = cur.substring(0, cur.length - 1);
   }
 
-  void _clear() => setState(() => _amountText = '');
+  void _clear() => _amountText.value = '';
 
   // ---------- 保存 ----------
 
   Future<void> _save() async {
-    final amountInput = parseYuanInput(_amountText);
+    final amountInput = parseYuanInput(_amountText.value);
     if (amountInput == null || amountInput <= 0) {
       _toast('请输入有效金额');
       return;
@@ -366,6 +384,7 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
         _type = s.first;
         _parentId = null;
         _subId = null;
+        _ensureDefaultCategory();
       }),
     );
   }
@@ -391,16 +410,6 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
       if (c.type != type.name || c.parentId == null) continue;
       childrenOf.putIfAbsent(c.parentId!, () => []).add(c);
     }
-    // 默认选中：无选中时取 defaultSelect 分类
-    if (_parentId == null && parents.isNotEmpty) {
-      final def = all.firstWhere(
-        (c) => c.type == type.name && c.defaultSelect,
-        orElse: () => parents.first,
-      );
-      _parentId = def.id;
-      if (childrenOf[def.id]?.isNotEmpty != true) _subId = def.id;
-    }
-
     final accent = _type == BillType.expense ? kExpenseColor : kIncomeColor;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -697,55 +706,67 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
     ).textTheme.displayLarge?.copyWith(fontWeight: FontWeight.w700);
     final accCur = _accountCurrencyOf(_accountId);
     final billCur = _effectiveCurrency;
-    final input = parseYuanInput(_amountText);
-    final converted = billCur != accCur && input != null
-        ? convertAmount(
-            input,
-            billCur,
-            accCur,
-            ref.read(currencyServiceProvider),
-          )
-        : null;
+    // 金额显示区局部刷新：按键只重建这里（P7）
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       child: Column(
         children: [
-          SizedBox(
-            height: 48,
-            child: Row(
-              children: [
-                Text(
-                  billCur == 'CNY' ? '¥' : billCur,
-                  style: amountStyle?.copyWith(color: scheme.primary),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: SingleChildScrollView(
-                      reverse: true,
-                      scrollDirection: Axis.horizontal,
+          ValueListenableBuilder<String>(
+            valueListenable: _amountText,
+            builder: (context, text, _) {
+              final input = parseYuanInput(text);
+              final converted = billCur != accCur && input != null
+                  ? convertAmount(
+                      input,
+                      billCur,
+                      accCur,
+                      ref.read(currencyServiceProvider),
+                    )
+                  : null;
+              return Column(
+                children: [
+                  SizedBox(
+                    height: 48,
+                    child: Row(
+                      children: [
+                        Text(
+                          billCur == 'CNY' ? '¥' : billCur,
+                          style: amountStyle?.copyWith(color: scheme.primary),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: SingleChildScrollView(
+                              reverse: true,
+                              scrollDirection: Axis.horizontal,
+                              child: Text(
+                                text.isEmpty ? '0' : text,
+                                style: amountStyle,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(
+                    height: 18,
+                    child: Align(
+                      alignment: Alignment.centerRight,
                       child: Text(
-                        _amountText.isEmpty ? '0' : _amountText,
-                        style: amountStyle,
+                        converted == null
+                            ? ''
+                            : '≈ $accCur ${formatYuan(converted)}',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(
-            height: 18,
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                converted == null ? '' : '≈ $accCur ${formatYuan(converted)}',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-            ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 6),
           Row(

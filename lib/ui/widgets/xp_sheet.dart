@@ -10,10 +10,14 @@ import '../tokens/design_tokens.dart';
 /// 统一底部配置弹窗入口。
 ///
 /// - 高度：默认占屏幕垂直 85%（[heightFactor]）。
-/// - 遮罩：弹窗外区域「变暗 + 高斯模糊」（σ10，与弹窗磨砂共用一层模糊）。
+/// - 遮罩：弹窗外区域仅「变暗」（黑色渐变，无模糊——全屏实时模糊是
+///   转场掉帧元凶，iOS 原生 sheet 同样只做变暗）。
 /// - 表面：弹窗背景色（主题「弹窗背景色」）或「配置弹窗磨砂」（σ10 · α0.7），
 ///   两者互斥（磨砂开启时背景固定为半透明白）。
-/// - 性能：内容懒加载——滑入动画结束后才构建并淡入，重内容不拖慢出场动画。
+/// - 性能：iOS present sheet 同款分层——遮罩/滑入/拖拽全走渲染属性
+///   （零逐帧 rebuild）；真实内容首帧即构建（此时弹窗在屏幕外，构建
+///   成本不可见）；磨砂只作用于弹窗表面，滑入完成后淡入、开始关闭时
+///   立即淡出——滑动过程零模糊重算。
 /// - 交互：顶部拖拽手柄可下拉关闭；点击遮罩/返回键同样可关闭。
 Future<T?> showXpSheet<T>({
   required BuildContext context,
@@ -46,7 +50,7 @@ Future<T?> showXpSheet<T>({
   );
 }
 
-/// 配置弹窗主体：自绘遮罩（模糊+变暗）、滑入、拖拽手柄、懒加载淡入内容。
+/// 配置弹窗主体：变暗遮罩 + 滑入 + 拖拽手柄 + 表面磨砂（到位后淡入）。
 class _XpSheet extends StatefulWidget {
   const _XpSheet({
     required this.builder,
@@ -64,7 +68,7 @@ class _XpSheet extends StatefulWidget {
   final bool sheetOn;
   final Color? sheetColor;
 
-  /// 遮罩与弹窗磨砂共用的高斯模糊半径。
+  /// 弹窗表面磨砂的高斯模糊半径。
   static const double blurSigma = 10;
 
   /// 弹窗磨砂表面参数（半透明白，透明度较卡片磨砂低=更实）。
@@ -77,99 +81,121 @@ class _XpSheet extends StatefulWidget {
   State<_XpSheet> createState() => _XpSheetState();
 }
 
-class _XpSheetState extends State<_XpSheet> {
-  bool _contentReady = false;
-  double _drag = 0;
+class _XpSheetState extends State<_XpSheet> with TickerProviderStateMixin {
+  /// 拖拽位移：ValueNotifier 驱动，拖拽过程零 rebuild。
+  final ValueNotifier<double> _drag = ValueNotifier(0);
+
+  /// 表面磨砂淡入/淡出：滑入完成后淡入，开始关闭或下拉时淡出。
+  late final AnimationController _frost;
+
+  /// 滑入位移曲线（与旧实现一致：全程 easeOutCubic）。
+  late final CurvedAnimation _slideCurve;
 
   late final void Function(AnimationStatus) _onStatus;
 
   @override
   void initState() {
     super.initState();
-    // 滑入动画结束后再构建真实内容并淡入，保证出场不因重内容掉帧。
+    _frost = AnimationController(vsync: this, duration: XpMotion.component);
+    _slideCurve = CurvedAnimation(
+      parent: widget.animation,
+      curve: Curves.easeOutCubic,
+    );
+    // 磨砂只在弹窗到位后淡入；开始关闭/下拉时瞬间归零（不淡出——
+    // 淡出期间每帧都在绘制模糊，而 sheet 又在移动，采样区每帧变化
+    // → 每帧重算，这就是关闭掉帧的元凶）。归零后 Opacity 0 不绘制
+    // 子树，滑出/拖拽全程零模糊重算，表面回到实色随 sheet 滑走。
     _onStatus = (status) {
-      if (status == AnimationStatus.completed && !_contentReady) {
-        setState(() => _contentReady = true);
+      if (status == AnimationStatus.completed) {
+        _frost.forward();
+      } else if (status == AnimationStatus.reverse) {
+        _frost.value = 0;
       }
     };
     widget.animation.addStatusListener(_onStatus);
-    if (widget.animation.isCompleted) _contentReady = true;
+    if (widget.animation.isCompleted) _frost.value = 1;
   }
 
   @override
   void dispose() {
     widget.animation.removeStatusListener(_onStatus);
+    _frost.dispose();
+    _slideCurve.dispose();
+    _drag.dispose();
     super.dispose();
   }
 
   void _onDragUpdate(DragUpdateDetails d) {
-    setState(() => _drag = math.max(0, _drag + d.delta.dy));
+    // 下拉时磨砂瞬间归零（拖拽全程零模糊重算）。
+    if (d.delta.dy > 0 && _frost.value != 0) {
+      _frost.value = 0;
+    }
+    _drag.value = math.max(0, _drag.value + d.delta.dy);
   }
 
   void _onDragEnd(DragEndDetails d) {
-    final close = _drag > 120 || d.velocity.pixelsPerSecond.dy > 800;
+    final close = _drag.value > 120 || d.velocity.pixelsPerSecond.dy > 800;
     if (close) {
       Navigator.of(context).pop();
-    } else if (_drag > 0) {
-      setState(() => _drag = 0);
+    } else if (_drag.value > 0) {
+      _drag.value = 0;
+      _frost.forward();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: widget.animation,
-      builder: (context, _) {
-        final media = MediaQuery.of(context);
-        final screenH = media.size.height;
-        final sheetH = screenH * widget.heightFactor;
-        final t = Curves.easeOutCubic.transform(widget.animation.value);
-        final slide = sheetH * (1 - t) + _drag;
+    final theme = Theme.of(context);
+    final sheetH = MediaQuery.sizeOf(context).height * widget.heightFactor;
 
-        return Stack(
-          children: [
-            // 全屏高斯模糊：对底层页面（弹窗磨砂与其共享同一模糊层）。
-            Positioned.fill(
-              child: IgnorePointer(
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(
-                    sigmaX: _XpSheet.blurSigma,
-                    sigmaY: _XpSheet.blurSigma,
-                  ),
-                  child: const SizedBox.expand(),
-                ),
+    return Stack(
+      children: [
+        // 变暗遮罩：覆盖全屏（弹窗大圆角外的小区域同样压暗），只做
+        // 变暗不模糊——FadeTransition 驱动，零逐帧 rebuild。
+        Positioned.fill(
+          child: IgnorePointer(
+            child: FadeTransition(
+              opacity: Tween<double>(
+                begin: 0,
+                end: _XpSheet.barrierAlpha,
+              ).animate(widget.animation),
+              child: const ColoredBox(color: Colors.black),
+            ),
+          ),
+        ),
+        // 弹窗主体：自下而上滑入。SlideTransition 只改渲染属性，
+        // 滑入/滑出全程零 rebuild；拖拽位移同样走 ValueNotifier 局部重建。
+        // RepaintBoundary：sheet 移动走纹理合成，内部内容零重绘——
+        // 否则关闭时全量可见的表单每帧整块重绘（raster 15-20ms 的根因）。
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 1),
+              end: Offset.zero,
+            ).animate(_slideCurve),
+            child: ValueListenableBuilder<double>(
+              valueListenable: _drag,
+              builder: (_, drag, child) => drag == 0
+                  ? child!
+                  : Transform.translate(offset: Offset(0, drag), child: child),
+              child: RepaintBoundary(
+                child: _buildSheet(theme: theme, sheetH: sheetH),
               ),
             ),
-            // 变暗遮罩：覆盖全屏（层级低于弹窗），弹窗大圆角外的
-            // 小区域同样保持暗色，视觉更自然。
-            Positioned.fill(
-              child: IgnorePointer(
-                child: ColoredBox(
-                  color: Colors.black.withValues(
-                    alpha: _XpSheet.barrierAlpha * widget.animation.value,
-                  ),
-                ),
-              ),
-            ),
-            // 弹窗主体：自下而上滑入。
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Transform.translate(
-                offset: Offset(0, slide),
-                child: _buildSheet(theme: Theme.of(context), sheetH: sheetH),
-              ),
-            ),
-          ],
-        );
-      },
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildSheet({required ThemeData theme, required double sheetH}) {
     final scheme = theme.colorScheme;
-    final Color bg = widget.sheetOn
+    final bool frosted = widget.sheetOn;
+    // 磨砂模式：0.7 白叠在模糊上；非磨砂：主题「弹窗背景色」或默认表面色。
+    final Color bg = frosted
         ? Colors.white.withValues(alpha: _XpSheet.frostedAlpha)
         : (widget.sheetColor ??
               theme.bottomSheetTheme.backgroundColor ??
@@ -182,25 +208,50 @@ class _XpSheetState extends State<_XpSheet> {
       child: ClipPath(
         clipper: ShapeBorderClipper(shape: XpRadius.sheetLarge),
         child: Material(
-          color: bg,
-          child: Column(
+          type: MaterialType.transparency,
+          child: Stack(
+            fit: StackFit.expand,
             children: [
-              if (widget.showDragHandle) _buildDragHandle(theme),
-              Expanded(child: _buildContent(theme)),
+              // 表面磨砂：只模糊弹窗表面下的底层页面。必须先画模糊再画
+              // 上面的半透明底色（模糊采样不含底色）。淡入后才绘制
+              // （Opacity 0 不绘制）→ 滑入/滑出全程零模糊重算。
+              if (frosted)
+                FadeTransition(
+                  opacity: _frost,
+                  child: IgnorePointer(
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(
+                        sigmaX: _XpSheet.blurSigma,
+                        sigmaY: _XpSheet.blurSigma,
+                      ),
+                      child: const SizedBox.expand(),
+                    ),
+                  ),
+                ),
+              ColoredBox(color: bg),
+              // 磨砂未到位（滑入中/下拉中）时补白到实面：滑入期是纯白
+              // 实面，到位后随磨砂淡入逐渐「透」出模糊，观感同 iOS sheet。
+              if (frosted)
+                FadeTransition(
+                  opacity: ReverseAnimation(_frost),
+                  child: ColoredBox(
+                    color: Colors.white.withValues(
+                      alpha: 1 - _XpSheet.frostedAlpha,
+                    ),
+                  ),
+                ),
+              Column(
+                children: [
+                  if (widget.showDragHandle) _buildDragHandle(theme),
+                  // 真实内容首帧即构建：此时弹窗在屏幕外，构建成本不可见，
+                  // 避免「滑完才懒构建」在动画结束帧打出 build 尖刺。
+                  Expanded(child: widget.builder(context)),
+                ],
+              ),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  /// 内容懒加载 + 淡入：滑入动画完成前只渲染占位，完成后构建并淡入。
-  Widget _buildContent(ThemeData theme) {
-    return AnimatedOpacity(
-      opacity: _contentReady ? 1 : 0,
-      duration: XpMotion.component,
-      curve: Curves.easeOut,
-      child: _contentReady ? widget.builder(context) : const SizedBox.expand(),
     );
   }
 
