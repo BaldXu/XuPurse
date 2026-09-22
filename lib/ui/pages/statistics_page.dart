@@ -8,6 +8,7 @@ import '../tokens/design_tokens.dart';
 import '../widgets/ai_chat_sheet.dart';
 import '../widgets/app_icon.dart';
 import '../widgets/xp_sheet.dart';
+import '../widgets/xp_skeleton.dart';
 import 'statistics/stats_budget_section.dart';
 import 'statistics/stats_category_section.dart';
 import 'statistics/stats_overview_section.dart';
@@ -157,6 +158,15 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage>
 
   @override
   Widget build(BuildContext context) {
+    // 首次挂载（切 tab 进来）只渲染骨架：整页树（AppBar 下拉 + 分区）
+    // 首帧全量构建会与导航栏指示器动画抢帧；首帧渲染完成后自动重建
+    // 真实内容（xpFirstSettled 首帧门，仅首个未挂载帧生效）。
+    if (!xpFirstSettled) {
+      return buildXpScaffold(
+        appBar: AppBar(title: const Text('统计')),
+        body: const XpSkeletonPage(),
+      );
+    }
     final range = _range;
     return buildXpScaffold(
       appBar: AppBar(

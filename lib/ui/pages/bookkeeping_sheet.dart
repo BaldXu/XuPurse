@@ -9,8 +9,10 @@ import '../../core/utils/bill_extra.dart';
 import '../../data/database/app_database.dart';
 import '../../domain/services/currency_service.dart';
 import '../../state/providers.dart';
+import '../layout/xp_page_scaffold_mixin.dart';
 import '../widgets/xp_snack.dart';
 import '../widgets/xp_sheet.dart';
+import '../widgets/xp_skeleton.dart';
 import '../widgets/app_icon.dart';
 import '../widgets/bill_tile.dart' show kExpenseColor, kIncomeColor;
 import '../tokens/design_tokens.dart';
@@ -39,7 +41,8 @@ class BookkeepingSheet extends ConsumerStatefulWidget {
   ConsumerState<BookkeepingSheet> createState() => _BookkeepingSheetState();
 }
 
-class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
+class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
+    with XpSettleGate<BookkeepingSheet> {
   late BillType _type;
   // 金额局部刷新：键盘按键只更新 notifier + 金额显示区，不再整页 setState
   final ValueNotifier<String> _amountText = ValueNotifier('');
@@ -327,6 +330,12 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    // 滑入动画期间只渲染骨架：分类网格 / 账户 / 标签 / 键盘整树首帧构建
+    // 会撞上 sheet 滑入动画抢帧；route animation completed 后首次构建
+    // 真实内容（XpSettleGate 骨架门）。
+    if (!xpEnterSettled) {
+      return const XpSkeletonPage();
+    }
     return ConstrainedBox(
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.9,

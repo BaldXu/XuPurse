@@ -66,169 +66,201 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage>
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          XpSpacing.l,
-          XpSpacing.xs,
-          XpSpacing.l,
-          32,
-        ),
-        children: [
-          // ── 账户 Hero 卡 ──
-          XpCard(
-            padding: const EdgeInsets.all(XpSpacing.xl),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 26,
-                  backgroundColor: color.withValues(alpha: 0.15),
-                  foregroundColor: color,
-                  child: AppIcon(name: current.icon, size: 26),
-                ),
-                const SizedBox(width: XpSpacing.m),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(current.name, style: textTheme.titleMedium),
-                      const SizedBox(height: 2),
-                      Text(
-                        '初始 ${formatYuan(current.initialBalance)}'
-                        ' · ${_categoryLabel(current.category)}',
-                        style: textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Text(
-                  '¥${formatYuan(current.currentBalance)}',
-                  style: textTheme.headlineSmall
-                      ?.copyWith(fontWeight: FontWeight.w700)
-                      .tabular,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: XpSpacing.m),
-          // ── 操作入口 ──
-          Row(
+      // 转场期间只渲染骨架：流水逐行建 widget（可能成百上千行），首帧
+      // 全量构建会撞上 push 转场动画抢帧；completed 后首次构建真实内容
+      // （基类 buildBody 门，等价于 if (!xpPushSettled) 短路）。
+      buildBody: (_) => _buildBody(
+        context,
+        current: current,
+        colorScheme: colorScheme,
+        textTheme: textTheme,
+        color: color,
+        billsAsync: billsAsync,
+        accountSnaps: accountSnaps,
+      ),
+    );
+  }
+
+  /// 正文：账户 Hero + 操作入口 + 流水（懒列表）+ 历史快照（懒列表）。
+  ///
+  /// 流水/快照列表用 [ListView.builder] 懒构建：只构建可见行，避免
+  /// 全量 Column 在每帧 rebuild（Provider 刷新/主题切换）时 O(n) 重建。
+  Widget _buildBody(
+    BuildContext context, {
+    required Account current,
+    required ColorScheme colorScheme,
+    required TextTheme textTheme,
+    required Color color,
+    required AsyncValue<List<Bill>> billsAsync,
+    required List<BalanceSnapshot> accountSnaps,
+  }) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(
+        XpSpacing.l,
+        XpSpacing.xs,
+        XpSpacing.l,
+        32,
+      ),
+      children: [
+        // ── 账户 Hero 卡 ──
+        XpCard(
+          padding: const EdgeInsets.all(XpSpacing.xl),
+          child: Row(
             children: [
+              CircleAvatar(
+                radius: 26,
+                backgroundColor: color.withValues(alpha: 0.15),
+                foregroundColor: color,
+                child: AppIcon(name: current.icon, size: 26),
+              ),
+              const SizedBox(width: XpSpacing.m),
               Expanded(
-                child: FilledButton.tonalIcon(
-                  onPressed: () => AdjustSheet.show(context, current),
-                  icon: const Icon(Icons.tune),
-                  label: const Text('调账'),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(current.name, style: textTheme.titleMedium),
+                    const SizedBox(height: 2),
+                    Text(
+                      '初始 ${formatYuan(current.initialBalance)}'
+                      ' · ${_categoryLabel(current.category)}',
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: XpSpacing.s),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () =>
-                      HistoricalSnapshotSheet.show(context, current),
-                  icon: const AppIcon(icon: Icons.history, size: 18),
-                  label: const Text('添加历史快照'),
-                ),
+              Text(
+                '¥${formatYuan(current.currentBalance)}',
+                style: textTheme.headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.w700)
+                    .tabular,
               ),
             ],
           ),
-          const SizedBox(height: XpSpacing.l),
-          // ── 流水 ──
-          Text(
-            '流水',
-            style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: XpSpacing.xs),
-          billsAsync.when(
-            loading: () => const Padding(
-              padding: EdgeInsets.symmetric(vertical: XpSpacing.s),
-              child: XpSkeletonList(itemCount: 3),
-            ),
-            error: (e, _) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: XpSpacing.l),
-              child: XpErrorState(
-                title: '流水加载失败',
-                message: '$e',
-                actionLabel: '重试',
-                onAction: () =>
-                    ref.invalidate(accountBillsProvider(current.id)),
+        ),
+        const SizedBox(height: XpSpacing.m),
+        // ── 操作入口 ──
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton.tonalIcon(
+                onPressed: () => AdjustSheet.show(context, current),
+                icon: const Icon(Icons.tune),
+                label: const Text('调账'),
               ),
             ),
-            data: (bills) {
-              if (bills.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: XpSpacing.l),
-                  child: XpEmptyState(
-                    icon: Icons.receipt_long_outlined,
-                    title: '该账户还没有流水',
-                    message: '记一笔并选择此账户后，这里会展示账单明细',
-                  ),
-                );
-              }
-              return XpCard(
-                padding: EdgeInsets.zero,
-                clipBehavior: Clip.antiAlias,
-                child: Column(
-                  children: [
-                    for (var i = 0; i < bills.length; i++) ...[
-                      if (i > 0)
-                        Divider(
-                          height: 1,
-                          indent: 60,
-                          color: colorScheme.outlineVariant.withValues(
-                            alpha: 0.5,
-                          ),
-                        ),
-                      BillTile(
-                        bill: bills[i],
-                        onTap: () => _editBill(bills[i]),
-                        onLongPress: () => _deleteBill(bills[i]),
-                      ),
-                    ],
-                  ],
+            const SizedBox(width: XpSpacing.s),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () =>
+                    HistoricalSnapshotSheet.show(context, current),
+                icon: const AppIcon(icon: Icons.history, size: 18),
+                label: const Text('添加历史快照'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: XpSpacing.l),
+        // ── 流水 ──
+        Text(
+          '流水',
+          style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: XpSpacing.xs),
+        billsAsync.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.symmetric(vertical: XpSpacing.s),
+            child: XpSkeletonList(itemCount: 3),
+          ),
+          error: (e, _) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: XpSpacing.l),
+            child: XpErrorState(
+              title: '流水加载失败',
+              message: '$e',
+              actionLabel: '重试',
+              onAction: () => ref.invalidate(accountBillsProvider(current.id)),
+            ),
+          ),
+          data: (bills) {
+            if (bills.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: XpSpacing.l),
+                child: XpEmptyState(
+                  icon: Icons.receipt_long_outlined,
+                  title: '该账户还没有流水',
+                  message: '记一笔并选择此账户后，这里会展示账单明细',
                 ),
               );
-            },
-          ),
-          const SizedBox(height: XpSpacing.l),
-          // ── 历史快照 ──
-          Text(
-            '历史快照（${accountSnaps.length}）',
-            style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: XpSpacing.xs),
-          if (accountSnaps.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: XpSpacing.m),
-              child: XpEmptyState(
-                icon: Icons.bookmark_outline,
-                title: '暂无快照',
-                message: '记账或调账后，这里会记录余额变动轨迹',
-              ),
-            )
-          else
-            XpCard(
+            }
+            return XpCard(
               padding: EdgeInsets.zero,
               clipBehavior: Clip.antiAlias,
-              child: Column(
-                children: [
-                  for (var i = 0; i < accountSnaps.length; i++) ...[
+              child: ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: bills.length,
+                itemBuilder: (context, i) => Column(
+                  children: [
                     if (i > 0)
                       Divider(
                         height: 1,
-                        indent: 52,
+                        indent: 60,
                         color: colorScheme.outlineVariant.withValues(
                           alpha: 0.5,
                         ),
                       ),
-                    _SnapTile(snap: accountSnaps[i]),
+                    BillTile(
+                      bill: bills[i],
+                      onTap: () => _editBill(bills[i]),
+                      onLongPress: () => _deleteBill(bills[i]),
+                    ),
                   ],
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: XpSpacing.l),
+        // ── 历史快照 ──
+        Text(
+          '历史快照（${accountSnaps.length}）',
+          style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: XpSpacing.xs),
+        if (accountSnaps.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: XpSpacing.m),
+            child: XpEmptyState(
+              icon: Icons.bookmark_outline,
+              title: '暂无快照',
+              message: '记账或调账后，这里会记录余额变动轨迹',
+            ),
+          )
+        else
+          XpCard(
+            padding: EdgeInsets.zero,
+            clipBehavior: Clip.antiAlias,
+            child: ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: accountSnaps.length,
+              itemBuilder: (context, i) => Column(
+                children: [
+                  if (i > 0)
+                    Divider(
+                      height: 1,
+                      indent: 52,
+                      color: colorScheme.outlineVariant.withValues(
+                        alpha: 0.5,
+                      ),
+                    ),
+                  _SnapTile(snap: accountSnaps[i]),
                 ],
               ),
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 

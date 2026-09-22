@@ -130,6 +130,10 @@ XuPurse —— 用 Flutter 从 0 重写 cent-xyx 的记账软件（三端 Web / 
   - ③ **按压 AnimatedScale 移入模糊层内**（原结构模糊层被缩放 → 采样区每帧变 → 每帧重算）：改为磨砂表面固定在最外层、内容层在其内缩放——视觉等同（iOS 卡片按压：内容微缩、表面不动），采样区恒定
 - 转场骨架短路 ✅（2026-09-22，mixin + theme_settings/trend 两页接入）：重页面（静态重 Card / fl_chart）转场期间只渲染轻量骨架（随内容区滑入），route animation completed 后再构建重内容；`xpPushSettled` getter + `_xpRouteAnim` 状态监听
   - **单测先暴露的逻辑漏洞（已修）**：挂 statusListener 前动画可能**早已 completed**（初始路由/MaterialApp home 直渲首帧即 1.0 paused，completed 事件已发过不重发）→ 骨架永远等不到 completed 常驻 → 页面卡死 loading（骨架脉冲无限循环，pumpAndSettle 超时，theme_settings_test 6 用例挂）。修复：挂 listener 后补查一次 `anim.status == completed` 直接置 settled。push 场景（dismissed 起步）不受影响
+- 骨架短路**首帧 offstage 陷阱**修复 + 基类下沉 ✅（2026-09-22）：ModalRoute 首帧为 Hero 定位**离屏构建（offstage）**，此刻 `ModalRoute.animation` 代理 = `kAlwaysCompleteAnimation`（status=completed）但真实 controller 还在 0 —— 原 `xpPushSettled` 首帧即按 completed 放行，重内容首帧就构建，骨架门对**转场最卡的首帧**形同虚设（trend/theme/search 已接入却仍卡的真因）。修复：`route.offstage == true` 时按未 settled 处理，首帧后 HeroController 把 offstage 翻回 false（animation 代理恢复真实动画），再按真实动画判定，completed 由状态监听兜底
+  - 基类新增 `buildXpScaffold(buildBody:)`：push 转场期间自动骨架占位、completed 后首次构建内容（页面零样板，等价手动 `if (!xpPushSettled)` 短路）；新增 `xpFirstSettled` 首帧门（无路由转场的 tab 常驻页）；新增 `XpSettleGate` 通用弹窗骨架门（`xpEnterSettled`，与 `xpPushSettled` 同款语义）
+  - 接入：account_detail（buildBody + 流水/快照改 `ListView.builder` 懒构建）；bookkeeping_sheet（滑入期间只出骨架）；statistics_page（首帧门）
+  - 验证：analyze 0；test 102 全过（新增 settle_gate_test 2 用例覆盖 buildBody 门 + 首帧门）
 - 转场时长/曲线统一（用户要求：非线性、稍慢优雅）✅（2026-09-22）：新增 `XpRoute<T>`（MaterialPageRoute 子类，mixin 文件内）——**400ms（XpMotion.page，双向同速，SDK 默认 300）+ easeOutCubic 正反向同曲线**；曲线单一来源在 route 层 `createAnimation`，XpRouteBody 不再二次包 curve（原 fastEaseInToSlowEaseOut 叠加层移除）；全库 12 处 push + main_profile 全部换 XpRoute
   - **顺手修 bug**：XpRouteBody 原不读动画开关——pageTransitionsTheme 的 zero builder 管不到壳层，animationsEnabled=false / reduce-motion 时内容区仍滑动；现 build 内自判（ProviderScope 读 animationsEnabled + MediaQuery.disableAnimationsOf），关闭时直接返回 child
 - 验证状态：analyze 0 问题；test 99 全过（含修复后 theme_settings 6 用例）。web 端**未做正式 profile**：B4 收益全部是 Impeller raster 语义（web CanvasKit/Skwasm 管线不同不可迁移），转场时长/曲线为时序参数无需 profile，帧率基线权威数据只能回小米真机（60Hz）补采

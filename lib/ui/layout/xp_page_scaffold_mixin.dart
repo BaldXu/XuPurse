@@ -43,10 +43,21 @@ mixin XpPageScaffold<T extends StatefulWidget> on State<T> {
   /// 动画关闭 / 零时长转场时 animation 立即 completed，首帧即内容。
   bool get xpPushSettled {
     if (_xpSettled) return true;
-    final anim = ModalRoute.of(context)?.animation;
+    final route = ModalRoute.of(context);
+    final anim = route?.animation;
     if (anim == null) return true; // 非 route 场景（如测试）不阻塞
     if (!identical(anim, _xpRouteAnim)) {
       _xpRouteAnim = anim..addStatusListener(_xpOnRouteStatus);
+    }
+    // 首帧 offstage 陷阱：ModalRoute 首帧会为 Hero 定位而离屏构建
+    // （offstage），此刻 animation 代理 = kAlwaysCompleteAnimation
+    // （status=completed），但转场其实刚起步（真实 controller 还在 0）。
+    // 若按 completed 直接放行，重内容首帧即构建、骨架门形同虚设——
+    // 转场最卡的正是首帧。offstage 在首帧后由 HeroController 翻回
+    // false（routes.dart _animationProxy.parent 恢复真实动画），
+    // 届时按真实动画判定，completed 事件由状态监听兜底。
+    if (route!.offstage) {
+      return false;
     }
     // 挂 listener 时动画可能早已 completed(初始路由/home 直渲首帧即
     // 1.0 paused,completed 事件已发过不会重发),补查一次,否则骨架永远
@@ -63,9 +74,45 @@ mixin XpPageScaffold<T extends StatefulWidget> on State<T> {
     }
   }
 
+  // ── 首帧骨架门（无路由转场的常驻页：tab 页）────────────────────
+  bool _xpFrameScheduled = false;
+  bool _xpFirstSettledFlag = false;
+
+  /// 首次挂载骨架门：无路由转场的页面（MainShell 的 tab 常驻页）用。
+  ///
+  /// 切 tab 首次挂载瞬间，整页树首帧全量构建会与导航栏指示器动画抢帧；
+  /// 首帧只构建轻量骨架，首帧渲染完成后（addPostFrameCallback）自动
+  /// setState 重建真实内容，把重构建推迟到切换瞬间之后。
+  /// 用法同 [xpPushSettled]：
+  /// ```dart
+  /// if (!xpFirstSettled) {
+  ///   return buildXpScaffold(appBar: appBar, body: const XpSkeletonPage());
+  /// }
+  /// ```
+  /// 仅首个未挂载帧生效；挂载后再次切回本 tab 不重播（LazyIndexedStack
+  /// 保持 State，_xpFirstSettledFlag 已置位）。
+  bool get xpFirstSettled {
+    if (_xpFirstSettledFlag) return true;
+    if (!_xpFrameScheduled) {
+      _xpFrameScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _xpFirstSettledFlag = true);
+      });
+    }
+    return false;
+  }
+
   Widget buildXpScaffold({
     PreferredSizeWidget? appBar,
     Widget? body,
+
+    /// 惰性 body 构建器：与 [body] 二选一，重页面用。
+    ///
+    /// push 转场进行期间自动用整页骨架占位（见 [xpPushSettled]），转场
+    /// completed 后首次构建真实内容——骨架短路建在基类，页面无需
+    /// `if (!xpPushSettled) return buildXpScaffold(loading: true);` 样板，
+    /// 等价于手动短路写法。非 route 场景（tab 常驻/测试）下立即构建。
+    WidgetBuilder? buildBody,
     bool loading = false,
     Widget? floatingActionButton,
     Widget? bottomNavigationBar,
@@ -85,6 +132,10 @@ mixin XpPageScaffold<T extends StatefulWidget> on State<T> {
         // 页面转场由 theme 的 PageTransitionsTheme 统一负责
         // (XpPageTransitionsBuilder 整页滑入),此处不再叠加进场动画,
         // 保证一个页面只有一个转场动画。
+        // 转场骨架门：提供 buildBody 的页面在 push 转场进行中自动出整页
+        // 骨架（重内容连 widget 树都不建，动画零抢帧），route animation
+        // completed 后首次构建真实内容——骨架短路建在基类，页面零样板。
+        final showSkeleton = loading || (buildBody != null && !xpPushSettled);
         Widget content = ContentWidthBox(
           maxWidth: xpMaxWidth,
           child: AnimatedSwitcher(
@@ -100,10 +151,12 @@ mixin XpPageScaffold<T extends StatefulWidget> on State<T> {
                   : child;
             },
             child: KeyedSubtree(
-              key: ValueKey<bool>(loading),
-              child: loading
+              key: ValueKey<bool>(showSkeleton),
+              child: showSkeleton
                   ? const XpSkeletonPage()
-                  : body ?? const SizedBox.shrink(),
+                  : (buildBody != null
+                        ? buildBody(context)
+                        : body ?? const SizedBox.shrink()),
             ),
           ),
         );
@@ -254,5 +307,54 @@ class XpRouteBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return RepaintBoundary(child: child);
+  }
+}
+
+/// 弹窗进场骨架门（通用）：挂在任意 State 上（弹窗等非 [XpPageScaffold]
+/// 场景），提供 [xpEnterSettled]。
+///
+/// showXpSheet / showGeneralDialog 弹窗的滑入动画期间只构建轻量骨架，
+/// 重内容（分类网格 / 键盘等）连 widget 树都不建，动画零抢帧；route
+/// animation completed 后自动 setState 重建真实内容。
+/// 与 [XpPageScaffold.xpPushSettled] 同款语义（status 监听 + completed
+/// 补查，避免「动画早已 completed 时骨架常驻卡死」），独立实现供弹窗用。
+mixin XpSettleGate<T extends StatefulWidget> on State<T> {
+  Animation<double>? _xpRouteAnim;
+  bool _xpSettled = false;
+
+  /// 弹窗滑入动画是否已结束（ completed ）。无路由动画（测试等）恒为 true。
+  ///
+  /// 用法：
+  /// ```dart
+  /// if (!xpEnterSettled) {
+  ///   return const XpSkeletonPage();
+  /// }
+  /// ```
+  bool get xpEnterSettled {
+    if (_xpSettled) return true;
+    final route = ModalRoute.of(context);
+    final anim = route?.animation;
+    if (anim == null) return true;
+    if (!identical(anim, _xpRouteAnim)) {
+      _xpRouteAnim = anim..addStatusListener(_xpOnRouteStatus);
+    }
+    // 首帧 offstage 陷阱：ModalRoute 首帧会为 Hero 定位而离屏构建
+    // （offstage），此刻 animation 代理 = kAlwaysCompleteAnimation
+    // （status=completed），但转场其实刚起步（真实 controller 还在 0）。
+    // 若按 completed 直接放行，重内容首帧即构建、骨架门形同虚设——
+    // 转场最卡的正是首帧。offstage 在首帧后由 HeroController 翻回
+    // false（routes.dart _animationProxy.parent 恢复真实动画），
+    // 届时按真实动画判定，completed 事件由状态监听兜底。
+    if (route!.offstage) {
+      return false;
+    }
+    if (anim.status == AnimationStatus.completed) _xpSettled = true;
+    return _xpSettled;
+  }
+
+  void _xpOnRouteStatus(AnimationStatus status) {
+    if (status == AnimationStatus.completed && mounted) {
+      setState(() => _xpSettled = true);
+    }
   }
 }
