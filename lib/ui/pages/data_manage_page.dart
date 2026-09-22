@@ -121,7 +121,7 @@ class _DataManagePageState extends ConsumerState<DataManagePage>
                   trailing: const Icon(Icons.chevron_right, size: 20),
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const ImportPage()),
+                    XpRoute(builder: (_) => const ImportPage()),
                   ),
                 ),
                 const Divider(height: 1, indent: 16, endIndent: 16),

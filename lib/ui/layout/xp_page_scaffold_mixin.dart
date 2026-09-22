@@ -48,6 +48,12 @@ mixin XpPageScaffold<T extends StatefulWidget> on State<T> {
     if (!identical(anim, _xpRouteAnim)) {
       _xpRouteAnim = anim..addStatusListener(_xpOnRouteStatus);
     }
+    // 挂 listener 时动画可能早已 completed(初始路由/home 直渲首帧即
+    // 1.0 paused,completed 事件已发过不会重发),补查一次,否则骨架永远
+    // 等不到 completed 而常驻(骨架脉冲无限循环,页面卡死在 loading)。
+    if (anim.status == AnimationStatus.completed) {
+      _xpSettled = true;
+    }
     return _xpSettled;
   }
 
@@ -183,6 +189,39 @@ class _XpEntranceState extends State<XpEntrance>
   }
 }
 
+/// 统一页面路由:时长/曲线与全站 motion token 对齐(替代裸 MaterialPageRoute)。
+///
+/// - 时长 [XpMotion.page](400ms,双向同速)——比 SDK 默认 300ms 更舒缓优雅;
+/// - 曲线 easeOutCubic 非线性缓出(起步轻快收尾放缓,iOS push 同款手感),
+///   正反向同曲线;曲线单一来源在 route 层,[XpRouteBody] 直接消费,
+///   不再二次包 curve。
+///
+/// 全库 push 一律走本路由,保证每条转场时长/曲线一致。
+class XpRoute<T> extends MaterialPageRoute<T> {
+  XpRoute({
+    required super.builder,
+    super.settings,
+    super.maintainState,
+    super.fullscreenDialog,
+    super.allowSnapshotting,
+  });
+
+  @override
+  Duration get transitionDuration => XpMotion.page;
+
+  @override
+  Duration get reverseTransitionDuration => XpMotion.page;
+
+  @override
+  Animation<double> createAnimation() {
+    return CurvedAnimation(
+      parent: controller!,
+      curve: XpMotion.easeOut,
+      reverseCurve: XpMotion.easeOut,
+    );
+  }
+}
+
 /// 转场拆层-栏:固定不动,不参与转场动画(读当前 route 动画,仅为确认存在)。
 ///
 /// 配合 [XpPageTransitionsBuilder](route 级零移动)使用:栏静止、内容滑动。
@@ -209,6 +248,12 @@ class XpRouteBar extends StatelessWidget implements PreferredSizeWidget {
 /// 只滑动内容区(栏以下),不带动磨砂栏;ClipRect 把滑动范围限制在 body
 /// 区域——内容滑入时不会侵入固定栏区域,栏磨砂采样内容保持不变,
 /// 零模糊重算。pop 时动画反向,内容自动右滑出(iOS pop 同款)。
+///
+/// 动画曲线单一来源 = route 的 createAnimation(XpRoute 覆写为
+/// easeOutCubic),此处不再二次包 curve。动画开关关闭
+/// (animationsEnabled=false / 系统 reduce-motion)时直接返回 child:
+/// 壳层滑动不受 pageTransitionsTheme 的 zero builder 控制,必须自判,
+/// 否则「关动画」后内容区仍滑动(视觉残留)。
 class XpRouteBody extends StatelessWidget {
   const XpRouteBody({super.key, required this.child});
 
@@ -218,17 +263,19 @@ class XpRouteBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final anim = ModalRoute.of(context)?.animation;
     if (anim == null) return child;
-    final curved = CurvedAnimation(
-      parent: anim,
-      curve: Curves.fastEaseInToSlowEaseOut,
-      reverseCurve: Curves.fastEaseInToSlowEaseOut.flipped,
-    );
+    final animOn =
+        ProviderScope.containerOf(
+          context,
+          listen: false,
+        ).read(currentThemeProvider).animationsEnabled &&
+        !MediaQuery.disableAnimationsOf(context);
+    if (!animOn) return child;
     return ClipRect(
       child: SlideTransition(
         position: Tween<Offset>(
           begin: const Offset(1, 0),
           end: Offset.zero,
-        ).animate(curved),
+        ).animate(anim),
         child: child,
       ),
     );

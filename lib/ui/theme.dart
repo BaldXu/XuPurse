@@ -48,6 +48,8 @@ class _ZeroTransitionPageTransitionsBuilder extends PageTransitionsBuilder {
 /// 栏固定 cross-fade(采样区不变 → 模糊零重算) + 内容区滑动(无模糊,
 /// ClipRect 限制在栏下,不侵入栏采样区);旧页不做视差移动(静止被覆盖,
 /// 同 iOS pop 的底层页)。animationsEnabled=false 时走零时长。
+/// 转场时长/曲线由 [XpRoute] 承担(400ms easeOutCubic,见其注释),
+/// 与 pageTransitionsTheme 正交:builder 只决定「route 移动与否」。
 
 /// 页面转场拆层 builder:整页零移动,动画由页面壳自驱(见上方说明)。
 class XpPageTransitionsBuilder extends PageTransitionsBuilder {
@@ -65,12 +67,61 @@ class XpPageTransitionsBuilder extends PageTransitionsBuilder {
   }
 }
 
+// ── ThemeData 实例缓存 ────────────────────────────────────────────
+// MaterialApp 内建 AnimatedTheme 按「ThemeData 实例是否变化」决定是否触发
+// 200ms lerp + 全树 rebuild（输入相同实例则直接短路，不动画）。
+// 不缓存时每次 XuPurseApp.build 都新建实例（fromSeed/全量对象树），
+// 磨砂子项开关等与主题无关的 provider 波动也会被当成主题切换触发
+// 假 lerp + 假 rebuild。按输入缓存后：无关波动零成本，真切换一次构建。
+ThemeData? _cachedLight;
+AppTheme? _lightKeyTheme;
+bool? _lightKeyAnim;
+bool? _lightKeyFrost;
+ThemeData? _cachedDark;
+bool? _darkKeyAnim;
+bool? _darkKeyFrost;
+
 ThemeData buildAppTheme(
   Brightness brightness,
   AppTheme theme, {
   bool? animationsEnabled,
   bool cardFrosted = false,
 }) {
+  final dark = brightness == Brightness.dark || theme.isDark;
+  final animOn = animationsEnabled ?? theme.animationsEnabled;
+  if (!dark &&
+      _cachedLight != null &&
+      identical(theme, _lightKeyTheme) &&
+      _lightKeyAnim == animOn &&
+      _lightKeyFrost == cardFrosted) {
+    return _cachedLight!;
+  }
+  if (dark &&
+      _cachedDark != null &&
+      _darkKeyAnim == animOn &&
+      _darkKeyFrost == cardFrosted) {
+    return _cachedDark!;
+  }
+  final data = _buildAppTheme(brightness, theme, animOn, cardFrosted);
+  if (dark) {
+    _cachedDark = data;
+    _darkKeyAnim = animOn;
+    _darkKeyFrost = cardFrosted;
+  } else {
+    _cachedLight = data;
+    _lightKeyTheme = theme;
+    _lightKeyAnim = animOn;
+    _lightKeyFrost = cardFrosted;
+  }
+  return data;
+}
+
+ThemeData _buildAppTheme(
+  Brightness brightness,
+  AppTheme theme,
+  bool animOn,
+  bool cardFrosted,
+) {
   final dark = brightness == Brightness.dark || theme.isDark;
   ColorScheme scheme = ColorScheme.fromSeed(
     seedColor: theme.seedColor,
@@ -81,7 +132,6 @@ ThemeData buildAppTheme(
   if (!dark && theme.seedColor.computeLuminance() < 0.35) {
     scheme = scheme.copyWith(primary: theme.seedColor, onPrimary: Colors.white);
   }
-  final animOn = animationsEnabled ?? theme.animationsEnabled;
   // 暗色主题不应用用户的浅色背景/卡色覆盖(暗色 = 独立预设主题,已决策)。
   final background = dark ? null : theme.background;
   final cardColor = dark ? null : theme.cardColor;

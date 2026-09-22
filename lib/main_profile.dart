@@ -16,6 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'main.dart' as app;
 import 'state/theme_provider.dart';
+import 'ui/layout/xp_page_scaffold_mixin.dart';
 import 'ui/pages/bookkeeping_sheet.dart';
 import 'ui/pages/theme_settings_page.dart';
 
@@ -71,9 +72,7 @@ class _Harness {
     for (var i = 1; i <= 3; i++) {
       themePush['run$i'] = await _window(() async {
         unawaited(
-          nav.push(
-            MaterialPageRoute<void>(builder: (_) => const ThemeSettingsPage()),
-          ),
+          nav.push(XpRoute<void>(builder: (_) => const ThemeSettingsPage())),
         );
       }, settleMs: 1600);
       themePop['run$i'] = await _window(() async => nav.pop(), settleMs: 1400);

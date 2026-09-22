@@ -121,8 +121,19 @@ XuPurse —— 用 Flutter 从 0 重写 cent-xyx 的记账软件（三端 Web / 
 - B2 弹窗分层进入 ✅（2026-09-22，xp_sheet 重写）：iOS present sheet 原生结构 = 遮罩只变暗（无模糊）+ sheet 滑入 + 表面磨砂到位后淡入
   - 实现：删全屏 σ10 BackdropFilter；滑入改 SlideTransition + 磨砂改 FadeTransition（渲染属性零 rebuild）；内容首帧即构建（屏外构建成本不可见，消动画末帧懒构建尖刺）；磨砂只作用弹窗表面（ClipPath 内 BackdropFilter σ10 + 白 α0.7），滑入完成淡入 / **关闭或下拉瞬间归零**（淡出期间每帧绘制模糊 + sheet 移动采样区每帧变 = 关闭掉帧元凶）；sheet 外包 RepaintBoundary
   - 复测数据（60Hz 采集）：关闭 buildAvg **13-18ms → 1.4-2.3ms**（不再逐帧重建整树）、totalAvg 26-43 → 19-28、帧数 6-8 → 11-13；打开 rasterAvg 13-15 → 10.7-11.3（全屏模糊移除）。剩余 raster 13-18ms 为设备基础开销（普通页面 pop 也 ~12ms；`enable_impeller_raster_cache:0` 该机 Impeller 缓存关闭，RepaintBoundary 不产生纹理复用）
-- B3 主题切换保动画：保留 200ms lerp，排查 theme rebuild 来源（模糊层固定白色不随主题，理论上不该全量重算）；const 化收敛 rebuild 范围
-- B4 磨砂正确性：卡片/FAB `_frostCard`/`_frostFab` 补 `BlendMode.src`（栏级已有，卡片/FAB 漏）+ 每卡 RepaintBoundary + 按压 AnimatedScale 移到模糊层外；重页面首帧 const 化（theme_settings 大树）/ 聚合缓存
+- B3 主题切换保动画 ✅（2026-09-22，theme + main）：200ms lerp 确认是 MaterialApp 内建 `AnimatedTheme`（`themeAnimationDuration`，非自建）；lerp 期间 rebuild/模糊重算是 SDK 结构，保动画前提下不可拆
+  - 实现：① `buildAppTheme` **输入缓存**（theme identity + animOn + cardFrosted 为 key，亮/暗各一槽）——AnimatedTheme 按「ThemeData 实例是否变化」决定是否触发 lerp + 全树 rebuild，实例相同直接短路；此前每次 XuPurseApp.build 都新建实例（fromSeed 全量构建），**磨砂子项开关等无关 provider 波动也被当成主题切换触发假 lerp + 假 rebuild**，缓存后无关波动零成本、真切换一次构建。② `themeAnimationCurve: XpMotion.easeOut`（原 SDK 默认 easeInOut），与全站 motion token 统一
+  - 「重页面首帧 const 化」收敛 lerp 期间 rebuild 构建成本 → 移第三波设计语言统一（与裸 Card 治理同批做）
+- B4 磨砂正确性 ✅（2026-09-22，xp_card + xp_fab）：卡片/FAB 磨砂三缺陷全修，按压期间**零模糊重算**
+  - ① `_frostCard`/`_frostFab` 补 `BackdropFilter.grouped` + `BlendMode.src`（对齐栏级 XpFrostedContainer；src 防御父级 saveLayer 混合异常；一级页有 BackdropGroup 祖先时栏/卡共享一次引擎模糊）
+  - ② 每卡 `RepaintBoundary`（仅磨砂分支，非磨砂不包避免图层膨胀）：按压/ripple 重绘不波及其他卡
+  - ③ **按压 AnimatedScale 移入模糊层内**（原结构模糊层被缩放 → 采样区每帧变 → 每帧重算）：改为磨砂表面固定在最外层、内容层在其内缩放——视觉等同（iOS 卡片按压：内容微缩、表面不动），采样区恒定
+- 转场骨架短路 ✅（2026-09-22，mixin + theme_settings/trend 两页接入）：重页面（静态重 Card / fl_chart）转场期间只渲染轻量骨架（随内容区滑入），route animation completed 后再构建重内容；`xpPushSettled` getter + `_xpRouteAnim` 状态监听
+  - **单测先暴露的逻辑漏洞（已修）**：挂 statusListener 前动画可能**早已 completed**（初始路由/MaterialApp home 直渲首帧即 1.0 paused，completed 事件已发过不重发）→ 骨架永远等不到 completed 常驻 → 页面卡死 loading（骨架脉冲无限循环，pumpAndSettle 超时，theme_settings_test 6 用例挂）。修复：挂 listener 后补查一次 `anim.status == completed` 直接置 settled。push 场景（dismissed 起步）不受影响
+- 转场时长/曲线统一（用户要求：非线性、稍慢优雅）✅（2026-09-22）：新增 `XpRoute<T>`（MaterialPageRoute 子类，mixin 文件内）——**400ms（XpMotion.page，双向同速，SDK 默认 300）+ easeOutCubic 正反向同曲线**；曲线单一来源在 route 层 `createAnimation`，XpRouteBody 不再二次包 curve（原 fastEaseInToSlowEaseOut 叠加层移除）；全库 12 处 push + main_profile 全部换 XpRoute
+  - **顺手修 bug**：XpRouteBody 原不读动画开关——pageTransitionsTheme 的 zero builder 管不到壳层，animationsEnabled=false / reduce-motion 时内容区仍滑动；现 build 内自判（ProviderScope 读 animationsEnabled + MediaQuery.disableAnimationsOf），关闭时直接返回 child
+- 验证状态：analyze 0 问题；test 99 全过（含修复后 theme_settings 6 用例）。web 端**未做正式 profile**：B4 收益全部是 Impeller raster 语义（web CanvasKit/Skwasm 管线不同不可迁移），转场时长/曲线为时序参数无需 profile，帧率基线权威数据只能回小米真机（60Hz）补采
+- 待真机补采：① B4 按压零重算验证（卡片按压 raster）② XpRoute 400ms 转场满帧确认 ③ B3 主题切换 lerp 期间帧率
 
 **第三波：设计语言统一（治「丑 / 漏卡片」）**——审计结论：基建（token/XpCard/页面壳）完整，问题是二级页大量「绕过基建」
 - 修复优先级：statistics/ 6 分区（14+ 裸 Card 缺按压/磨砂 + KPI/排行金额漏 tabular）> trend（4 裸 Card + 裸转圈 + 裸文本空态）> theme_settings（5 裸 Card，设置分组与 mine 样板不一致）> ai_settings（全库唯一裸 Scaffold 绕开 buildXpScaffold + 残留 XpEntrance）> settings（图标色块未对齐 mine）> ai_chat_sheet（全库唯一裸 showModalBottomSheet）

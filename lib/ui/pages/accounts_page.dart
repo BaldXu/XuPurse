@@ -49,7 +49,7 @@ class _AccountsPageState extends ConsumerState<AccountsPage>
             icon: const AppIcon(icon: Icons.manage_accounts_outlined),
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const AccountManagePage()),
+              XpRoute(builder: (_) => const AccountManagePage()),
             ),
           ),
           IconButton(
@@ -110,7 +110,7 @@ class _AccountsPageState extends ConsumerState<AccountsPage>
               XpCard(
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const TrendPage()),
+                  XpRoute(builder: (_) => const TrendPage()),
                 ),
                 child: Row(
                   children: [
@@ -339,7 +339,7 @@ class _AccountRow extends StatelessWidget {
     return InkWell(
       onTap: () => Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => AccountDetailPage(account: account)),
+        XpRoute(builder: (_) => AccountDetailPage(account: account)),
       ),
       onLongPress: () => AdjustSheet.show(context, account),
       child: Padding(

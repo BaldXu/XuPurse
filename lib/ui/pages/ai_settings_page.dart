@@ -83,7 +83,7 @@ class AiSettingsPage extends ConsumerWidget {
     AiConfig? existing,
   ) async {
     await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => _AiConfigEditPage(existing: existing)),
+      XpRoute(builder: (_) => _AiConfigEditPage(existing: existing)),
     );
   }
 

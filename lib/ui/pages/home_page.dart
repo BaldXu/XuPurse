@@ -45,7 +45,7 @@ class _HomePageState extends ConsumerState<HomePage>
             icon: const AppIcon(icon: Icons.search),
             onPressed: () => Navigator.of(
               context,
-            ).push(MaterialPageRoute(builder: (_) => const SearchPage())),
+            ).push(XpRoute(builder: (_) => const SearchPage())),
           ),
         ],
       ),

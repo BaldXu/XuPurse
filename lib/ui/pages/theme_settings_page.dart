@@ -463,9 +463,9 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
             title: const Text('图标风格'),
             subtitle: Text('当前：${pack.label}'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const IconSettingsPage()),
-            ),
+            onTap: () => Navigator.of(
+              context,
+            ).push(XpRoute<void>(builder: (_) => const IconSettingsPage())),
           ),
         ),
       ],

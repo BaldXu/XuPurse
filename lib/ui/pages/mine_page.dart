@@ -134,7 +134,7 @@ class _MinePageState extends ConsumerState<MinePage>
   }
 
   void _push(BuildContext context, Widget page) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+    Navigator.of(context).push(XpRoute(builder: (_) => page));
   }
 }
 

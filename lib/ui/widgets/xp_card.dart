@@ -74,6 +74,8 @@ class _XpCardState extends State<XpCard> {
       child: widget.child,
     );
 
+    // 按压动画只作用于模糊层之上的内容层：磨砂表面固定不动，
+    // BackdropFilter 采样区不随按压缩放 → 按压期间零模糊重算。
     Widget card;
     if (!hasTap || !animOn) {
       card = Card(
@@ -123,9 +125,16 @@ class _XpCardState extends State<XpCard> {
     }
 
     if (cardsOn) {
-      card = _frostCard(
-        card,
-        cardStyle.shape ?? const RoundedRectangleBorder(),
+      // 磨砂表面在最外层（固定不动），内容层缩放在其内；
+      // RepaintBoundary 让每卡模糊+内容成独立图层，按压/ripple
+      // 重绘不波及其他卡片。grouped + src 对齐栏级磨砂：
+      // 一级页有 BackdropGroup 祖先时栏/卡共享一次引擎模糊，
+      // src 防御父级 saveLayer（如 Opacity）下的混合异常。
+      card = RepaintBoundary(
+        child: _frostCard(
+          card,
+          cardStyle.shape ?? const RoundedRectangleBorder(),
+        ),
       );
     }
     return card;
@@ -135,11 +144,12 @@ class _XpCardState extends State<XpCard> {
   Widget _frostCard(Widget card, ShapeBorder shape) {
     return ClipPath(
       clipper: ShapeBorderClipper(shape: shape),
-      child: BackdropFilter(
+      child: BackdropFilter.grouped(
         filter: ImageFilter.blur(
           sigmaX: XpCard.frostSigma,
           sigmaY: XpCard.frostSigma,
         ),
+        blendMode: BlendMode.src,
         child: ColoredBox(
           color: Colors.white.withValues(alpha: XpCard.frostAlpha),
           child: card,

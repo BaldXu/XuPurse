@@ -10,6 +10,7 @@ import 'state/icon_pack_provider.dart';
 import 'state/theme_provider.dart';
 import 'ui/pages/main_shell.dart';
 import 'ui/theme.dart';
+import 'ui/tokens/design_tokens.dart';
 
 /// 全局导航 key：供性能基线采集（lib/main_profile.dart）程序化导航使用，
 /// 生产路径无业务依赖。
@@ -57,6 +58,11 @@ class XuPurseApp extends ConsumerWidget {
     return MaterialApp(
       title: 'XuPurse',
       navigatorKey: appNavigatorKey,
+      // 主题切换 200ms lerp 是 MaterialApp 内建 AnimatedTheme(themeAnimationDuration),
+      // 保留动画(决策:不动效降级);曲线统一 easeOutCubic,与全站 motion token 一致。
+      // buildAppTheme 输入缓存保证:ThemeData 实例不变时 AnimatedTheme 直接短路,
+      // 磨砂开关等无关波动不会触发假 lerp + 假全树 rebuild(B3)。
+      themeAnimationCurve: XpMotion.easeOut,
       theme: buildAppTheme(
         Brightness.light,
         theme,

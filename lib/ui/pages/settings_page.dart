@@ -86,6 +86,6 @@ class _SettingsPageState extends State<SettingsPage>
   }
 
   void _push(BuildContext context, Widget page) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+    Navigator.of(context).push(XpRoute(builder: (_) => page));
   }
 }

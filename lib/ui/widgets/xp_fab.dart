@@ -85,32 +85,39 @@ class _XpFabState extends State<XpFab> {
       );
     }
 
-    if (cardsOn) fab = _frostFab(fab, shape);
+    // 按压缩放只作用于模糊层之上的内容层：磨砂表面固定不动，
+    // BackdropFilter 采样区不随按压缩放 → 按压期间零模糊重算。
+    if (!reduceMotion) {
+      fab = Listener(
+        onPointerDown: (_) => setState(() => _pressed = true),
+        onPointerUp: (_) => setState(() => _pressed = false),
+        onPointerCancel: (_) => setState(() => _pressed = false),
+        child: AnimatedScale(
+          scale: _pressed ? 0.96 : 1.0,
+          duration: XpMotion.micro,
+          curve: XpMotion.easeOut,
+          child: fab,
+        ),
+      );
+    }
 
-    if (reduceMotion) return fab;
-
-    return Listener(
-      onPointerDown: (_) => setState(() => _pressed = true),
-      onPointerUp: (_) => setState(() => _pressed = false),
-      onPointerCancel: (_) => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.96 : 1.0,
-        duration: XpMotion.micro,
-        curve: XpMotion.easeOut,
-        child: fab,
-      ),
-    );
+    if (cardsOn) {
+      // 结构/参数对齐 XpCard._frostCard：grouped + src、RepaintBoundary。
+      fab = RepaintBoundary(child: _frostFab(fab, shape));
+    }
+    return fab;
   }
 
   /// 磨砂表面：形状裁剪内做真实高斯模糊 + 半透明白（参数同 XpCard）。
   Widget _frostFab(Widget fab, ShapeBorder shape) {
     return ClipPath(
       clipper: ShapeBorderClipper(shape: shape),
-      child: BackdropFilter(
+      child: BackdropFilter.grouped(
         filter: ImageFilter.blur(
           sigmaX: XpCard.frostSigma,
           sigmaY: XpCard.frostSigma,
         ),
+        blendMode: BlendMode.src,
         child: ColoredBox(
           color: Colors.white.withValues(alpha: XpCard.frostAlpha),
           child: fab,
