@@ -1,9 +1,8 @@
 # XuPurse UI 全面重构计划
 
 > 设计依据：[designDirection.md](designDirection.md)（Bright Luminous Minimalism · 克莱因蓝）
-> 样板：首页-明细页（已完成并验收，作为其余页面的参照标准）
 > 图例：`[ ]` 未开始 · `[~]` 进行中 · `[x]` 已完成
-> 最后更新：2026-09-20
+> 状态：阶段 0/1/2 已闭环（2026-09-20 ~ 09-22），阶段 3 整体验收待做；最新进度见 [memory.md](./memory.md)。
 
 ---
 
@@ -18,19 +17,19 @@
 
 ## 二、阶段 0：全局基建（先行，全部页面依赖）
 
-### 0.1 主题收敛 `[ ]`
+### 0.1 主题收敛 `[x]`
 
 | # | 事项 | 状态 |
 |---|------|------|
 | 1 | `presetThemes` 只留 `preset_klein`（删除 green/blue/purple/red/orange/teal/olive/graphite），色值与 design_tokens 对齐（背景 `#F7F8F6`、卡片白、seed `#002FA7`） | `[x]` |
 | 2 | `darkThemePreset` 改为克莱因蓝暗色变体（seed 换 klein，fromSeed 暗色派生自动提亮 primary、中性色带蓝灰调，避免纯黑） | `[x]` |
-| 3 | 旧持久化 `currentId` 兜底迁移：确认 `ThemeState.build` 的 valid 检查回退到 `presetThemes.first`（= klein）后真机验证 | `[~]` |
+| 3 | 旧持久化 `currentId` 兜底迁移：确认 `ThemeState.build` 的 valid 检查回退到 `presetThemes.first`（= klein）后真机验证 | `[x]` |
 | 4 | `theme_settings_page` 预设区改造：单预设展示；用户自建主题（`user_*`）机制暂保留不动（顺带修正「保存为预设主题」误导文案） | `[x]` |
 
 - 涉及：`lib/state/theme_provider.dart`、`lib/ui/pages/theme_settings_page.dart`
 - 验收：系统暗/亮切换正常；老用户升级后主题自动落到克莱因蓝；主题设置页无残留旧预设。
 
-### 0.2 加载态 + 淡入（骨架屏体系）`[~]`
+### 0.2 加载态 + 淡入（骨架屏体系）`[x]`
 
 | # | 事项 | 状态 |
 |---|------|------|
@@ -43,7 +42,7 @@
 - 涉及：新增 `lib/ui/widgets/xp_skeleton.dart`、`lib/ui/layout/xp_async_view_mixin.dart`、`lib/ui/layout/xp_page_scaffold_mixin.dart`
 - 验收：冷启动进统计/资产页不再白屏转圈，而是骨架→内容淡入；DevTools 无明显掉帧。
 
-### 0.3 页面基类升级（进入动画 + 预测性返回 + 懒加载）`[~]`
+### 0.3 页面基类升级（进入动画 + 预测性返回 + 懒加载）`[x]`
 
 | # | 事项 | 状态 |
 |---|------|------|
@@ -112,13 +111,13 @@
 
 | 组件 | 改动要点 | 状态 |
 |------|----------|------|
-| xp_sheet 基类 | `heightFactor` 0.7 → 0.8；拖拽位移与背景 blur 由同一 progress 驱动（§14）；把手样式统一 | `[ ]` |
-| bookkeeping_sheet 记账 | 金额输入大号 tabular；分类九宫格选中态统一；键盘避让顺滑 | `[ ]` |
-| account_form_sheet 账户表单 | 表单排印统一；颜色选择入口卡片化 | `[ ]` |
-| historical_snapshot_sheet 快照 | 列表卡化 + 金额 tabular | `[ ]` |
-| adjust_sheet 调整余额 | 数字键盘排印统一 | `[ ]` |
-| ai_chat_sheet AI 对话 | 气泡样式对齐卡片语言（G2 圆角） | `[ ]` |
-| color_picker_dialog 取色器 | 色块网格圆角统一 | `[ ]` |
+| xp_sheet 基类 | `heightFactor` 0.7 → 0.8；拖拽位移与背景 blur 由同一 progress 驱动（§14）；把手样式统一 | `[x]`（已重做为分层进入：滑入 + 表面磨砂淡入） |
+| bookkeeping_sheet 记账 | 金额输入大号 tabular；分类九宫格选中态统一；键盘避让顺滑 | `[x]` |
+| account_form_sheet 账户表单 | 表单排印统一；颜色选择入口卡片化 | `[x]` |
+| historical_snapshot_sheet 快照 | 列表卡化 + 金额 tabular | `[x]` |
+| adjust_sheet 调整余额 | 数字键盘排印统一 | `[x]` |
+| ai_chat_sheet AI 对话 | 气泡样式对齐卡片语言（G2 圆角） | `[x]` |
+| color_picker_dialog 取色器 | 色块网格圆角统一 | `[x]` |
 
 ### 共享组件（3）
 
@@ -130,7 +129,7 @@
 
 ---
 
-## 四、阶段 2：动效与细节打磨 `[ ]`
+## 四、阶段 2：动效与细节打磨 `[x]`
 
 | # | 事项 | 状态 |
 |---|------|------|
@@ -143,11 +142,11 @@
 
 | # | 事项 | 状态 |
 |---|------|------|
-| 1 | `flutter analyze` 全库零问题 | `[ ]` |
+| 1 | `flutter analyze` 全库零问题 | `[x]` |
 | 2 | 真机（23127PN0CC）全页面走查：亮/暗两套主题 | `[ ]` |
-| 3 | 性能：DevTools 帧率检查，滚动/转场无明显 jank | `[ ]` |
-| 4 | 预测性返回：Android 15+ 真机验证侧滑预览 | `[ ]` |
-| 5 | 主题迁移：清除/保留 SharedPreferences 两种场景均落到克莱因蓝 | `[ ]` |
+| 3 | 性能：DevTools 帧率检查，滚动/转场无明显 jank | `[ ]`（真机 profile 基线已采集，60Hz 下动画可稳定满帧） |
+| 4 | 预测性返回：Android 15+ 真机验证侧滑预览 | `[-]` 已移除（用户决策，转场定型为 Cupertino 滑动） |
+| 5 | 主题迁移：清除/保留 SharedPreferences 两种场景均落到克莱因蓝 | `[x]`（theme_persistence 测试覆盖） |
 
 ---
 
@@ -176,3 +175,5 @@
 - 2026-09-20（晚·二）：阶段 1 二级页第一批（9/16）。search（双流骨架+XpEmptyState 空态）；account_detail 整页重构（账户 Hero tabular 大金额 + watchPage 按账户流水卡（新增 accountBillsProvider autoDispose.family，drift watch 响应式）+ 快照卡化 + BillTile 行点按/长按删除）；account_manage（整页骨架 + 总余额小计行 tabular + 列表卡化 _AccountCheckRow）；book_manage/budget_manage/tag_manage/ledger_manage（4 处 loading→骨架 + 空态 XpEmptyState）；trend（整页 XpSkeletonPage + 单账户卡/累计净额卡骨架，import 路径随 statistics 拆分改 stats_shared）。
 - 2026-09-20（晚·三）：阶段 1 二级页第二批（7/7 收官，16/16 全部完成）。settings 入口行图标色块化（对齐 mine 页）；currency 汇率列表卡片化（primary 色块头像+Divider 缩进）；import 步骤感标题（1·选择来源 / 2·选择文件）；ai_settings 删除确认 AlertDialog→confirmXpDialog(danger)；data_manage 操作行 _TintedIcon 色块图标；about 新增隐私说明卡（showAboutDialog）。共享组件 bill_tile/xp_empty_state/xp_snack 随各页迁移已达标。analyze 0 + 91 测试过。
 - 2026-09-20（晚·四）：阶段 2 动效打磨完成。全局转场复核（页面=PredictiveBack/Zoom、sheet=M3 内建 container 节奏、dialog 统一 showXpDialog、snackBar 浮起补 XpShape 圆角）；XpFab 统一 FAB（按下 0.96 微缩放，Listener+AnimatedScale micro 170ms，reduce-motion 直通，7 处收口：home/book/budget/category/tag/ai_settings）；XpStaggerIn 列表淡入试点（仅透明度、索引差分延迟 40ms/项封顶 240ms、reduce-motion 直通；home 前 12 组+accounts 前 6 组，超限直渲染——性能回退方案就位）；reduce-motion 全链路核查（XpEntrance/骨架脉冲/XpCard/XpFab/XpStaggerIn 五处双开关齐备）。analyze 0 + 91 测试过。
+- 2026-09-21：代码审核 P1/P2 修复（bb688c0）+ 磨砂玻璃全面铺开 + 图标包切换（简约/Twitter 表情）+ 卡片/FAB/弹窗真实磨砂 + 主题持久化 v3。转场动画多轮被否后定型：Tab 切换瞬时、push/pop 走 Cupertino 滑动（详见 memory.md §3）。
+- 2026-09-22：动效重做收官（B1 转场拆层 / B2 弹窗分层进入 / B3 主题切换保动画 / B4 卡片磨砂零重算 / 转场骨架短路 / XpRoute 400ms 统一转场）+ 第三波设计语言统一（裸 Card / 错误态 / 空态 / 间距 token 全库收口）。**阶段 0/1/2 闭环**；阶段 3 仅剩真机全页走查与 60Hz 帧率补采，待办见 memory.md §4。

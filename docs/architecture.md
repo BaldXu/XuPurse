@@ -1,6 +1,6 @@
 # 项目架构说明
 
-> 状态：🚧 规划中。本文描述 XuPurse（Flutter 重写版）的目标架构，数据模型与业务规则继承自 cent-xyx 的实测结论。
+> 状态：✅ 已实现（2026-09-17 制定，主体架构已落地）。本文描述 XuPurse（Flutter 重写版）的架构，数据模型与业务规则继承自 cent-xyx 的实测结论。
 
 ## 1. 项目背景
 
@@ -17,12 +17,12 @@
 | 层级 | 选型 | 说明 |
 |------|------|------|
 | UI 框架 | Flutter | 三端同一套代码 |
-| 状态管理 | Riverpod（规划） | 替代上一代 Zustand |
+| 状态管理 | Riverpod | 替代上一代 Zustand |
 | 本地存储 | drift（sqflite 包装） | Web 端自动降级为 IndexedDB 实现；替代上一代 IndexedDB + StashBucket |
 | 数据库导入 | sqlite3 / sqflite_ffi + WASM | Web 端通过 WASM 加载 sql.js 兼容文件 |
-| 图表 | fl_chart（规划） | 替代 ECharts |
+| 图表 | fl_chart | 替代 ECharts |
 | 多语言 | Flutter 官方 intl / ARB | 替代 react-intl |
-| 图标 | flutter_iconify / 自绘 SVG | 替代 iconify mdi 语法 |
+| 图标 | colorful_iconify_flutter + flutter_svg（twemoji） | 替代 iconify mdi 语法 |
 | 本地化日期 | intl 包 | 替代 dayjs |
 
 ## 2.1 范围与关键决策（2026-09-17 确认）
@@ -220,29 +220,32 @@ class GlobalMeta {
 }
 ```
 
-## 6. 目录结构规划
+## 6. 目录结构（当前实际）
 
 ```
 lib/
 ├── main.dart                 # 入口
-├── app.dart                  # 根 Widget（主题、路由、全局 Provider）
-├── core/                     # 通用：常量、工具、异常、金额转换
-│   ├── constants/            # SnapshotType、AccountType 等枚举
-│   ├── utils/                # amount、time、color、normalizeName
-│   └── models/               # Bill / Account / BalanceSnapshot / GlobalMeta / 第三方实体
+├── main_profile.dart         # 真机性能采集入口（flutter run --profile -t lib/main_profile.dart）
+├── core/                     # 通用：常量、错误、工具（金额/ID/图标/twemoji）
+│   ├── constants/            # enums
+│   ├── utils/                # amount / ids / bill_extra / twemoji_icons ...
+│   └── errors.dart           # 领域异常体系
 ├── data/                     # 数据访问层
-│   ├── database/             # drift 表定义、数据库工厂、迁移
-│   ├── repositories/         # book / bill / meta / account / import
-│   └── sources/              # 第三方解析器（yimu / zhouhu / qianji）
+│   ├── database/             # drift 表定义、app/global 数据库、迁移、账本工厂
+│   ├── repositories/         # account / bill / budget / category / ledger / snapshot / tag
+│   ├── import/               # 三方解析器（yimu/zhouhu/qianji）+ 映射 + diff + ID 映射
+│   ├── backup/               # 备份导出/导入（saver_io / saver_web）
+│   └── seed/                 # 默认账户 / 分类种子
 ├── domain/                   # 业务逻辑
-│   ├── services/             # account_service、snapshot_service、import_service、sync_service
-│   └── algorithms/           # 趋势计算、增量同步、合并检测
-├── state/                    # Riverpod providers
-├── ui/                       # 页面与组件
-│   ├── pages/                # home / search / stat / accounts / settings
-│   ├── widgets/              # 通用组件（金额展示、图表、日期选择器）
-│   └── theme/                # 主题、深色模式
-└── l10n/                     # ARB 多语言文件
+│   ├── services/             # account / bill / currency / trend
+│   └── ai/                   # AI 助手（配置 + 服务）
+├── state/                    # Riverpod providers（theme / icon_pack / providers）
+└── ui/                       # 页面与组件
+    ├── layout/               # 页面壳、懒挂载、异步视图、转场 mixin
+    ├── pages/                # home / accounts / statistics / mine + 二级页
+    ├── tokens/               # design_tokens（色/圆角/间距/动效唯一来源）
+    ├── widgets/              # Xp 组件族（card/fab/sheet/skeleton/frosted_bar/...）
+    └── theme.dart            # 主题装配 + XpRoute 转场
 ```
 
 ## 7. 与上一代（cent-xyx）的关键差异

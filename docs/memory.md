@@ -153,7 +153,7 @@ XuPurse —— 用 Flutter 从 0 重写 cent-xyx 的记账软件（三端 Web / 
 4. Phase 6 AI 助手 / 语音记账（本地分类预测参考 cent-xyx `linear-predict`）
 5. Phase 7 局域网同步（参考 cent-xyx `sync-server.js`）
 6. Phase 8 i18n 中英词条（**必须先读 §5 规则**）、三端打包
-7. `docs/changelog.md` 严重落后（还停在 v0.1.0 规划态），建议补记一版
+7. ~~`docs/changelog.md` 严重落后（还停在 v0.1.0 规划态），建议补记一版~~（已补记为实际版本历史，2026-09-22）
 
 ## 5. 必须遵守的约定
 
