@@ -25,7 +25,6 @@ class AppTheme {
     this.fontScale = 1.0,
     this.cardStyle = XpCardStyle.filled,
     this.cardRadius,
-    this.animationsEnabled = true,
     this.isDark = false,
   });
 
@@ -47,9 +46,6 @@ class AppTheme {
 
   /// 卡片圆角覆盖(null = 跟随 token 默认 12)。
   final double? cardRadius;
-
-  /// 页面转场 / 弹窗动画开关(尊重系统 reduce-motion 时强制关闭)。
-  final bool animationsEnabled;
 
   /// 是否为暗色主题(暗色预设专用标记)。
   final bool isDark;
@@ -84,7 +80,6 @@ class AppTheme {
     if (fontScale != 1.0) 'fontScale': fontScale,
     if (cardStyle != XpCardStyle.filled) 'cardStyle': cardStyle.name,
     if (cardRadius != null) 'cardRadius': cardRadius,
-    if (!animationsEnabled) 'animationsEnabled': false,
     if (isDark) 'isDark': true,
   };
 
@@ -106,7 +101,6 @@ class AppTheme {
     fontScale: (json['fontScale'] as num?)?.toDouble() ?? 1.0,
     cardStyle: _cardStyleOf(json['cardStyle'] as String?),
     cardRadius: (json['cardRadius'] as num?)?.toDouble(),
-    animationsEnabled: json['animationsEnabled'] as bool? ?? true,
     isDark: json['isDark'] as bool? ?? false,
   );
 
@@ -115,7 +109,6 @@ class AppTheme {
     double? fontScale,
     XpCardStyle? cardStyle,
     double? cardRadius,
-    bool? animationsEnabled,
     bool clearFontFamily = false,
     bool clearCardRadius = false,
   }) => AppTheme(
@@ -129,7 +122,6 @@ class AppTheme {
     fontScale: fontScale ?? this.fontScale,
     cardStyle: cardStyle ?? this.cardStyle,
     cardRadius: clearCardRadius ? null : (cardRadius ?? this.cardRadius),
-    animationsEnabled: animationsEnabled ?? this.animationsEnabled,
     isDark: isDark,
   );
 }
@@ -255,7 +247,6 @@ class ThemeNotifier extends Notifier<ThemeState> {
       fontScale: theme.fontScale,
       cardStyle: theme.cardStyle,
       cardRadius: theme.cardRadius,
-      animationsEnabled: theme.animationsEnabled,
       isDark: theme.isDark,
     );
   }

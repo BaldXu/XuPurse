@@ -131,13 +131,31 @@ abstract final class XpMotion {
   static const Duration container = Duration(milliseconds: 350);
 
   /// 页面转场
-  static const Duration page = Duration(milliseconds: 400);
+  static const Duration page = Duration(milliseconds: 450);
 
   /// 进入一律 easeOut
   static const Curve easeOut = Curves.easeOutCubic;
 
   /// 退出一律 easeIn
   static const Curve easeIn = Curves.easeInCubic;
+
+  // ── 页面转场「空间层级」参数（XpPageTransitionsBuilder 消费，调整只改这里）──
+
+  /// 新页滑入起始缩放（<1 产生「向前靠近」感，滑入过程放大到 1.0）。
+  static const double pageEnterScaleFrom = 0.96;
+
+  /// 旧页后退目标缩放（1.0 → 该值，产生后退感）。
+  static const double pageExitScaleTo = 0.94;
+
+  /// 旧页后退时轻微左移距离（逻辑像素）。
+  static const double pageExitShift = 16;
+
+  /// 旧页变暗遮罩最大透明度（0~1）。
+  static const double pageExitDim = 0.18;
+
+  /// 旧页轻微模糊 sigma。性能敏感：真机掉帧时置 0 关闭，
+  /// 退化为 Scale + Translate + Dim 兜底。
+  static const double pageExitBlur = 3;
 }
 
 /// 排印阶梯：Display 32 / H1 28 / H2 22 / H3 18 / BodyL 16 / Body 14 / Caption 12。

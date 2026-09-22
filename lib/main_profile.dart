@@ -46,7 +46,6 @@ class _Harness {
     final budget = 1000 / refresh;
     // ignore: use_build_context_synchronously
     final container = ProviderScope.containerOf(context);
-    final theme = container.read(currentThemeProvider);
     final frosted = container.read(frostedGlassProvider);
 
     debugPrint('=== XUPURSE PROFILE BASELINE ===');
@@ -57,7 +56,6 @@ class _Harness {
       'profile: $kProfileMode',
     );
     debugPrint(
-      'animations: ${theme.animationsEnabled}  '
       'frosted: on=${frosted.enabled} bar=${frosted.appBar} '
       'card=${frosted.card} sheet=${frosted.sheet}',
     );

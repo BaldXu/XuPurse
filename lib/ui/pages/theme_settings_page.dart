@@ -375,19 +375,6 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
             children: [
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('动画'),
-                subtitle: const Text('页面转场动画'),
-                trailing: Switch(
-                  value: theme.animationsEnabled,
-                  onChanged: editable
-                      ? (v) => notifier.updateCurrentTheme(
-                          theme.copyWith(animationsEnabled: v),
-                        )
-                      : null,
-                ),
-              ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
                 title: const Text('卡片样式'),
                 trailing: DropdownMenu<XpCardStyle>(
                   initialSelection: theme.cardStyle,

@@ -51,9 +51,8 @@ class XuPurseApp extends ConsumerWidget {
     // 暗色主题是独立预设(preset_dark):系统暗色时生效它的配置;
     // 用户自定义主题只在浅色模式生效,不参与暗色(已决策)。
     final dark = theme.isDark;
-    // 尊重系统「减少动画」无障碍设置:开启时禁用主题级转场动画
-    final reduceMotion =
-        MediaQuery.of(context).disableAnimations || !theme.animationsEnabled;
+    // 转场动画固定开启；仅尊重系统「减少动画」无障碍设置:开启时禁用主题级转场动画
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
     final cardFrosted = ref.watch(frostedGlassProvider).cardsOn;
     return MaterialApp(
       title: 'XuPurse',

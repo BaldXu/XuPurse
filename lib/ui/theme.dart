@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 
 import '../state/theme_provider.dart';
@@ -10,8 +12,8 @@ import 'widgets/xp_card.dart';
 ///   暗色主题(preset_dark)不使用用户覆盖色,完全由派生色构成。
 /// - 字体:fontFamily + fontScale 作用于全局 textTheme。
 /// - 卡片:样式(filled/outlined/elevated)+ 圆角由主题统一定制,页面不得绕过。
-/// - 动画:pageTransitionsTheme / 弹窗等由 animationsEnabled 控制
-///   (系统 reduce-motion 时在 main 层强制关闭)。
+/// - 动画:pageTransitionsTheme / 弹窗等固定开启,仅系统「减少动画」
+///   (MediaQuery.disableAnimations,main 层强制关闭时)走零时长。
 /// 关闭转场动画时的零时长 builder(Flutter SDK 无 NoTransition 内建实现)。
 class _ZeroTransitionPageTransitionsBuilder extends PageTransitionsBuilder {
   const _ZeroTransitionPageTransitionsBuilder();
@@ -34,26 +36,31 @@ class _ZeroTransitionPageTransitionsBuilder extends PageTransitionsBuilder {
   }
 }
 
-/// 页面转场选型的原因记录(见下方 pageTransitionsTheme):
-/// 本 App 每页 AppBar 带磨砂 BackdropFilter,候选转场均有实测缺陷——
-/// 自定义淡入/交叉淡化/fade-through:整页透明度动画包住磨砂栏,引擎逐帧
-/// 重算模糊快照,进二级页明显闪烁;Zoom(M3 默认):toImage 快照在
-/// Impeller/Vulkan 阻塞 UI 线程;PredictiveBack:磨砂铺开时实测定稿移除;
-/// FadeForwards(Android U):本质仍是交叉淡化且 800ms 更长。
-/// 原 CupertinoPageTransitionsBuilder 纯 Transform 滑动,但整页(含磨砂栏)
-/// 一起移动 → 栏 BackdropFilter 采样区每帧变化 → 转场每帧重算模糊
-/// (真机实测 raster 尖峰 34-42ms 的来源)。
-/// 2026-09-22 第二轮 B1 改为 iOS push 原生拆层结构:route 级零移动
-/// (XpPageTransitionsBuilder),由页面壳 XpRouteBar/XpRouteBody 自驱——
-/// 栏固定 cross-fade(采样区不变 → 模糊零重算) + 内容区滑动(无模糊,
-/// ClipRect 限制在栏下,不侵入栏采样区);旧页不做视差移动(静止被覆盖,
-/// 同 iOS pop 的底层页)。animationsEnabled=false 时走零时长。
-/// 转场时长/曲线由 [XpRoute] 承担(400ms easeOutCubic,见其注释),
-/// 与 pageTransitionsTheme 正交:builder 只决定「route 移动与否」。
+/// 页面转场选型说明（见 pageTransitionsTheme）：
+/// 统一由 [XpPageTransitionsBuilder] 承担「整页」双层级转场（2026-09-22 第三轮）：
+/// - 新页（本路由 animation）：整页从右滑入（含 AppBar，消除旧版「栏先闪现、
+///   内容后滑」的割裂感）+ 轻微放大（0.98→1.0，前景靠近感）；曲线 easeOutCubic
+///   由 [XpRoute] 提供（进入/返回同曲线），builder 直接消费。
+/// - 旧页（secondaryAnimation，本路由被新页覆盖时）：Scale 1.0→0.96 + 轻微左移
+///   + 变暗遮罩 + 轻微模糊，产生「旧页后退、新页进入前景」的空间层级感。
+/// - 返回 / 系统返回 / App 返回按钮都走同一 animation 反向，视觉天然一致。
+/// 性能：旧页模糊 sigma 为独立常量（[XpMotion.pageExitBlur]），掉帧时置 0 退化
+/// 为 Scale + Translate + Dim；磨砂开启时转场期间 BackdropFilter 会重算模糊
+/// 快照（已知成本，磨砂默认关闭，见 FrostedGlassNotifier 注释）。
+/// 动画关闭（设置 / 系统 reduce-motion）时 theme 选用
+/// [_ZeroTransitionPageTransitionsBuilder]：零时长零移动；转场时长由各 builder
+/// 的 transitionDuration 决定（此处 400ms / 关闭时 0ms），与路由层正交，
+/// 避免「关动画后仍等待 400ms」。
 
-/// 页面转场拆层 builder:整页零移动,动画由页面壳自驱(见上方说明)。
+/// 页面转场 builder：整页双层级转场（新页滑入 + 旧页后退），全站唯一入口。
 class XpPageTransitionsBuilder extends PageTransitionsBuilder {
   const XpPageTransitionsBuilder();
+
+  @override
+  Duration get transitionDuration => XpMotion.page;
+
+  @override
+  Duration get reverseTransitionDuration => XpMotion.page;
 
   @override
   Widget buildTransitions<T>(
@@ -63,7 +70,116 @@ class XpPageTransitionsBuilder extends PageTransitionsBuilder {
     Animation<double>? secondaryAnimation,
     Widget child,
   ) {
-    return child;
+    return _XpPageTransition(
+      animation: animation,
+      secondaryAnimation:
+          secondaryAnimation ?? const AlwaysStoppedAnimation<double>(0),
+      child: child,
+    );
+  }
+}
+
+/// 双层级转场渲染：由「本路由进入动画」与「上方路由动画」共同驱动。
+class _XpPageTransition extends StatefulWidget {
+  const _XpPageTransition({
+    required this.animation,
+    required this.secondaryAnimation,
+    required this.child,
+  });
+
+  /// 本路由的进入动画（[XpRoute] 已套 easeOutCubic 曲线）。
+  final Animation<double> animation;
+
+  /// 上方路由的动画（本路由被覆盖为「旧页」时随之推进）。
+  final Animation<double> secondaryAnimation;
+
+  final Widget child;
+
+  @override
+  State<_XpPageTransition> createState() => _XpPageTransitionState();
+}
+
+class _XpPageTransitionState extends State<_XpPageTransition> {
+  late Listenable _merged;
+
+  @override
+  void initState() {
+    super.initState();
+    _merged = Listenable.merge([widget.animation, widget.secondaryAnimation]);
+  }
+
+  @override
+  void didUpdateWidget(_XpPageTransition oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.animation != widget.animation ||
+        oldWidget.secondaryAnimation != widget.secondaryAnimation) {
+      _merged = Listenable.merge([widget.animation, widget.secondaryAnimation]);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _merged,
+      // 页面本体作为 child 复用，动画帧只重建变换层，不重建页面。
+      child: widget.child,
+      builder: (context, child) {
+        final enter = widget.animation.value;
+        final back = widget.secondaryAnimation.value;
+        Widget result = child!;
+
+        // ── 本页被新页覆盖（旧页）：后退——缩放 + 轻微左移 + 模糊 + 变暗 ──
+        if (back > 0) {
+          result = Transform.translate(
+            offset: Offset(-XpMotion.pageExitShift * back, 0),
+            child: Transform.scale(
+              scale: 1 - (1 - XpMotion.pageExitScaleTo) * back,
+              child: result,
+            ),
+          );
+          final blur = XpMotion.pageExitBlur * back;
+          if (blur > 0) {
+            result = ImageFiltered(
+              imageFilter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+              child: result,
+            );
+          }
+          final dim = XpMotion.pageExitDim * back;
+          if (dim > 0.01) {
+            result = Stack(
+              fit: StackFit.expand,
+              children: [
+                result,
+                // 变暗遮罩铺满本路由区域（含缩放后露出的边缘），位于上方
+                // 新页之下，把视觉焦点让给新页。
+                IgnorePointer(
+                  child: ColoredBox(color: Colors.black.withValues(alpha: dim)),
+                ),
+              ],
+            );
+          }
+        }
+
+        // ── 本页作为新页进入：整页滑入 + 轻微放大（靠近感）──
+        if (enter < 1) {
+          result = ScaleTransition(
+            scale: Tween<double>(
+              begin: XpMotion.pageEnterScaleFrom,
+              end: 1.0,
+            ).animate(widget.animation),
+            child: result,
+          );
+          result = SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(1, 0),
+              end: Offset.zero,
+            ).animate(widget.animation),
+            child: result,
+          );
+        }
+        return result;
+      },
+    );
   }
 }
 
@@ -88,7 +204,7 @@ ThemeData buildAppTheme(
   bool cardFrosted = false,
 }) {
   final dark = brightness == Brightness.dark || theme.isDark;
-  final animOn = animationsEnabled ?? theme.animationsEnabled;
+  final animOn = animationsEnabled ?? true;
   if (!dark &&
       _cachedLight != null &&
       identical(theme, _lightKeyTheme) &&

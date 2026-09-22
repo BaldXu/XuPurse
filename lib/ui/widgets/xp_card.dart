@@ -55,13 +55,7 @@ class _XpCardState extends State<XpCard> {
     final cardStyle = Theme.of(context).cardTheme;
     final hasTap = widget.onTap != null;
     final baseElev = cardStyle.elevation ?? 0;
-    final animOn =
-        hasTap &&
-        ProviderScope.containerOf(
-          context,
-          listen: false,
-        ).read(currentThemeProvider).animationsEnabled &&
-        !MediaQuery.disableAnimationsOf(context);
+    final animOn = hasTap && !MediaQuery.disableAnimationsOf(context);
     // 卡片磨砂开启时：表面由下方真实模糊层（σ10 + 白 0.55）提供，
     // 内部 Card 置透明避免双层白。
     final cardsOn = ProviderScope.containerOf(

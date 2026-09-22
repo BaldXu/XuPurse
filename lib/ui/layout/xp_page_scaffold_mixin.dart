@@ -17,9 +17,9 @@ import '../widgets/xp_skeleton.dart';
 /// 加载完成后与真实内容做淡入切换(XpMotion.component)。
 /// 块级异步请用 XpAsyncView.xpWhen,不要两者叠加。
 ///
-/// 进场动画:由路由转场统一负责(theme 的 XpPageTransitionsBuilder,
-/// 栏静止 + 内容区滑动的拆层结构),mixin 内不再叠加内容级进场,避免
-/// 双重动画。特殊页面如需内容级进场,可自行包一层 [XpEntrance]
+/// 进场动画:由路由转场统一负责(theme 的 XpPageTransitionsBuilder
+/// 整页滑入 + 旧页后退的双层级转场),mixin 内不再叠加内容级进场,
+/// 避免双重动画。特殊页面如需内容级进场,可自行包一层 [XpEntrance]
 /// (仅首次构建触发,尊重动画开关与 reduce-motion)。
 /// 首帧构建昂贵的页面另见 [xpPushSettled] 的骨架短路用法。
 mixin XpPageScaffold<T extends StatefulWidget> on State<T> {
@@ -83,7 +83,7 @@ mixin XpPageScaffold<T extends StatefulWidget> on State<T> {
             ref.watch(frostedGlassProvider).barsOn &&
             appBar != null; // 磨砂:任意 AppBar 统一包壳,全部页面默认生效。
         // 页面转场由 theme 的 PageTransitionsTheme 统一负责
-        // (XpPageTransitionsBuilder 拆层滑动),此处不再叠加进场动画,
+        // (XpPageTransitionsBuilder 整页滑入),此处不再叠加进场动画,
         // 保证一个页面只有一个转场动画。
         Widget content = ContentWidthBox(
           maxWidth: xpMaxWidth,
@@ -134,7 +134,7 @@ mixin XpPageScaffold<T extends StatefulWidget> on State<T> {
           floatingActionButton: floatingActionButton,
           bottomNavigationBar: bottomNavigationBar,
           resizeToAvoidBottomInset: resizeToAvoidBottomInset,
-          body: XpRouteBody(child: content),
+          body: content,
         );
       },
     );
@@ -164,8 +164,8 @@ double xpFrostedBleedTop(BuildContext context, PreferredSizeWidget bar) =>
 /// 页面进场动画:内容淡入 + 上移 8dp(XpMotion.page),仅首次构建触发
 /// (State 只创建一次,后续 rebuild 不重播)。
 ///
-/// 关闭条件:用户设置 animationsEnabled=false,或系统「减少动画」
-/// (MediaQuery.disableAnimationsOf,设置变化时即时响应)。
+/// 关闭条件:系统「减少动画」(MediaQuery.disableAnimationsOf,设置变化时即时响应);
+/// 转场动画固定开启,不再提供用户开关。
 class XpEntrance extends StatefulWidget {
   const XpEntrance({super.key, required this.child});
 
@@ -194,12 +194,7 @@ class _XpEntranceState extends State<XpEntrance>
 
   @override
   Widget build(BuildContext context) {
-    final animOn =
-        ProviderScope.containerOf(
-          context,
-          listen: false,
-        ).read(currentThemeProvider).animationsEnabled &&
-        !MediaQuery.disableAnimationsOf(context);
+    final animOn = !MediaQuery.disableAnimationsOf(context);
     if (!animOn) return widget.child;
     return AnimatedBuilder(
       animation: _curve,
@@ -215,12 +210,14 @@ class _XpEntranceState extends State<XpEntrance>
   }
 }
 
-/// 统一页面路由:时长/曲线与全站 motion token 对齐(替代裸 MaterialPageRoute)。
+/// 统一页面路由:全库页面 push 的唯一入口(替代裸 MaterialPageRoute)。
 ///
-/// - 时长 [XpMotion.page](400ms,双向同速)——比 SDK 默认 300ms 更舒缓优雅;
-/// - 曲线 easeOutCubic 非线性缓出(起步轻快收尾放缓,iOS push 同款手感),
-///   正反向同曲线;曲线单一来源在 route 层,[XpRouteBody] 直接消费,
-///   不再二次包 curve。
+/// - 曲线:easeOutCubic 非线性缓出(起步轻快收尾放缓,iOS push 同款手感),
+///   正反向同曲线;曲线单一来源在本路由的 [createAnimation],转场 builder
+///   (theme 的 XpPageTransitionsBuilder)直接消费,不再二次包 curve。
+/// - 时长:由 theme 的 pageTransitionsTheme 决定——XpPageTransitionsBuilder
+///   400ms、动画关闭时 _ZeroTransitionPageTransitionsBuilder 归零。不在
+///   路由层重复定义,避免「关闭动画后仍等待 400ms」。
 ///
 /// 全库 push 一律走本路由,保证每条转场时长/曲线一致。
 class XpRoute<T> extends MaterialPageRoute<T> {
@@ -233,12 +230,6 @@ class XpRoute<T> extends MaterialPageRoute<T> {
   });
 
   @override
-  Duration get transitionDuration => XpMotion.page;
-
-  @override
-  Duration get reverseTransitionDuration => XpMotion.page;
-
-  @override
   Animation<double> createAnimation() {
     return CurvedAnimation(
       parent: controller!,
@@ -248,13 +239,10 @@ class XpRoute<T> extends MaterialPageRoute<T> {
   }
 }
 
-/// 转场拆层-栏:固定不动,不参与转场动画(读当前 route 动画,仅为确认存在)。
-///
-/// 配合 [XpPageTransitionsBuilder](route 级零移动)使用:栏静止、内容滑动。
-/// **严禁对栏做透明度/移动动画**——磨砂栏 BackdropFilter 在透明度动画下
-/// 每帧重算模糊快照(theme.dart 已记录该候选方案实测缺陷)。栏固定后
-/// 采样区不变,且内容滑动被 [XpRouteBody] 的 ClipRect 限制在栏下不侵入
-/// 采样区 → 转场全程零模糊重算(iOS push 原生结构,栏即时显示)。
+/// 转场栏壳:整页转场(theme 的 XpPageTransitionsBuilder)已让栏随页面一起
+/// 滑入,此处仅保留 [RepaintBoundary] 做重绘隔离:页面 body 的重建/重绘
+/// 不波及栏内 BackdropFilter 的模糊层,避免重建期快照重捕获出现黑帧
+/// (明细页过度滑动、统计页切换分类等刷新动作后的磨砂闪黑)。
 class XpRouteBar extends StatelessWidget implements PreferredSizeWidget {
   const XpRouteBar({super.key, required this.child});
 
@@ -265,48 +253,6 @@ class XpRouteBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 独立重绘边界：body 重建/重绘不波及栏内 BackdropFilter 的模糊层，
-    // 避免重建期快照重捕获出现黑帧（明细页过度滑动、统计页切换分类等
-    // 刷新动作后的磨砂闪黑）。
     return RepaintBoundary(child: child);
-  }
-}
-
-/// 转场拆层-内容区:横向滑动(读当前 route 动画)。
-///
-/// 只滑动内容区(栏以下),不带动磨砂栏;ClipRect 把滑动范围限制在 body
-/// 区域——内容滑入时不会侵入固定栏区域,栏磨砂采样内容保持不变,
-/// 零模糊重算。pop 时动画反向,内容自动右滑出(iOS pop 同款)。
-///
-/// 动画曲线单一来源 = route 的 createAnimation(XpRoute 覆写为
-/// easeOutCubic),此处不再二次包 curve。动画开关关闭
-/// (animationsEnabled=false / 系统 reduce-motion)时直接返回 child:
-/// 壳层滑动不受 pageTransitionsTheme 的 zero builder 控制,必须自判,
-/// 否则「关动画」后内容区仍滑动(视觉残留)。
-class XpRouteBody extends StatelessWidget {
-  const XpRouteBody({super.key, required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final anim = ModalRoute.of(context)?.animation;
-    if (anim == null) return child;
-    final animOn =
-        ProviderScope.containerOf(
-          context,
-          listen: false,
-        ).read(currentThemeProvider).animationsEnabled &&
-        !MediaQuery.disableAnimationsOf(context);
-    if (!animOn) return child;
-    return ClipRect(
-      child: SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(1, 0),
-          end: Offset.zero,
-        ).animate(anim),
-        child: child,
-      ),
-    );
   }
 }
