@@ -155,6 +155,8 @@ abstract final class XpMotion {
 
   /// 旧页轻微模糊 sigma。性能敏感：真机掉帧时置 0 关闭，
   /// 退化为 Scale + Translate + Dim 兜底。
+  /// 运行期由主题外观页「实时模糊动效」开关控制（关闭时有效值归零，
+  /// 见 theme.dart _XpPageTransition 的 transitionBlurProvider 读取）。
   static const double pageExitBlur = 3;
 }
 

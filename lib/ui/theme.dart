@@ -1,6 +1,7 @@
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state/theme_provider.dart';
 import 'tokens/design_tokens.dart';
@@ -119,6 +120,12 @@ class _XpPageTransitionState extends State<_XpPageTransition> {
 
   @override
   Widget build(BuildContext context) {
+    // 实时模糊动效开关：关闭时 pageExitBlur 有效值归零，转场退化为
+    // 纯位移 + 缩放 + 变暗（不再逐帧重算模糊快照，更省 GPU）。
+    final blurOn = ProviderScope.containerOf(
+      context,
+      listen: true,
+    ).read(transitionBlurProvider);
     return AnimatedBuilder(
       animation: _merged,
       // 页面本体作为 child 复用，动画帧只重建变换层，不重建页面。
@@ -137,7 +144,7 @@ class _XpPageTransitionState extends State<_XpPageTransition> {
               child: result,
             ),
           );
-          final blur = XpMotion.pageExitBlur * back;
+          final blur = (blurOn ? XpMotion.pageExitBlur : 0.0) * back;
           if (blur > 0) {
             result = ImageFiltered(
               imageFilter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),

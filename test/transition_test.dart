@@ -1,20 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:xupurse/state/theme_provider.dart';
 import 'package:xupurse/ui/layout/xp_page_scaffold_mixin.dart';
 import 'package:xupurse/ui/theme.dart';
 
 void main() {
-  Widget buildApp() => MaterialApp(
-    theme: ThemeData(
-      pageTransitionsTheme: PageTransitionsTheme(
-        builders: {
-          for (final p in TargetPlatform.values)
-            p: const XpPageTransitionsBuilder(),
-        },
+  Widget buildApp() => ProviderScope(
+    child: MaterialApp(
+      theme: ThemeData(
+        pageTransitionsTheme: PageTransitionsTheme(
+          builders: {
+            for (final p in TargetPlatform.values)
+              p: const XpPageTransitionsBuilder(),
+          },
+        ),
       ),
+      home: const _Home(),
     ),
-    home: const _Home(),
   );
 
   /// 旧页子树中是否存在「后退缩放」（X 轴 scale < 1）的 Transform。
@@ -63,6 +68,35 @@ void main() {
     await tester.pumpAndSettle();
     expect(homeHasPushBack(tester), isFalse, reason: '返回完成后旧页恢复原位');
     expect(find.byType(_Detail), findsNothing);
+  });
+
+  testWidgets('实时模糊动效开关：关闭后旧页不再套 ImageFiltered 模糊', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(buildApp());
+    await tester.pump();
+    final nav = tester.state<NavigatorState>(find.byType(Navigator));
+
+    // 默认开启：push 转场中旧页（home）被 ImageFiltered 模糊
+    nav.push(XpRoute<void>(builder: (_) => const _Detail()));
+    await tester.pump(); // 安装路由，开始转场
+    await tester.pump(const Duration(milliseconds: 120));
+    expect(find.byType(ImageFiltered), findsWidgets, reason: '开关默认开启时旧页应有实时模糊');
+    await tester.pumpAndSettle();
+    nav.pop();
+    await tester.pumpAndSettle();
+
+    // 关闭开关：再次 push，旧页无模糊（退化纯位移+缩放+变暗）
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(_Home)),
+    );
+    await container.read(transitionBlurProvider.notifier).set(false);
+    await tester.pumpAndSettle();
+
+    nav.push(XpRoute<void>(builder: (_) => const _Detail()));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 120));
+    expect(find.byType(ImageFiltered), findsNothing, reason: '开关关闭后旧页不应有模糊');
+    await tester.pumpAndSettle();
   });
 }
 

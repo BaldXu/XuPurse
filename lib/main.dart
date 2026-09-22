@@ -21,6 +21,7 @@ Future<void> main() async {
   await CurrencyService.init();
   await ThemeNotifier.init();
   await FrostedGlassNotifier.init();
+  await TransitionBlurNotifier.init();
   await IconPackNotifier.init();
   await AiConfigNotifier.init();
   await AiChatNotifier.init();

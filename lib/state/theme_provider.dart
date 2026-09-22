@@ -432,3 +432,35 @@ class FrostedGlassNotifier extends Notifier<FrostedState> {
     state = next;
   }
 }
+
+/// 实时模糊动效开关：页面转场时旧页后退的实时高斯模糊
+/// （design_tokens [XpMotion.pageExitBlur]，默认 3）。
+///
+/// 全局设置，独立于主题与磨砂玻璃；默认开启。关闭后转场退化为纯
+/// 位移 + 缩放 + 变暗（pageExitBlur 有效值归零），不再逐帧重算模糊
+/// 快照，低端机 / 省电场景可选。
+final transitionBlurProvider = NotifierProvider<TransitionBlurNotifier, bool>(
+  TransitionBlurNotifier.new,
+);
+
+class TransitionBlurNotifier extends Notifier<bool> {
+  static const _key = 'ui_transition_blur';
+
+  static SharedPreferences? _prefsCache;
+
+  /// main 启动时调用，预热 SharedPreferences 缓存（build 需要同步读取）。
+  static Future<void> init() async {
+    _prefsCache = await SharedPreferences.getInstance();
+  }
+
+  @override
+  bool build() => _prefsCache?.getBool(_key) ?? true;
+
+  Future<void> set(bool value) async {
+    if (state == value) return;
+    final prefs = await SharedPreferences.getInstance();
+    _prefsCache = prefs;
+    await prefs.setBool(_key, value);
+    state = value;
+  }
+}

@@ -134,6 +134,7 @@ XuPurse —— 用 Flutter 从 0 重写 cent-xyx 的记账软件（三端 Web / 
   - 基类新增 `buildXpScaffold(buildBody:)`：push 转场期间自动骨架占位、completed 后首次构建内容（页面零样板，等价手动 `if (!xpPushSettled)` 短路）；新增 `xpFirstSettled` 首帧门（无路由转场的 tab 常驻页）；新增 `XpSettleGate` 通用弹窗骨架门（`xpEnterSettled`，与 `xpPushSettled` 同款语义）
   - 接入：account_detail（buildBody + 流水/快照改 `ListView.builder` 懒构建）；bookkeeping_sheet（滑入期间只出骨架）；statistics_page（首帧门）
   - 验证：analyze 0；test 102 全过（新增 settle_gate_test 2 用例覆盖 buildBody 门 + 首帧门）
+- 实时模糊动效开关 ✅（2026-09-22）：主题外观页新增「转场动效」分区（全局开关，独立于主题/磨砂玻璃），默认开启；关闭后 `XpMotion.pageExitBlur` 有效值归零，转场退化为纯位移 + 缩放 + 变暗（不再逐帧重算模糊快照）。新增 `transitionBlurProvider`（NotifierProvider\<bool\>，持久化 `ui_transition_blur`）；theme.dart `_XpPageTransition` 读 provider 计算 blur。验证：analyze 0；test 103 全过（transition_test 新增开关用例，并补 ProviderScope 包裹——transition widget 现在读 provider）
 - 转场时长/曲线统一（用户要求：非线性、稍慢优雅）✅（2026-09-22）：新增 `XpRoute<T>`（MaterialPageRoute 子类，mixin 文件内）——**400ms（XpMotion.page，双向同速，SDK 默认 300）+ easeOutCubic 正反向同曲线**；曲线单一来源在 route 层 `createAnimation`，XpRouteBody 不再二次包 curve（原 fastEaseInToSlowEaseOut 叠加层移除）；全库 12 处 push + main_profile 全部换 XpRoute
   - **顺手修 bug**：XpRouteBody 原不读动画开关——pageTransitionsTheme 的 zero builder 管不到壳层，animationsEnabled=false / reduce-motion 时内容区仍滑动；现 build 内自判（ProviderScope 读 animationsEnabled + MediaQuery.disableAnimationsOf），关闭时直接返回 child
 - 验证状态：analyze 0 问题；test 99 全过（含修复后 theme_settings 6 用例）。web 端**未做正式 profile**：B4 收益全部是 Impeller raster 语义（web CanvasKit/Skwasm 管线不同不可迁移），转场时长/曲线为时序参数无需 profile，帧率基线权威数据只能回小米真机（60Hz）补采

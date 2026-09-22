@@ -343,6 +343,12 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
           const Divider(height: 1),
           const SizedBox(height: XpSpacing.xl),
           _buildFrostedSection(),
+
+          // ---- 转场动效（全局开关，独立于主题预设） ----
+          const SizedBox(height: XpSpacing.xl),
+          const Divider(height: 1),
+          const SizedBox(height: XpSpacing.xl),
+          _buildTransitionSection(),
         ],
       ),
     );
@@ -521,6 +527,44 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
                 ),
               ),
             ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 转场动效:全局配置(不依赖具体主题)。
+  ///
+  /// 实时模糊 = 页面转场时旧页后退的实时高斯模糊(pageExitBlur,默认 3);
+  /// 关闭后有效值归零,转场退化为纯位移 + 缩放 + 变暗,不再逐帧重算
+  /// 模糊快照(更省 GPU,低端机/省电场景可选)。默认开启。
+  Widget _buildTransitionSection() {
+    final blurOn = ref.watch(transitionBlurProvider);
+    final notifier = ref.read(transitionBlurProvider.notifier);
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('转场动效', style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: XpSpacing.xs),
+        Text(
+          '页面转场时的实时模糊效果，可单独开关。',
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+        ),
+        const SizedBox(height: XpSpacing.m),
+        XpCard(
+          padding: EdgeInsets.zero,
+          clipBehavior: Clip.antiAlias,
+          child: ListTile(
+            leading: Icon(
+              Icons.motion_photos_on_outlined,
+              color: scheme.primary,
+            ),
+            title: const Text('实时模糊动效'),
+            subtitle: const Text('页面切换时旧页后退的实时高斯模糊；关闭后更省 GPU'),
+            trailing: Switch(value: blurOn, onChanged: notifier.set),
           ),
         ),
       ],
