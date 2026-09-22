@@ -59,3 +59,4 @@ android/key.properties
 *.db
 *.sqlite
 *.sqlite3
+docs/bug.md

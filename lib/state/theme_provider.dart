@@ -376,7 +376,9 @@ class FrostedGlassNotifier extends Notifier<FrostedState> {
 
   @override
   FrostedState build() => FrostedState(
-    enabled: _prefsCache?.getBool(_key) ?? true,
+    // 默认关闭磨砂：当前磨砂方案（BackdropFilter 快照）在目标设备存在
+    // 闪黑/磨砂不可见问题，未稳定前默认不启用，用户可在设置中手动打开。
+    enabled: _prefsCache?.getBool(_key) ?? false,
     appBar: _prefsCache?.getBool(_keyAppBar) ?? true,
     card: _prefsCache?.getBool(_keyCard) ?? false,
     sheet: _prefsCache?.getBool(_keySheet) ?? false,

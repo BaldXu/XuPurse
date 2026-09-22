@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/utils/amount.dart';
 import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
+import '../../state/theme_provider.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/app_icon.dart';
@@ -35,20 +36,26 @@ class _HomePageState extends ConsumerState<HomePage>
     final summary =
         ref.watch(monthSummaryProvider).value ?? (expense: 0, income: 0);
     final now = DateTime.now();
+    final appBar = AppBar(
+      title: const Text('XuPurse'),
+      actions: [
+        IconButton(
+          tooltip: '搜索',
+          icon: const AppIcon(icon: Icons.search),
+          onPressed: () => Navigator.of(
+            context,
+          ).push(XpRoute(builder: (_) => const SearchPage())),
+        ),
+      ],
+    );
+    // 磨砂穿透：滚动内容从磨砂栏后穿过，栏内模糊可见。
+    final bleedTop = ref.watch(frostedGlassProvider).barsOn
+        ? xpFrostedBleedTop(context, appBar)
+        : 0.0;
 
     return buildXpScaffold(
-      appBar: AppBar(
-        title: const Text('XuPurse'),
-        actions: [
-          IconButton(
-            tooltip: '搜索',
-            icon: const AppIcon(icon: Icons.search),
-            onPressed: () => Navigator.of(
-              context,
-            ).push(XpRoute(builder: (_) => const SearchPage())),
-          ),
-        ],
-      ),
+      appBar: appBar,
+      frostedBleed: true,
       // 整页骨架：仅在「无旧数据的首载」时呈现；刷新期 Riverpod 保留旧值
       // 仍 isLoading=true，不能算 loading，否则整页骨架闪一下再回来
       loading: billsAsync.isLoading && billsAsync.value == null,
@@ -66,6 +73,8 @@ class _HomePageState extends ConsumerState<HomePage>
         },
         child: CustomScrollView(
           slivers: [
+            // 顶部穿透留白：随内容滚出，可从磨砂栏后穿过。
+            SliverPadding(padding: EdgeInsets.only(top: bleedTop)),
             // ── Hero：本月汇总（Display 32 大金额，强调靠字重） ──
             SliverToBoxAdapter(
               child: Padding(

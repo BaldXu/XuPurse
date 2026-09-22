@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/utils/amount.dart';
 import '../../state/providers.dart';
+import '../../state/theme_provider.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/app_icon.dart';
@@ -33,14 +34,21 @@ class _MinePageState extends ConsumerState<MinePage>
     final baseCurrency = ref.watch(baseCurrencyProvider).value ?? 'CNY';
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
+    final appBar = AppBar(title: const Text('我的'));
+    // 磨砂穿透：滚动内容从磨砂栏后穿过，栏内模糊可见。
+    final bleedTop = ref.watch(frostedGlassProvider).barsOn
+        ? xpFrostedBleedTop(context, appBar)
+        : 0.0;
 
     return buildXpScaffold(
-      appBar: AppBar(title: const Text('我的')),
+      appBar: appBar,
+      frostedBleed: true,
       body: ListView(
-        // 底部留出穿透导航栏的高度(extendBody 注入的 MediaQuery bottom)。
+        // 顶部穿透留白随内容滚出（可从磨砂栏后穿过）；底部留穿透
+        // 导航栏的高度(extendBody 注入的 MediaQuery bottom)。
         padding: EdgeInsets.fromLTRB(
           XpSpacing.l,
-          XpSpacing.xs,
+          bleedTop,
           XpSpacing.l,
           32 + MediaQuery.paddingOf(context).bottom,
         ),

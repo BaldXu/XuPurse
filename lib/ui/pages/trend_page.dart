@@ -6,6 +6,7 @@ import '../../core/utils/amount.dart';
 import '../../data/database/app_database.dart';
 import '../../domain/services/trend_service.dart';
 import '../../state/providers.dart';
+import '../../state/theme_provider.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/app_icon.dart';
@@ -51,6 +52,10 @@ class _TrendPageState extends ConsumerState<TrendPage>
   @override
   Widget build(BuildContext context) {
     final appBar = AppBar(title: const Text('趋势'));
+    // 磨砂穿透：滚动内容从磨砂栏后穿过，栏内模糊可见。
+    final bleedTop = ref.watch(frostedGlassProvider).barsOn
+        ? xpFrostedBleedTop(context, appBar)
+        : 0.0;
     // 转场期间只渲染骨架：快照数据常在 300ms 转场内返回，此刻构建
     // fl_chart 图表会撞上转场动画后半段抢 raster；completed 后数据
     // 若已到则直接构建，未到继续由下方 loading 分支兜骨架。
@@ -80,6 +85,7 @@ class _TrendPageState extends ConsumerState<TrendPage>
 
     return buildXpScaffold(
       appBar: appBar,
+      frostedBleed: true,
       body: snapsAsync.when(
         loading: () => const XpSkeletonPage(),
         error: (e, _) => XpErrorState(
@@ -102,9 +108,10 @@ class _TrendPageState extends ConsumerState<TrendPage>
           return _TrendPageScope(
             granularity: _granularity,
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(
+              // 顶部穿透留白：随内容滚出，可从磨砂栏后穿过。
+              padding: EdgeInsets.fromLTRB(
                 XpSpacing.l,
-                XpSpacing.s,
+                bleedTop,
                 XpSpacing.l,
                 32,
               ),

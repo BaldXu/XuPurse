@@ -8,6 +8,7 @@ import '../../core/utils/app_colors.dart';
 import '../../data/database/app_database.dart';
 import '../../domain/services/trend_service.dart';
 import '../../state/providers.dart';
+import '../../state/theme_provider.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/adjust_sheet.dart';
@@ -39,26 +40,32 @@ class _AccountsPageState extends ConsumerState<AccountsPage>
     final total = ref.watch(totalAssetsProvider).value ?? 0;
     final snapsAsync = ref.watch(snapshotsProvider);
     final textTheme = Theme.of(context).textTheme;
+    final appBar = AppBar(
+      title: const Text('资产'),
+      actions: [
+        IconButton(
+          tooltip: '账户管理',
+          icon: const AppIcon(icon: Icons.manage_accounts_outlined),
+          onPressed: () => Navigator.push(
+            context,
+            XpRoute(builder: (_) => const AccountManagePage()),
+          ),
+        ),
+        IconButton(
+          tooltip: '新建账户',
+          icon: const Icon(Icons.add),
+          onPressed: () => AccountFormSheet.show(context),
+        ),
+      ],
+    );
+    // 磨砂穿透：滚动内容从磨砂栏后穿过，栏内模糊可见。
+    final bleedTop = ref.watch(frostedGlassProvider).barsOn
+        ? xpFrostedBleedTop(context, appBar)
+        : 0.0;
 
     return buildXpScaffold(
-      appBar: AppBar(
-        title: const Text('资产'),
-        actions: [
-          IconButton(
-            tooltip: '账户管理',
-            icon: const AppIcon(icon: Icons.manage_accounts_outlined),
-            onPressed: () => Navigator.push(
-              context,
-              XpRoute(builder: (_) => const AccountManagePage()),
-            ),
-          ),
-          IconButton(
-            tooltip: '新建账户',
-            icon: const Icon(Icons.add),
-            onPressed: () => AccountFormSheet.show(context),
-          ),
-        ],
-      ),
+      appBar: appBar,
+      frostedBleed: true,
       // 整页骨架：仅「无旧数据的首载」呈现；刷新期保留旧值不算 loading
       loading: accountsAsync.isLoading && accountsAsync.value == null,
       body: accountsAsync.when(
@@ -95,10 +102,11 @@ class _AccountsPageState extends ConsumerState<AccountsPage>
           var groupIndex = 0;
 
           return ListView(
-            // 底部留出穿透导航栏的高度(extendBody 注入的 MediaQuery bottom)。
+            // 顶部穿透留白随内容滚出（可从磨砂栏后穿过）；底部留穿透
+            // 导航栏的高度(extendBody 注入的 MediaQuery bottom)。
             padding: EdgeInsets.fromLTRB(
               XpSpacing.l,
-              XpSpacing.xs,
+              bleedTop,
               XpSpacing.l,
               32 + MediaQuery.paddingOf(context).bottom,
             ),

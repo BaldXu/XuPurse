@@ -42,13 +42,20 @@ class _SearchPageState extends ConsumerState<SearchPage>
 
   @override
   Widget build(BuildContext context) {
+    final appBar = AppBar(title: const Text('搜索账单'));
+    // 转场期间只渲染骨架：全量账单 + 标签关联查询常在 400ms 转场内
+    // 返回，此刻构建过滤栏/结果列表/图表会撞上转场动画抢 raster；
+    // completed 后数据若已到则直接构建，未到由结果区 XpSkeletonList 兜骨架。
+    if (!xpPushSettled) {
+      return buildXpScaffold(appBar: appBar, loading: true);
+    }
     final accounts =
         ref.watch(accountsProvider).valueOrNull ?? const <Account>[];
     final categories =
         ref.watch(categoriesProvider).valueOrNull ?? const <Category>[];
 
     return buildXpScaffold(
-      appBar: AppBar(title: const Text('搜索账单')),
+      appBar: appBar,
       body: Column(
         children: [
           Padding(

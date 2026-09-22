@@ -70,6 +70,11 @@ mixin XpPageScaffold<T extends StatefulWidget> on State<T> {
     Widget? floatingActionButton,
     Widget? bottomNavigationBar,
     bool? resizeToAvoidBottomInset,
+    // 磨砂穿透：true 时磨砂模式下 body 不再被下推到栏底，页面主滚动视图
+    // 自行用 [xpFrostedBleedTop] 作为 padding.top，滚动内容即可从磨砂栏
+    // 后穿过（栏内 BackdropFilter 有内容可采，磨砂可见）。默认 false 保持
+    // 原下推行为（栏下无穿透，栏呈纯色）。
+    bool frostedBleed = false,
   }) {
     // Consumer 包裹:磨砂开关(全局 provider)变化时本页即时切换栏样式。
     return Consumer(
@@ -102,10 +107,11 @@ mixin XpPageScaffold<T extends StatefulWidget> on State<T> {
             ),
           ),
         );
-        // 磨砂 AppBar:body 延伸到 AppBar 底下,顶部用「状态栏 + AppBar 实际
-        // 高度」留白,滚动内容可从磨砂栏后穿过。removeTop 防止内层主滚动视图
-        // (ListView/CustomScrollView 默认避让)再次叠加状态栏间距。
-        if (frosted) {
+        // 磨砂 AppBar:默认 body 用「状态栏 + AppBar 实际高度」下推,内容不
+        // 穿过栏,栏呈纯色;`frostedBleed: true` 的页面自行处理顶部留白
+        // (见 [xpFrostedBleedTop]),内容从磨砂栏后穿过,磨砂可见。
+        // removeTop 防止内层主滚动视图默认避让再次叠加状态栏间距。
+        if (frosted && !frostedBleed) {
           content = MediaQuery.removePadding(
             context: context,
             removeTop: true,
@@ -134,6 +140,26 @@ mixin XpPageScaffold<T extends StatefulWidget> on State<T> {
     );
   }
 }
+
+/// 磨砂穿透顶部留白：状态栏 + 栏实际高度（`frostedBleed: true` 页面用）。
+///
+/// 用法（页面需 watch 磨砂开关保证切换时即时响应）：
+/// ```dart
+/// final appBar = AppBar(...);
+/// final bleedTop = ref.watch(frostedGlassProvider).barsOn
+///     ? xpFrostedBleedTop(context, appBar)
+///     : 0.0;
+/// return buildXpScaffold(
+///   appBar: appBar,
+///   frostedBleed: true,
+///   body: ListView(padding: EdgeInsets.only(top: bleedTop, ...), ...),
+/// );
+/// ```
+/// 该留白是滚动视图 padding 的一部分，会随内容滚出，实现 iOS 式
+/// 「内容从磨砂栏后穿过」。注意取 viewPadding（Scaffold 对
+/// extendBodyBehindAppBar 的 body 会移除 padding.top，viewPadding 不受影响）。
+double xpFrostedBleedTop(BuildContext context, PreferredSizeWidget bar) =>
+    MediaQuery.viewPaddingOf(context).top + bar.preferredSize.height;
 
 /// 页面进场动画:内容淡入 + 上移 8dp(XpMotion.page),仅首次构建触发
 /// (State 只创建一次,后续 rebuild 不重播)。
@@ -239,7 +265,10 @@ class XpRouteBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    return child;
+    // 独立重绘边界：body 重建/重绘不波及栏内 BackdropFilter 的模糊层，
+    // 避免重建期快照重捕获出现黑帧（明细页过度滑动、统计页切换分类等
+    // 刷新动作后的磨砂闪黑）。
+    return RepaintBoundary(child: child);
   }
 }
 
