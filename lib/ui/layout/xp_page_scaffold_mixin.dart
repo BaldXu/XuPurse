@@ -17,11 +17,45 @@ import '../widgets/xp_skeleton.dart';
 /// 加载完成后与真实内容做淡入切换(XpMotion.component)。
 /// 块级异步请用 XpAsyncView.xpWhen,不要两者叠加。
 ///
-/// 进场动画:由路由转场统一负责(theme 的 CupertinoPageTransitionsBuilder),
-/// mixin 内不再叠加内容级进场,避免双重动画。特殊页面如需内容级进场,
-/// 可自行包一层 [XpEntrance](仅首次构建触发,尊重动画开关与 reduce-motion)。
+/// 进场动画:由路由转场统一负责(theme 的 XpPageTransitionsBuilder,
+/// 栏静止 + 内容区滑动的拆层结构),mixin 内不再叠加内容级进场,避免
+/// 双重动画。特殊页面如需内容级进场,可自行包一层 [XpEntrance]
+/// (仅首次构建触发,尊重动画开关与 reduce-motion)。
+/// 首帧构建昂贵的页面另见 [xpPushSettled] 的骨架短路用法。
 mixin XpPageScaffold<T extends StatefulWidget> on State<T> {
   double get xpMaxWidth => 720;
+
+  // ── push 转场结束探测（重页面首帧骨架短路用）────────────────────
+  Animation<double>? _xpRouteAnim;
+  bool _xpSettled = false;
+
+  /// push 转场动画是否已结束（ completed ）。
+  ///
+  /// 首帧同步构建昂贵的页面（重图表 / 大量静态卡片）在 build 开头短路：
+  /// ```dart
+  /// if (!xpPushSettled) {
+  ///   return buildXpScaffold(appBar: appBar, loading: true);
+  /// }
+  /// ```
+  /// 转场进行期间只构建轻量骨架（跟随内容区滑入），重内容连 widget
+  /// 树都不创建，动画零抢帧；completed 后自动 setState，真实内容
+  /// 响应式构建——重构建落在转场之后，用户感知为「内容加载」。
+  /// 动画关闭 / 零时长转场时 animation 立即 completed，首帧即内容。
+  bool get xpPushSettled {
+    if (_xpSettled) return true;
+    final anim = ModalRoute.of(context)?.animation;
+    if (anim == null) return true; // 非 route 场景（如测试）不阻塞
+    if (!identical(anim, _xpRouteAnim)) {
+      _xpRouteAnim = anim..addStatusListener(_xpOnRouteStatus);
+    }
+    return _xpSettled;
+  }
+
+  void _xpOnRouteStatus(AnimationStatus status) {
+    if (status == AnimationStatus.completed && mounted) {
+      setState(() => _xpSettled = true);
+    }
+  }
 
   Widget buildXpScaffold({
     PreferredSizeWidget? appBar,
@@ -37,8 +71,9 @@ mixin XpPageScaffold<T extends StatefulWidget> on State<T> {
         final frosted =
             ref.watch(frostedGlassProvider).barsOn &&
             appBar != null; // 磨砂:任意 AppBar 统一包壳,全部页面默认生效。
-        // 页面转场由 theme 的 PageTransitionsTheme 统一负责(Cupertino 滑动),
-        // 此处不再叠加进场动画,保证一个页面只有一个转场动画。
+        // 页面转场由 theme 的 PageTransitionsTheme 统一负责
+        // (XpPageTransitionsBuilder 拆层滑动),此处不再叠加进场动画,
+        // 保证一个页面只有一个转场动画。
         Widget content = ContentWidthBox(
           maxWidth: xpMaxWidth,
           child: AnimatedSwitcher(

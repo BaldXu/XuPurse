@@ -179,10 +179,16 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
 
   @override
   Widget build(BuildContext context) {
+    final appBar = AppBar(title: const Text('主题外观'));
+    // 本页静态内容重（主题球 + 多分区卡片），首帧全量构建会抢转场动画
+    // 的 raster 导致动画掉帧；转场期间渲染骨架，completed 后自动重建。
+    if (!xpPushSettled) {
+      return buildXpScaffold(appBar: appBar, loading: true);
+    }
     final state = ref.watch(themeProvider);
     final scheme = Theme.of(context).colorScheme;
     return buildXpScaffold(
-      appBar: AppBar(title: const Text('主题外观')),
+      appBar: appBar,
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
