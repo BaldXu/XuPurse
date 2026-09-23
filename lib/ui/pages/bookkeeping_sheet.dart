@@ -15,6 +15,7 @@ import '../widgets/xp_sheet.dart';
 import '../widgets/xp_skeleton.dart';
 import '../widgets/app_icon.dart';
 import '../widgets/bill_tile.dart' show kExpenseColor, kIncomeColor;
+import '../widgets/xp_sliding_segmented.dart';
 import '../tokens/design_tokens.dart';
 
 /// 记账弹窗：支出 / 收入 / 转账 + 数字键盘 + 二级分类 + 账户选择。
@@ -183,7 +184,8 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
       if (cur.isNotEmpty && cur != '0' && !cur.contains('.')) {
         // 与单数字键一致受 9 位整数上限约束（cur 无小数点时 length 即整数位数）。
         if (cur.length + 2 <= 9) {
-          next = '$cur'
+          next =
+              '$cur'
               '00';
         }
       }
@@ -396,31 +398,45 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
   }
 
   Widget _buildTabs(ColorScheme scheme) {
-    return SegmentedButton<BillType>(
-      segments: const [
-        ButtonSegment(
-          value: BillType.expense,
-          label: Text('支出'),
-          icon: AppIcon(icon: Icons.south_west),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        XpSpacing.l,
+        XpSpacing.s,
+        XpSpacing.l,
+        XpSpacing.xs,
+      ),
+      child: Center(
+        child: SizedBox(
+          width: 200,
+          height: 35,
+          child: XpSlidingSegmented<BillType>(
+            items: const [
+              XpSegmentedItem(
+                value: BillType.expense,
+                label: '支出',
+                icon: Icons.south_west,
+              ),
+              XpSegmentedItem(
+                value: BillType.income,
+                label: '收入',
+                icon: Icons.north_east,
+              ),
+              XpSegmentedItem(
+                value: BillType.transfer,
+                label: '转账',
+                icon: Icons.swap_horiz,
+              ),
+            ],
+            selected: _type,
+            onChanged: (t) => setState(() {
+              _type = t;
+              _parentId = null;
+              _subId = null;
+              _ensureDefaultCategory();
+            }),
+          ),
         ),
-        ButtonSegment(
-          value: BillType.income,
-          label: Text('收入'),
-          icon: AppIcon(icon: Icons.north_east),
-        ),
-        ButtonSegment(
-          value: BillType.transfer,
-          label: Text('转账'),
-          icon: AppIcon(icon: Icons.swap_horiz),
-        ),
-      ],
-      selected: {_type},
-      onSelectionChanged: (s) => setState(() {
-        _type = s.first;
-        _parentId = null;
-        _subId = null;
-        _ensureDefaultCategory();
-      }),
+      ),
     );
   }
 

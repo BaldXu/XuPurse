@@ -9,6 +9,7 @@ import '../../tokens/design_tokens.dart';
 import '../../widgets/xp_card.dart';
 import '../../widgets/xp_empty_state.dart';
 import '../../widgets/xp_skeleton.dart';
+import '../../widgets/xp_sliding_segmented.dart';
 import 'stats_shared.dart';
 
 /// 趋势分区：支出柱状趋势（粒度自适应/手动切换）+ 一级分类环比。
@@ -184,19 +185,17 @@ class _TrendCard extends StatelessWidget {
                   ),
                 ),
               ),
-              SegmentedButton<StatsGranularity>(
-                showSelectedIcon: false,
-                style: const ButtonStyle(visualDensity: VisualDensity.compact),
-                segments: const [
-                  ButtonSegment(value: StatsGranularity.day, label: Text('日')),
-                  ButtonSegment(value: StatsGranularity.week, label: Text('周')),
-                  ButtonSegment(
-                    value: StatsGranularity.month,
-                    label: Text('月'),
-                  ),
-                ],
-                selected: {granularity},
-                onSelectionChanged: (s) => onGranularityChanged(s.first),
+              SizedBox(
+                width: 150,
+                child: XpSlidingSegmented<StatsGranularity>(
+                  items: const [
+                    XpSegmentedItem(value: StatsGranularity.day, label: '日'),
+                    XpSegmentedItem(value: StatsGranularity.week, label: '周'),
+                    XpSegmentedItem(value: StatsGranularity.month, label: '月'),
+                  ],
+                  selected: granularity,
+                  onChanged: onGranularityChanged,
+                ),
               ),
             ],
           ),

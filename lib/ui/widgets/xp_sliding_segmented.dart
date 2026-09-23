@@ -32,12 +32,15 @@ class XpSlidingSegmented<T> extends StatefulWidget {
   State<XpSlidingSegmented<T>> createState() => _XpSlidingSegmentedState<T>();
 }
 
-/// 单个选项：泛型值 + 展示标签。
+/// 单个选项：泛型值 + 展示标签（可选前置图标）。
 class XpSegmentedItem<T> {
-  const XpSegmentedItem({required this.value, required this.label});
+  const XpSegmentedItem({required this.value, required this.label, this.icon});
 
   final T value;
   final String label;
+
+  /// 可选前置图标（如记账弹窗的类型 tab），选中态跟随文字着色。
+  final IconData? icon;
 }
 
 class _XpSlidingSegmentedState<T> extends State<XpSlidingSegmented<T>> {
@@ -200,7 +203,7 @@ class _XpSlidingSegmentedState<T> extends State<XpSlidingSegmented<T>> {
                                               ? FontWeight.w600
                                               : FontWeight.w500,
                                         ),
-                                child: Text(widget.items[i].label),
+                                child: _ItemContent(item: widget.items[i]),
                               ),
                             ),
                           ),
@@ -213,6 +216,30 @@ class _XpSlidingSegmentedState<T> extends State<XpSlidingSegmented<T>> {
           },
         ),
       ),
+    );
+  }
+}
+
+/// 选项内容：可选前置图标 + 标签；图标颜色跟随 [AnimatedDefaultTextStyle]。
+class _ItemContent<T> extends StatelessWidget {
+  const _ItemContent({required this.item});
+
+  final XpSegmentedItem<T> item;
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = item.icon;
+    final label = Text(item.label);
+    if (icon == null) return label;
+    // 取 AnimatedDefaultTextStyle 当前插值色，让图标与文字同步渐变
+    final color = DefaultTextStyle.of(context).style.color;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: XpSpacing.xs),
+        label,
+      ],
     );
   }
 }

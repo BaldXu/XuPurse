@@ -11,6 +11,7 @@ import '../../widgets/xp_card.dart';
 import '../../widgets/xp_empty_state.dart';
 import '../../widgets/xp_sheet.dart';
 import '../../widgets/xp_skeleton.dart';
+import '../../widgets/xp_sliding_segmented.dart';
 import 'stats_shared.dart';
 
 /// 分类分区：支出/收入饼图 + 一级分类金额排行。
@@ -179,15 +180,16 @@ class _CategoryRankCardState extends ConsumerState<_CategoryRankCard> {
                   ),
                 ),
               ),
-              SegmentedButton<BillType>(
-                showSelectedIcon: false,
-                style: const ButtonStyle(visualDensity: VisualDensity.compact),
-                segments: const [
-                  ButtonSegment(value: BillType.expense, label: Text('支出')),
-                  ButtonSegment(value: BillType.income, label: Text('收入')),
-                ],
-                selected: {_type},
-                onSelectionChanged: (s) => setState(() => _type = s.first),
+              SizedBox(
+                width: 150,
+                child: XpSlidingSegmented<BillType>(
+                  items: const [
+                    XpSegmentedItem(value: BillType.expense, label: '支出'),
+                    XpSegmentedItem(value: BillType.income, label: '收入'),
+                  ],
+                  selected: _type,
+                  onChanged: (t) => setState(() => _type = t),
+                ),
               ),
             ],
           ),
