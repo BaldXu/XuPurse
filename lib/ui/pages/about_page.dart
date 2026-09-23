@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
@@ -12,6 +13,21 @@ class AboutPage extends StatefulWidget {
 }
 
 class _AboutPageState extends State<AboutPage> with XpPageScaffold<AboutPage> {
+  /// 应用版本号（读 pubspec 的 version）；获取失败时回退「--」。
+  String _version = '--';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    if (!mounted) return;
+    setState(() => _version = info.version);
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -56,7 +72,7 @@ class _AboutPageState extends State<AboutPage> with XpPageScaffold<AboutPage> {
               const SizedBox(height: XpSpacing.xs),
               Center(
                 child: Text(
-                  'v0.1.0',
+                  'v$_version',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),

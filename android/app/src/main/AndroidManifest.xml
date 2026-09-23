@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 网络访问：AI 对话、汇率更新等联网功能需要。
+         debug/profile 构建由 Flutter 模板自带 INTERNET 权限，
+         但 release 安装包必须在此显式声明，否则所有网络请求失败。 -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="xupurse"
         android:name="${applicationName}"

@@ -10,6 +10,7 @@ import '../../domain/services/trend_service.dart';
 import '../../state/providers.dart';
 import '../../state/theme_provider.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
+import '../tokens/currency_meta.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/adjust_sheet.dart';
 import '../widgets/app_icon.dart';
@@ -399,11 +400,25 @@ class _AccountRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: XpSpacing.m),
-            Text(
-              formatYuan(account.currentBalance),
-              style: textTheme.titleSmall
-                  ?.copyWith(fontWeight: FontWeight.w600)
-                  .tabular,
+            // 国家/地区旗帜 + 余额（按账户币种着色）
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  XpCurrencyMetaConfig.flagOf(account.currency),
+                  style: textTheme.titleSmall,
+                ),
+                const SizedBox(width: XpSpacing.xs),
+                Text(
+                  formatYuan(account.currentBalance),
+                  style: textTheme.titleSmall
+                      ?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: XpCurrencyMetaConfig.colorOf(account.currency),
+                      )
+                      .tabular,
+                ),
+              ],
             ),
           ],
         ),
