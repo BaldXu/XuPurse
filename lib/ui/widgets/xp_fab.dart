@@ -102,7 +102,8 @@ class _XpFabState extends State<XpFab> {
     }
 
     if (cardsOn) {
-      // 结构/参数对齐 XpCard._frostCard：grouped + src、RepaintBoundary。
+      // 结构/参数对齐 XpCard._frostCard：普通 BackdropFilter + src、
+      // RepaintBoundary（grouped 共享快照的闪灰黑问题见 xp_card.dart 注释）。
       fab = RepaintBoundary(child: _frostFab(fab, shape));
     }
     return fab;
@@ -112,7 +113,7 @@ class _XpFabState extends State<XpFab> {
   Widget _frostFab(Widget fab, ShapeBorder shape) {
     return ClipPath(
       clipper: ShapeBorderClipper(shape: shape),
-      child: BackdropFilter.grouped(
+      child: BackdropFilter(
         filter: ImageFilter.blur(
           sigmaX: XpCard.frostSigma,
           sigmaY: XpCard.frostSigma,

@@ -1,67 +1,136 @@
 import 'package:flutter/material.dart';
 
-/// 懒挂载 IndexedStack:子项首次被选中才构建,构建后常驻(状态保留)。
+/// 多页面懒加载栈：只构建当前页与已访问页，未访问页切到时才首次构建。
 ///
-/// 与 [IndexedStack] 的差别:未访问过的子项不参与构建;
-/// 访问过的子项保持挂载(切走时不可见但不销毁)。
-/// 用于 MainShell 让「统计」等重页面只在首次点入时才产生构建成本。
+/// 切换时新页以「覆盖淡入」转场出现：旧页保持不动（全程不透明），
+/// 新页在其上方 180ms 淡入，动画结束后新页落到 Stack 主位、旧页
+/// 转入 [Offstage] 保活。相比历史方案：
 ///
-/// 一级页面切换为**瞬时切换,不做内容动画**(Material 3 NavigationBar
-/// 标准行为:运动反馈由导航栏指示器动画承担,页面内容直接替换)。
-/// 历史上尝试过三种自定义过渡,均有视觉缺陷:
-/// - 位移轮播:被反馈「移一小段后突切」;
-/// - 交叉淡化:两页半透明叠加,文字互相叠印(重影闪屏,见用户录屏);
-/// - fade-through(先出后进):交接瞬间两页透明度同时≈0,白色背景上
-///   闪一帧近白屏;且磨砂 AppBar 的 BackdropFilter 在透明度动画期间
-///   每帧重算模糊快照,引擎合成层易抖动。
-/// 瞬时切换从根上绕开上述问题,也是微信/支付宝/Flutter Gallery 的做法。
+/// - 瞬时切换（无过渡）→ 首访页整页首次光栅化帧，页内所有
+///   BackdropFilter 同时 readback 未就绪纹理，整页闪灰黑。
+/// - 交叉淡化 / fade-through → 两页同时半透明叠加，文字重影、
+///   闪近白屏（历史上线后均有用户录屏反馈，已回滚）。
+/// - 覆盖淡入：旧页全程不透明，不存在半透明叠加；首访页在不可见的
+///   淡入层完成首帧构建与光栅化，其磨砂元素 readback 的是下方已
+///   稳定的旧页图层，不会闪黑；已访问页内容早已就绪，readback 的
+///   也是稳定纹理。转场期间新页内容渐显，等价于「内容没准备好前不
+///   显示」，且光栅化与转场动画并行，不拖慢切换。
+///
+/// 页面经 [GlobalKey] 保活：转场结束换位（淡入层 → Stack 主位 /
+/// 主位 → Offstage）时 State 随 key 迁移，切走再切回列表滚动位置
+/// 等状态不丢。
 class LazyIndexedStack extends StatefulWidget {
-  const LazyIndexedStack({
-    super.key,
-    required this.index,
-    required this.children,
-  });
+  const LazyIndexedStack({super.key, required this.index, required this.pages});
 
   final int index;
-  final List<Widget> children;
+  final List<Widget> pages;
 
   @override
   State<LazyIndexedStack> createState() => _LazyIndexedStackState();
 }
 
-class _LazyIndexedStackState extends State<LazyIndexedStack> {
-  late final List<bool> _visited = List<bool>.generate(
-    widget.children.length,
-    (i) => i == widget.index,
-  );
+class _LazyIndexedStackState extends State<LazyIndexedStack>
+    with TickerProviderStateMixin {
+  /// 是否已首次构建过。未访问的页面完全不构建（懒加载）。
+  late final List<bool> _visited;
+
+  /// 每个页面的保活 key，转场换位时 State 随 key 迁移。
+  final List<GlobalKey> _pageKeys = <GlobalKey>[];
+
+  /// 当前占据 Stack 主位（底层、不透明）的页面。
+  int _displayIndex = 0;
+
+  /// 转场中正在淡入的页面（Stack 顶层）。
+  int? _incomingIndex;
+  AnimationController? _incomingController;
+  CurvedAnimation? _incomingAnimation;
 
   @override
-  void didUpdateWidget(LazyIndexedStack oldWidget) {
+  void initState() {
+    super.initState();
+    _visited = List<bool>.filled(widget.pages.length, false);
+    _visited[widget.index] = true;
+    _displayIndex = widget.index;
+    for (var i = 0; i < widget.pages.length; i++) {
+      _pageKeys.add(GlobalKey());
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant LazyIndexedStack oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.index == oldWidget.index) {
+    if (widget.index != oldWidget.index && widget.index != _displayIndex) {
+      _beginTransition(widget.index);
+    }
+  }
+
+  @override
+  void dispose() {
+    _incomingController?.dispose();
+    super.dispose();
+  }
+
+  void _beginTransition(int target) {
+    if (target < 0 || target >= widget.pages.length) return;
+    // 打断进行中的转场：直接落到被打断转场的终点。
+    final interrupted = _incomingIndex;
+    if (interrupted != null) {
+      _incomingController!.stop();
+      _incomingController!.dispose();
+      _incomingController = null;
+      _incomingAnimation = null;
+      _incomingIndex = null;
+      _displayIndex = interrupted;
+    }
+    if (target == _displayIndex) {
+      setState(() {});
       return;
     }
-    // 首次点入才挂载该页;已挂载页保持状态,仅切换可见性。
-    setState(() => _visited[widget.index] = true);
+    setState(() {
+      // 懒加载：本帧起新页开始构建，在不可见的淡入层完成首帧光栅化。
+      _visited[target] = true;
+      _incomingIndex = target;
+    });
+    final controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 180),
+    );
+    _incomingController = controller;
+    final animation = CurvedAnimation(
+      parent: controller,
+      curve: Curves.easeOut,
+    );
+    _incomingAnimation = animation;
+    animation.addStatusListener(_handleTransitionEnd);
+    controller.forward();
+  }
+
+  void _handleTransitionEnd(AnimationStatus status) {
+    if (status != AnimationStatus.completed || !mounted) return;
+    final incoming = _incomingIndex;
+    if (incoming == null) return;
+    _incomingController!.dispose();
+    _incomingController = null;
+    _incomingAnimation = null;
+    _incomingIndex = null;
+    // 新页落到 Stack 主位（key 保活，State 迁移），旧页转 Offstage。
+    setState(() => _displayIndex = incoming);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        for (var i = 0; i < widget.children.length; i++)
-          if (_visited[i])
-            Positioned.fill(
-              child: Offstage(
-                offstage: i != widget.index,
-                // 隐藏页停掉动画驱动(滚动惯性等),避免白白消耗 ticker。
-                child: TickerMode(
-                  enabled: i == widget.index,
-                  child: widget.children[i],
-                ),
-              ),
-            ),
-      ],
-    );
+    final incoming = _incomingIndex;
+    final children = <Widget>[];
+    for (var i = 0; i < widget.pages.length; i++) {
+      final page = KeyedSubtree(key: _pageKeys[i], child: widget.pages[i]);
+      if (i == _displayIndex) {
+        children.add(page);
+      } else if (i == incoming) {
+        children.add(FadeTransition(opacity: _incomingAnimation!, child: page));
+      } else if (_visited[i]) {
+        children.add(Offstage(child: page));
+      }
+    }
+    return Stack(fit: StackFit.expand, children: children);
   }
 }

@@ -16,6 +16,7 @@ import '../widgets/app_icon.dart';
 import '../widgets/xp_card.dart';
 import '../widgets/xp_stagger_in.dart';
 import '../widgets/xp_empty_state.dart';
+import '../widgets/xp_skeleton.dart';
 import 'account_detail_page.dart';
 import 'account_form_sheet.dart';
 import 'account_manage_page.dart';
@@ -36,6 +37,15 @@ class _AccountsPageState extends ConsumerState<AccountsPage>
     with XpPageScaffold<AccountsPage> {
   @override
   Widget build(BuildContext context) {
+    // 首次挂载（切 tab 进来）只渲染骨架（xpFirstSettled 首帧门，仅首个
+    // 未挂载帧生效）：总资产卡/趋势卡/账户分组卡首帧全量构建会抢转场帧，
+    // 且卡片磨砂在未就绪图层上 readback 会闪灰黑，首帧后自动重建真实内容。
+    if (!xpFirstSettled) {
+      return buildXpScaffold(
+        appBar: AppBar(title: const Text('资产')),
+        body: const XpSkeletonPage(),
+      );
+    }
     final accountsAsync = ref.watch(accountsProvider);
     final total = ref.watch(totalAssetsProvider).value ?? 0;
     final snapsAsync = ref.watch(snapshotsProvider);

@@ -20,8 +20,10 @@ import '../tokens/design_tokens.dart';
 /// - 窄屏（手机竖屏）：底部 NavigationBar（现状不变）；
 /// - 宽屏（桌面横屏）：左侧带文字标签的宽侧栏。
 ///
-/// 磨砂模式:外层包 [BackdropGroup],一级页 AppBar 与底部导航栏共享一次
-/// 引擎模糊(BackdropFilter.grouped 自动归组);开关关闭恢复原生样式。
+/// 磨砂模式:底部导航栏用 XpFrostedContainer 做磨砂玻璃,AppBar 由
+/// XpPageScaffold 统一包装(XpRouteBar);各磨砂面各自捕获快照。
+/// 2026-09: 曾用 BackdropGroup 让栏/卡共享一次引擎模糊,Flutter 3.35
+/// 上滚动/重建会整帧闪灰黑(Impeller/Skia 均复现),已移除共享归组。
 class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key});
 
@@ -31,9 +33,6 @@ class MainShell extends ConsumerStatefulWidget {
 
 class _MainShellState extends ConsumerState<MainShell> {
   int _index = 0;
-
-  // 固定 key 避免每次 build 生成新组导致共享模糊层失效重建。
-  late final BackdropKey _backdropKey = BackdropKey();
 
   static const _pages = [
     HomePage(),
@@ -104,7 +103,7 @@ class _MainShellState extends ConsumerState<MainShell> {
             ),
             const VerticalDivider(width: 1, thickness: 1),
             Expanded(
-              child: LazyIndexedStack(index: _index, children: _pages),
+              child: LazyIndexedStack(index: _index, pages: _pages),
             ),
           ],
         ),
@@ -133,8 +132,12 @@ class _MainShellState extends ConsumerState<MainShell> {
     );
     return Scaffold(
       extendBody: frosted,
-      body: LazyIndexedStack(index: _index, children: _pages),
-      bottomNavigationBar: frosted ? XpFrostedContainer(child: navBar) : navBar,
+      body: LazyIndexedStack(index: _index, pages: _pages),
+      // 与 XpRouteBar 同款重绘隔离（xp_page_scaffold_mixin）：磨砂栏独立成
+      // 图层，body 滚动/重建时不与栏共享重绘区域。
+      bottomNavigationBar: frosted
+          ? RepaintBoundary(child: XpFrostedContainer(child: navBar))
+          : navBar,
       floatingActionButton: _index == 0 ? _buildFab() : null,
     );
   }
@@ -146,10 +149,7 @@ class _MainShellState extends ConsumerState<MainShell> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= kWideBreakpoint;
-        final shell = wide ? _buildWide() : _buildNarrow(frosted);
-        return frosted
-            ? BackdropGroup(backdropKey: _backdropKey, child: shell)
-            : shell;
+        return wide ? _buildWide() : _buildNarrow(frosted);
       },
     );
   }

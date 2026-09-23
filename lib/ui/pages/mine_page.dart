@@ -8,6 +8,7 @@ import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/app_icon.dart';
 import '../widgets/xp_card.dart';
+import '../widgets/xp_skeleton.dart';
 import 'about_page.dart';
 import 'ai_settings_page.dart';
 import 'book_manage_page.dart';
@@ -30,11 +31,19 @@ class _MinePageState extends ConsumerState<MinePage>
     with XpPageScaffold<MinePage> {
   @override
   Widget build(BuildContext context) {
+    // 首次挂载（切 tab 进来）只渲染骨架（xpFirstSettled 首帧门，仅首个
+    // 未挂载帧生效）：用户卡/设置分组卡含磨砂，首帧全量构建会抢转场帧且
+    // 磨砂在未就绪图层上 readback 闪灰黑，首帧后自动重建真实内容。
+    if (!xpFirstSettled) {
+      return buildXpScaffold(
+        appBar: AppBar(title: const Text('我的')),
+        body: const XpSkeletonPage(),
+      );
+    }
     final total = ref.watch(totalAssetsProvider).value ?? 0;
     final baseCurrency = ref.watch(baseCurrencyProvider).value ?? 'CNY';
     // 当前账本名（账本可新建/切换/删除，不能硬编码 'XuPurse'）
-    final bookName =
-        ref.watch(currentBookProvider).value?.name ?? 'XuPurse';
+    final bookName = ref.watch(currentBookProvider).value?.name ?? 'XuPurse';
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
     final appBar = AppBar(title: const Text('我的'));

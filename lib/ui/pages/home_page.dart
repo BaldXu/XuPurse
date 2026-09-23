@@ -32,6 +32,16 @@ class _HomePageState extends ConsumerState<HomePage>
     with XpPageScaffold<HomePage> {
   @override
   Widget build(BuildContext context) {
+    // 首次挂载（切 tab 进来）只渲染骨架：整页树（Hero 汇总 + 过滤栏 +
+    // 按日卡片流）首帧全量构建会与转场/导航栏指示器动画抢帧，且卡片磨砂
+    // 在未就绪图层上 readback 会闪灰黑；首帧渲染完成后自动重建真实内容
+    // （xpFirstSettled 首帧门，仅首个未挂载帧生效，切回本 tab 不重播）。
+    if (!xpFirstSettled) {
+      return buildXpScaffold(
+        appBar: AppBar(title: const Text('XuPurse')),
+        body: const XpSkeletonPage(),
+      );
+    }
     final billsAsync = ref.watch(billsProvider);
     final summary =
         ref.watch(monthSummaryProvider).value ?? (expense: 0, income: 0);

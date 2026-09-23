@@ -8,10 +8,10 @@ import 'package:flutter/material.dart';
 /// 必须配合 [Scaffold.extendBody] / [Scaffold.extendBodyBehindAppBar]
 /// 使用,否则栏下只有背景色,模糊无内容可透。
 ///
-/// 使用 [BackdropFilter.grouped] + [BlendMode.src]:
-/// - grouped 自动向上查找最近 [BackdropGroup],多个磨砂栏共享一次引擎模糊
-///   (无祖先时自动退化为普通 filter,行为不变);
-/// - src 防御父级 saveLayer(如 Opacity)下的混合异常(官方文档推荐做法)。
+/// 普通 [BackdropFilter] + [BlendMode.src] 各自捕获快照(σ15 · α0.30)：
+/// - src 防御父级 saveLayer(如 Opacity)下的混合异常(官方文档推荐做法)；
+/// - 不用 grouped 共享快照：Flutter 3.35 上共享快照滚动/重建会整帧闪
+///   灰黑(Impeller/Skia 均复现,真机视频已确认),各自捕获彻底规避。
 class XpFrostedContainer extends StatelessWidget {
   const XpFrostedContainer({
     super.key,
@@ -32,7 +32,7 @@ class XpFrostedContainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRect(
-      child: BackdropFilter.grouped(
+      child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
         blendMode: BlendMode.src,
         child: ColoredBox(

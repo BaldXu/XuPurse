@@ -36,6 +36,11 @@ class XpCard extends StatefulWidget {
 
   /// 卡片磨砂参数：真实高斯模糊 σ10 · 白 0.55（比弹窗磨砂更透）。
   /// FAB 磨砂（XpFab）共享同一参数，保证「卡片化」表面视觉一致。
+  ///
+  /// 2026-09: 曾用 BackdropFilter.grouped + BackdropGroup 让栏/卡共享一次
+  /// 引擎模糊，实测 Flutter 3.35 上滚动进卡/切页重建会整帧闪灰黑
+  /// (Impeller/Skia 均复现，白色磨砂叠在未就绪快照上)，已退回普通
+  /// BackdropFilter 各自捕获。升级新版 Flutter 后再评估是否恢复共享。
   static const double frostSigma = 10;
   static const double frostAlpha = 0.55;
 
@@ -62,6 +67,7 @@ class _XpCardState extends State<XpCard> {
       context,
       listen: false,
     ).read(frostedGlassProvider).cardsOn;
+    final frostEnabled = cardsOn;
 
     final Widget padded = Padding(
       padding: widget.padding ?? const EdgeInsets.all(XpSpacing.l),
@@ -77,7 +83,7 @@ class _XpCardState extends State<XpCard> {
         shape: cardStyle.shape,
         margin: EdgeInsets.zero,
         clipBehavior: widget.clipBehavior,
-        color: cardsOn ? Colors.transparent : null,
+        color: frostEnabled ? Colors.transparent : null,
         child: padded,
       );
       if (hasTap) {
@@ -109,7 +115,7 @@ class _XpCardState extends State<XpCard> {
               shape: cardStyle.shape,
               margin: EdgeInsets.zero,
               clipBehavior: widget.clipBehavior,
-              color: cardsOn ? Colors.transparent : null,
+              color: frostEnabled ? Colors.transparent : null,
               child: child,
             ),
           ),
@@ -118,12 +124,11 @@ class _XpCardState extends State<XpCard> {
       );
     }
 
-    if (cardsOn) {
+    if (frostEnabled) {
       // 磨砂表面在最外层（固定不动），内容层缩放在其内；
       // RepaintBoundary 让每卡模糊+内容成独立图层，按压/ripple
-      // 重绘不波及其他卡片。grouped + src 对齐栏级磨砂：
-      // 一级页有 BackdropGroup 祖先时栏/卡共享一次引擎模糊，
-      // src 防御父级 saveLayer（如 Opacity）下的混合异常。
+      // 重绘不波及其他卡片；BlendMode.src 防御父级 saveLayer
+      // （如 Opacity）下的混合异常。
       card = RepaintBoundary(
         child: _frostCard(
           card,
@@ -135,10 +140,13 @@ class _XpCardState extends State<XpCard> {
   }
 
   /// 卡片磨砂表面：G2 形状裁剪内做真实高斯模糊 + 半透明白（σ10 · α0.55）。
+  ///
+  /// 普通 BackdropFilter 各自捕获：避免 grouped 共享快照在 Flutter 3.35
+  /// 滚动/重建时整帧闪灰黑（真机已复现）；σ10 下逐卡捕获的开销可接受。
   Widget _frostCard(Widget card, ShapeBorder shape) {
     return ClipPath(
       clipper: ShapeBorderClipper(shape: shape),
-      child: BackdropFilter.grouped(
+      child: BackdropFilter(
         filter: ImageFilter.blur(
           sigmaX: XpCard.frostSigma,
           sigmaY: XpCard.frostSigma,

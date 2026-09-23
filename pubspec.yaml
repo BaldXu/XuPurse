@@ -1,8 +1,8 @@
 name: xupurse
-description: "XuPurse - 记账软件，支持一木/昼虎/钱迹数据库导入"
+description: "XuPurse - 个人记账软件"
 publish_to: 'none'
 
-version: 0.1.0+2
+version: 0.1.1+2
 
 environment:
   sdk: ^3.9.2
