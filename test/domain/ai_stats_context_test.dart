@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xupurse/core/constants/enums.dart';
 import 'package:xupurse/data/database/app_database.dart';
@@ -95,5 +94,58 @@ void main() {
     expect(text, contains('### 支出标签 Top10（$lm）'));
     expect(text, contains('### 支出标签 Top10（$cm）'));
     expect(text, contains('tag-travel'));
+  });
+
+  test('AiStatsContext.build：全部档位超 24 个月时保留最近月份并提示', () async {
+    final db = AppDatabase.memory();
+    final now = DateTime.now();
+    // 3 年前（应被截断丢弃）与本月的两笔支出
+    final old = DateTime(now.year - 3, 1, 15);
+    final recent = DateTime(now.year, now.month, 5);
+    final tOld = old.millisecondsSinceEpoch;
+    final tRecent = recent.millisecondsSinceEpoch;
+
+    await db
+        .into(db.categories)
+        .insert(
+          CategoriesCompanion.insert(
+            id: 'cat-food',
+            type: BillType.expense.name,
+            name: '餐饮',
+            createdAt: tOld,
+            updatedAt: tOld,
+          ),
+        );
+    Future<void> ins(String id, int time) => db
+        .into(db.bills)
+        .insert(
+          BillsCompanion.insert(
+            id: id,
+            type: BillType.expense.name,
+            categoryId: 'cat-food',
+            amount: 10000,
+            time: time,
+            createdAt: tOld,
+            updatedAt: tOld,
+          ),
+        );
+    await ins('b-old', tOld);
+    await ins('b-new', tRecent);
+
+    final container = ProviderContainer(
+      overrides: [dbProvider.overrideWithValue(db)],
+    );
+    addTearDown(container.dispose);
+    addTearDown(db.close);
+
+    final text = await AiStatsContext(
+      container,
+    ).build(override: AiScope.defaultScope.copyWith(range: AiScopeRange.all));
+
+    // 保留最近 24 个月：本月有逐月分类，3 年前的月份被截断丢弃
+    expect(text, contains('### 支出分类 Top10（${now.year}/${now.month}）'));
+    expect(text, isNot(contains('（${old.year}/${old.month}）')));
+    // 截断时给出口径提示
+    expect(text, contains('仅列出最近 24 个月'));
   });
 }

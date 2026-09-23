@@ -116,6 +116,7 @@ class _AiChatSheetState extends ConsumerState<_AiChatSheet> {
   bool _sending = false;
   bool _thinking = false; // 思考模式（默认关闭；仅支持的模型显示开关）
   String? _statsCache; // 每次打开聊天窗只生成一次
+  final Set<String> _summarySentConvIds = {}; // 本次窗口内已附过摘要的会话 id（重开窗口会重新附一次）
 
   /// 当前配置的模型是否疑似支持思考模式（启发式，按模型名判断）。
   bool get _modelSupportsThinking {
@@ -203,14 +204,19 @@ class _AiChatSheetState extends ConsumerState<_AiChatSheet> {
       }
       final history = convNow.messages.sublist(0, convNow.messages.length - 1);
 
-      // 附带本机统计摘要（数据范围由「数据范围设置」控制；仅首次发送时生成，
-      // 后续复用）。总开关关闭时 build() 返回空串，等同纯聊天模式。
+      // 附带本机统计摘要：每个聊天窗口（会话）首次发送时附一次，之后本窗口
+      // 不再重复发送（省 tokens）；数据有更新请新开一个聊天窗口。
+      // 数据范围由「数据范围设置」控制；总开关关闭时 build() 返回空串。
       var systemPrompt = kDefaultSystemPrompt;
-      if (ref.read(aiScopeProvider).enabled) {
+      final scope = ref.read(aiScopeProvider);
+      final needSummary =
+          scope.enabled && !_summarySentConvIds.contains(convNow.id);
+      if (needSummary) {
         final stats = _statsCache ?? await AiStatsContext(ref).build();
         _statsCache = stats;
         if (stats.isNotEmpty) {
           systemPrompt = '$kDefaultSystemPrompt\n\n$stats';
+          _summarySentConvIds.add(convNow.id);
         }
       }
 

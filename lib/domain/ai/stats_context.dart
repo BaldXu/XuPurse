@@ -1,3 +1,5 @@
+import 'dart:developer' show log;
+
 import 'package:drift/drift.dart' show Variable;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -13,12 +15,18 @@ import 'ai_scope.dart';
 /// 摘要包含哪些数据由 [aiScopeProvider]（AI 数据范围设置）控制：
 /// 总开关关闭时返回空串；时间范围档位决定统计窗口；资产/收支/分类
 /// 开关决定输出哪些章节。多个月的时间范围内，分类/标签/备注按自然月
-/// 逐月生成，便于 AI 对比各月差异。
+/// 逐月生成，便于 AI 对比各月差异。某节生成失败时跳过该节，但在日志中
+/// 记录并在摘要末尾提示，避免故障静默。
 class AiStatsContext {
   AiStatsContext(this._ref);
 
   /// 支持来自 Notifier 的 [Ref] 或 Widget 的 [WidgetRef]。
   final dynamic _ref;
+
+  /// 类型化的 read：_ref 为 dynamic，直接 read 会让结果退化为 dynamic，
+  /// 触发 `.where((a) => a.enabled)` 等 lambda 推断成 `(dynamic)=>dynamic`
+  /// 的运行时 TypeError（曾导致账户余额/资产趋势两节静默失败）。
+  T _read<T>(ProviderListenable<T> provider) => _ref.read(provider);
 
   /// 生成统计摘要文本（Markdown）。
   ///
@@ -27,16 +35,15 @@ class AiStatsContext {
   /// 账户/分类名照实输出（均为本地自命名，非敏感卡号）。任何一步失败
   /// 跳过该节，不影响整体生成。总开关关闭时返回空串。
   Future<String> build({AiScope? override}) async {
-    final billRepo = _ref.read(billRepoProvider);
-    final scope = override ?? _ref.read(aiScopeProvider);
+    final billRepo = _read(billRepoProvider);
+    final AiScope scope = override ?? _read(aiScopeProvider);
     // 总开关关闭：不给 AI 任何本机数据（纯聊天模式）。
     if (!scope.enabled) return '';
 
-    final accounts = _ref.read(accountsProvider).value ?? const <Account>[];
-    final categories =
-        _ref.read(categoriesProvider).value ?? const <Category>[];
+    final accounts = _read(accountsProvider).value ?? const <Account>[];
+    final categories = _read(categoriesProvider).value ?? const <Category>[];
     final catName = {for (final c in categories) c.id: c.name};
-    final tags = _ref.read(tagsProvider).value ?? const <Tag>[];
+    final tags = _read(tagsProvider).value ?? const <Tag>[];
     final tagName = {for (final t in tags) t.id: t.name};
     final topN = scope.categoryTopN;
 
@@ -57,13 +64,20 @@ class AiStatsContext {
       start = await billRepo.minBillTime() ?? end - 365 * 24 * 3600 * 1000;
     }
     if (start > end) start = end - 24 * 3600 * 1000;
+
+    // 逐月窗口：覆盖 [start, end) 的最近至多 24 个自然月（升序）。
+    // 首尾月窗口按 start/end 裁剪，使逐月明细之和与收支汇总严格一致。
+    final windows = _monthWindows(start, end, now);
+    final months = windows.months;
+    final truncated = windows.truncated;
+
+    // 生成失败的章节名（记录 + 末尾提示，避免静默）。
+    final failed = <String>[];
+
     buf.writeln(
       '## 本机统计摘要（应用自动附带，截止 ${now.year}/${now.month}/${now.day}，'
       '范围：${scope.range.label}）',
     );
-
-    // 需要逐月拆分的自然月窗口（升序；过长时截断最旧的月份，封顶 24 个月）。
-    final months = _monthWindows(start, now);
 
     // 1) 账户概况（资产开关）
     if (scope.includeAssets) {
@@ -76,11 +90,13 @@ class AiStatsContext {
             buf.writeln(
               '- ${a.name}（${a.category}）：${_yuan(a.currentBalance)}',
             );
-            total += a.currentBalance as int;
+            total += a.currentBalance;
           }
           buf.writeln('- 合计余额：${_yuan(total)}');
         }
-      } catch (_) {}
+      } catch (e, st) {
+        _noteFailure(failed, '账户余额', e, st);
+      }
     }
 
     // 2) 收支汇总（收支开关，覆盖所选时间范围的总额）
@@ -92,7 +108,9 @@ class AiStatsContext {
           '- 支出 ${_yuan(s.expense)}，收入 ${_yuan(s.income)}，'
           '结余 ${_yuan(s.income - s.expense)}',
         );
-      } catch (_) {}
+      } catch (e, st) {
+        _noteFailure(failed, '收支汇总', e, st);
+      }
     }
 
     // 3) 分类 Top N（分类开关，逐月生成）
@@ -126,7 +144,9 @@ class AiStatsContext {
               );
             }
           }
-        } catch (_) {}
+        } catch (e, st) {
+          _noteFailure(failed, '分类 ${m.year}/${m.month}', e, st);
+        }
       }
     }
 
@@ -161,7 +181,9 @@ class AiStatsContext {
               );
             }
           }
-        } catch (_) {}
+        } catch (e, st) {
+          _noteFailure(failed, '标签 ${m.year}/${m.month}', e, st);
+        }
       }
     }
 
@@ -180,7 +202,9 @@ class AiStatsContext {
               buf.writeln('- "${e.comment}"：${_yuan(e.amount)}');
             }
           }
-        } catch (_) {}
+        } catch (e, st) {
+          _noteFailure(failed, '备注 ${m.year}/${m.month}', e, st);
+        }
       }
     }
 
@@ -194,14 +218,16 @@ class AiStatsContext {
             '- ${m.year}/${m.month}：支出 ${_yuan(s.$1)}，收入 ${_yuan(s.$2)}',
           );
         }
-      } catch (_) {}
+      } catch (e, st) {
+        _noteFailure(failed, '收支趋势', e, st);
+      }
     }
 
     // 7) 资产趋势（资产开关，覆盖所选时间范围，周粒度）
     if (scope.includeAssets) {
       try {
         final snaps =
-            _ref.read(snapshotsProvider).value ?? const <BalanceSnapshot>[];
+            _read(snapshotsProvider).value ?? const <BalanceSnapshot>[];
         final assetIds = accounts
             .where(
               (a) =>
@@ -240,14 +266,16 @@ class AiStatsContext {
           }
           buf.writeln('- 期间最高 ${_yuan(maxP.value)}，最低 ${_yuan(minP.value)}');
         }
-      } catch (_) {}
+      } catch (e, st) {
+        _noteFailure(failed, '资产趋势', e, st);
+      }
     }
 
     // 8) 预算执行（本月，收支开关）
     if (scope.includeIncomeExpense) {
       try {
-        final db = _ref.read(dbProvider);
-        final budgets = await _ref.read(budgetRepoProvider).getAll();
+        final db = _read(dbProvider);
+        final budgets = await _read(budgetRepoProvider).getAll();
         final range = _monthRange(now, 0);
         final items = <({String name, int amount, int spent})>[];
         for (final b in budgets) {
@@ -287,7 +315,9 @@ class AiStatsContext {
             );
           }
         }
-      } catch (_) {}
+      } catch (e, st) {
+        _noteFailure(failed, '预算执行', e, st);
+      }
     }
 
     buf.writeln(
@@ -297,41 +327,72 @@ class AiStatsContext {
           : '\n（摘要仅含聚合数据，不含账单备注/位置等明细；'
                 '摘要未涵盖的部分请明确说明不知道。）',
     );
+    if (truncated) {
+      buf.writeln(
+        '（注：历史超过 24 个月，分类 / 标签 / 备注 / 趋势仅列出最近 24 个月，'
+        '收支汇总仍为全部范围。）',
+      );
+    }
+    if (failed.isNotEmpty) {
+      buf.writeln('（注：${failed.join('、')} 等章节因数据异常未能生成。）');
+    }
     return buf.toString();
   }
 
-  /// 覆盖 [start, now] 的自然月窗口（升序；过长时截断最旧的月份，封顶 24 个）。
-  List<({int year, int month, int start, int end})> _monthWindows(
-    int start,
-    DateTime now,
+  /// 记录某章节生成失败：写日志 + 记入 [failed] 供文末提示。
+  static void _noteFailure(
+    List<String> failed,
+    String name,
+    Object e,
+    StackTrace st,
   ) {
+    failed.add(name);
+    log(
+      '[AI摘要] $name 生成失败: $e',
+      name: 'AiStatsContext',
+      error: e,
+      stackTrace: st,
+    );
+  }
+
+  /// 覆盖 [start, end) 的至多 24 个自然月窗口（升序，保留最近月份）。
+  ///
+  /// 首尾月窗口按 [start]/[end] 裁剪（保证与收支汇总口径一致）；
+  /// 历史超过 24 个月时截断最旧月份，[truncated] 置 true。
+  ({List<({int year, int month, int start, int end})> months, bool truncated})
+  _monthWindows(int start, int end, DateTime now) {
     final firstMonth = DateTime.fromMillisecondsSinceEpoch(start);
     final first = DateTime(firstMonth.year, firstMonth.month);
     final last = DateTime(now.year, now.month);
     var totalMonths =
         (last.year - first.year) * 12 + (last.month - first.month) + 1;
-    var cur = last;
     const maxRows = 24;
-    if (totalMonths > maxRows) {
-      cur = DateTime(cur.year, cur.month - (totalMonths - maxRows));
-      totalMonths = maxRows;
-    }
-    return [
-      // 从最旧月份到最新月份（升序）：cur 为最新月，依次往前推。
-      for (var i = totalMonths - 1; i >= 0; i--)
-        DateTime(cur.year, cur.month - i),
-    ].map((m) {
-      final s = m.millisecondsSinceEpoch;
-      return (
-        year: m.year,
-        month: m.month,
-        start: s,
-        end: DateTime(m.year, m.month + 1).millisecondsSinceEpoch,
-      );
-    }).toList();
+    final truncated = totalMonths > maxRows;
+    if (truncated) totalMonths = maxRows; // 只保留最近 maxRows 个月
+    return (
+      months:
+          [
+            // 升序：从最旧月份到最新月份。
+            for (var i = totalMonths - 1; i >= 0; i--)
+              DateTime(last.year, last.month - i),
+          ].map((m) {
+            final monthStart = m.millisecondsSinceEpoch;
+            final monthEnd = DateTime(
+              m.year,
+              m.month + 1,
+            ).millisecondsSinceEpoch;
+            return (
+              year: m.year,
+              month: m.month,
+              start: monthStart < start ? start : monthStart,
+              end: monthEnd > end ? end : monthEnd,
+            );
+          }).toList(),
+      truncated: truncated,
+    );
   }
 
-  /// 按 [amountOf] 降序排序（显式类型，规避 record 元素在 for-in + cascade
+  /// 按金额降序排序（显式类型，规避 record 元素在 for-in + cascade
   /// 下 sort 比较器推断退化为 dynamic 导致的运行时 TypeError）。
   List<({String categoryId, int amount})> _sortCategoryDesc(
     Iterable<({String categoryId, int amount})> items,

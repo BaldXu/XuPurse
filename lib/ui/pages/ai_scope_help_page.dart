@@ -56,6 +56,9 @@ class _AiScopeHelpPageState extends State<AiScopeHelpPage>
                   '不含单笔账单的备注、地点、标签、附件等明细。',
               '你配置的 AI 服务商只会收到这份摘要 + 你的对话内容，'
                   '不会拿到你的完整账本数据。',
+              '每段对话只附送一次：同一个聊天窗口内，首次提问会带上摘要，'
+                  '之后的追问不再重复发送（省 tokens）；如果账本数据有更新，'
+                  '新开一个聊天窗口即可让 AI 读取到最新摘要。',
             ],
           ),
           const SizedBox(height: XpSpacing.m),
