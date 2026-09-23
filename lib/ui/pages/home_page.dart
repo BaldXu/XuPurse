@@ -14,6 +14,7 @@ import '../widgets/xp_empty_state.dart';
 import '../widgets/xp_stagger_in.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_skeleton.dart';
+import '../widgets/xp_sliding_segmented.dart';
 import 'bookkeeping_sheet.dart';
 import 'search_page.dart';
 
@@ -435,24 +436,17 @@ class _FilterBar extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          // 类型过滤（全部 / 支出 / 收入）
+          // 类型过滤（全部 / 支出 / 收入）——滑块胶囊单选
           Expanded(
-            child: SegmentedButton<HomeTypeFilter>(
-              segments: const [
-                ButtonSegment(value: HomeTypeFilter.all, label: Text('全部')),
-                ButtonSegment(value: HomeTypeFilter.expense, label: Text('支出')),
-                ButtonSegment(value: HomeTypeFilter.income, label: Text('收入')),
+            child: XpSlidingSegmented<HomeTypeFilter>(
+              items: const [
+                XpSegmentedItem(value: HomeTypeFilter.all, label: '全部'),
+                XpSegmentedItem(value: HomeTypeFilter.expense, label: '支出'),
+                XpSegmentedItem(value: HomeTypeFilter.income, label: '收入'),
               ],
-              selected: {filter},
-              showSelectedIcon: false,
-              style: const ButtonStyle(
-                visualDensity: VisualDensity.compact,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                shape: WidgetStatePropertyAll(StadiumBorder()),
-              ),
-              onSelectionChanged: (selection) {
-                ref.read(homeTypeFilterProvider.notifier).state =
-                    selection.first;
+              selected: filter,
+              onChanged: (value) {
+                ref.read(homeTypeFilterProvider.notifier).state = value;
               },
             ),
           ),

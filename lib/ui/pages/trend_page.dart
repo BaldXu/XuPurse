@@ -15,6 +15,7 @@ import '../widgets/xp_card.dart';
 import '../widgets/xp_empty_state.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_skeleton.dart';
+import '../widgets/xp_sliding_segmented.dart';
 import 'statistics/stats_shared.dart' show statsDataVersionProvider;
 
 /// 趋势页：资产趋势（快照聚合，算法五）+ 单账户余额趋势 + 累计收支净额。
@@ -323,49 +324,45 @@ class _FilterBar extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            SegmentedButton<_Range>(
-              showSelectedIcon: false,
-              style: const ButtonStyle(visualDensity: VisualDensity.compact),
-              segments: _Range.values
-                  .map((r) => ButtonSegment(value: r, label: Text(r.label)))
-                  .toList(),
-              selected: {range},
-              onSelectionChanged: (s) => onRangeChanged(s.first),
-            ),
-            // 自定义已选时展示当前范围摘要
-            if (range == _Range.custom && custom != null)
-              ActionChip(
-                avatar: const AppIcon(icon: Icons.date_range, size: 16),
-                label: Text(
-                  '${_fmtDay(custom!.start)} ~ ${_fmtDay(custom!.end - 86400000)}',
-                  style: theme.textTheme.labelSmall,
-                ),
-                onPressed: onPickCustom,
-              ),
-          ],
+        // 范围滑块（本年/去年/全部/自定义）
+        SizedBox(
+          width: double.infinity,
+          child: XpSlidingSegmented<_Range>(
+            items: [
+              for (final r in _Range.values)
+                XpSegmentedItem(value: r, label: r.label),
+            ],
+            selected: range,
+            onChanged: onRangeChanged,
+          ),
         ),
-        const SizedBox(height: XpSpacing.s),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            Text('粒度', style: theme.textTheme.labelMedium),
-            SegmentedButton<TrendGranularity>(
-              showSelectedIcon: false,
-              style: const ButtonStyle(visualDensity: VisualDensity.compact),
-              segments: TrendGranularity.values
-                  .map((g) => ButtonSegment(value: g, label: Text(g.label)))
-                  .toList(),
-              selected: {granularity},
-              onSelectionChanged: (s) => onGranularityChanged(s.first),
+        // 自定义已选时展示当前范围摘要
+        if (range == _Range.custom && custom != null) ...[
+          const SizedBox(height: XpSpacing.s),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: ActionChip(
+              avatar: const AppIcon(icon: Icons.date_range, size: 16),
+              label: Text(
+                '${_fmtDay(custom!.start)} ~ ${_fmtDay(custom!.end - 86400000)}',
+                style: theme.textTheme.labelSmall,
+              ),
+              onPressed: onPickCustom,
             ),
-          ],
+          ),
+        ],
+        const SizedBox(height: XpSpacing.s),
+        // 粒度滑块（日/周/月）
+        SizedBox(
+          width: double.infinity,
+          child: XpSlidingSegmented<TrendGranularity>(
+            items: [
+              for (final g in TrendGranularity.values)
+                XpSegmentedItem(value: g, label: g.label),
+            ],
+            selected: granularity,
+            onChanged: onGranularityChanged,
+          ),
         ),
       ],
     );

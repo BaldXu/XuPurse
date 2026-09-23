@@ -9,6 +9,7 @@ import '../widgets/ai_chat_sheet.dart';
 import '../widgets/app_icon.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_skeleton.dart';
+import '../widgets/xp_sliding_segmented.dart';
 import 'statistics/stats_budget_section.dart';
 import 'statistics/stats_category_section.dart';
 import 'statistics/stats_overview_section.dart';
@@ -260,28 +261,24 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage>
     );
   }
 
-  /// 窄屏：顶部横向滑动 Tab。
+  /// 窄屏：顶部横向滑块分区切换（宽屏保留 NavigationRail，桌面习惯更佳）。
   Widget _buildNarrow(({int start, int end}) range) {
     return Column(
       children: [
-        SizedBox(
-          height: 44,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            itemCount: _Section.values.length,
-            separatorBuilder: (_, _) => const SizedBox(width: XpSpacing.s),
-            itemBuilder: (context, i) {
-              final s = _Section.values[i];
-              final selected = i == _section.index;
-              return ChoiceChip(
-                label: Text(s.label),
-                selected: selected,
-                showCheckmark: false,
-                visualDensity: VisualDensity.compact,
-                onSelected: (_) => _select(s),
-              );
-            },
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            XpSpacing.l,
+            XpSpacing.s,
+            XpSpacing.l,
+            XpSpacing.xs,
+          ),
+          child: XpSlidingSegmented<_Section>(
+            items: [
+              for (final s in _Section.values)
+                XpSegmentedItem(value: s, label: s.label),
+            ],
+            selected: _section,
+            onChanged: _select,
           ),
         ),
         Expanded(child: _buildSection(range)),
