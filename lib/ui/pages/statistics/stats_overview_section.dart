@@ -76,16 +76,16 @@ class _OverviewSectionState extends ConsumerState<StatsOverviewSection>
       widget.end,
       BillType.income,
     );
-    // 环比：与上一周期对比（日历对齐——上月=上月；滚动窗口会切掉月初账单）。
-    final prev = prevCalendarRange(widget.start, widget.end);
+    // 环比：与上一段等长区间对比
+    final span = widget.end - widget.start;
     final prevExpense = await repo.sumByType(
-      prev.start,
-      prev.end,
+      widget.start - span,
+      widget.start,
       BillType.expense,
     );
     final prevIncome = await repo.sumByType(
-      prev.start,
-      prev.end,
+      widget.start - span,
+      widget.start,
       BillType.income,
     );
     return _OverviewData(
@@ -93,7 +93,7 @@ class _OverviewSectionState extends ConsumerState<StatsOverviewSection>
       income: income,
       prevExpense: prevExpense,
       prevIncome: prevIncome,
-      days: (widget.end - widget.start) / 86400000,
+      days: span / 86400000,
     );
   }
 
@@ -234,16 +234,18 @@ class _CompareCard extends StatelessWidget {
     required bool upIsGood,
   }) {
     final pct = prev > 0 ? (current - prev) / prev * 100 : null;
+    // 方向（↑/↓）只看涨跌；红绿按「对用户好坏」定：
+    // 支出上涨/收入下降 = 坏（expense 红），收入上涨/支出下降 = 好（income 绿）。
     final (arrow, color) = pct == null
         ? ('—', Theme.of(context).colorScheme.onSurfaceVariant)
         : pct >= 0
         ? (
-            upIsGood ? '↑' : '↑',
-            upIsGood ? XpSemanticColors.income : XpSemanticColors.income,
+            '↑',
+            upIsGood ? XpSemanticColors.income : XpSemanticColors.expense,
           )
         : (
-            upIsGood ? '↓' : '↓',
-            upIsGood ? XpSemanticColors.expense : XpSemanticColors.expense,
+            '↓',
+            upIsGood ? XpSemanticColors.expense : XpSemanticColors.income,
           );
     return Row(
       children: [

@@ -96,6 +96,25 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
   void _ensureDefaultCategory() {
     if (_parentId != null) return;
     final all = ref.read(categoriesProvider).valueOrNull ?? const <Category>[];
+    if (_type == BillType.transfer) {
+      // 转账：不展示分类选择，兜底直接用转账一级分类（而非误落到收入分类），
+      // 与导入 mapper 的 fallbackCategoryId(transfer, ['transfer']) 一致。
+      final transfer = all.firstWhere(
+        (c) => c.type == BillType.transfer.name && c.parentId == null,
+        orElse: () => const Category(
+          id: '',
+          name: '',
+          type: '',
+          customName: false,
+          defaultSelect: false,
+          sort: 0,
+          createdAt: 0,
+          updatedAt: 0,
+        ),
+      );
+      if (transfer.id.isNotEmpty) _parentId = transfer.id;
+      return;
+    }
     final type = _type == BillType.expense ? BillType.expense : BillType.income;
     final parents = all
         .where((c) => c.type == type.name && c.parentId == null)
@@ -162,9 +181,11 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
       }
     } else if (ch == '00') {
       if (cur.isNotEmpty && cur != '0' && !cur.contains('.')) {
-        next =
-            '$cur'
-            '00';
+        // 与单数字键一致受 9 位整数上限约束（cur 无小数点时 length 即整数位数）。
+        if (cur.length + 2 <= 9) {
+          next = '$cur'
+              '00';
+        }
       }
     } else {
       // 数字
@@ -279,6 +300,10 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
           currencyCode: currencyCode,
           currencyAmount: currencyAmount,
           baseCurrency: currencyCode == null ? null : base,
+          // 编辑外币账单时用户改回「跟随账户币种」= 显式清空外币标记
+          // （currencyCode 传 null 本身被 updateBill 的 ?? old 保留，需单独通知）。
+          clearCurrency:
+              currencyCode == null && widget.initialBill!.currencyCode != null,
         );
       } else {
         await billService.addBill(

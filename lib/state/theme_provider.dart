@@ -251,23 +251,32 @@ class ThemeNotifier extends Notifier<ThemeState> {
     );
   }
 
-  Future<void> _persist(ThemeState next) async {
-    final prefs = await SharedPreferences.getInstance();
-    _prefsCache = prefs;
-    await prefs.setString(_currentKey, next.currentId);
-    await prefs.setString(
-      _userThemesKey,
-      jsonEncode([for (final t in next.userThemes) t.toJson()]),
-    );
+  Future<void> _persist(ThemeState next) {
+    // 串行化落盘：连续操作按调用顺序写入，避免并发写交错导致磁盘态不一致
+    // （内存态已即时更新，磁盘只保证最终一致）。
+    final run = _pendingPersist.then((_) async {
+      final prefs = await SharedPreferences.getInstance();
+      _prefsCache = prefs;
+      await prefs.setString(_currentKey, next.currentId);
+      await prefs.setString(
+        _userThemesKey,
+        jsonEncode([for (final t in next.userThemes) t.toJson()]),
+      );
+    });
+    _pendingPersist = run.catchError((_) {});
+    return run;
   }
+
+  Future<void> _pendingPersist = Future<void>.value();
 
   /// 选择并应用主题。暗色预设不在浅色列表中可直接选中(设置页入口),但
   /// 实际生效主题由系统暗色决定(currentThemeProvider)。
   Future<void> select(String id) async {
     if (state.currentId == id) return;
     final next = ThemeState(currentId: id, userThemes: state.userThemes);
-    await _persist(next);
+    // 先同步赋内存态再持久化：连续快速操作不会基于旧 state 计算丢失更新。
     state = next;
+    await _persist(next);
   }
 
   /// 新增用户自建主题并应用（成为当前主题）。
@@ -276,8 +285,8 @@ class ThemeNotifier extends Notifier<ThemeState> {
       currentId: theme.id,
       userThemes: [...state.userThemes, theme],
     );
-    await _persist(next);
     state = next;
+    await _persist(next);
   }
 
   /// 删除用户自建主题；内置预设或当前使用中的主题不可删，返回是否删除成功。
@@ -288,8 +297,8 @@ class ThemeNotifier extends Notifier<ThemeState> {
       currentId: state.currentId,
       userThemes: state.userThemes.where((t) => t.id != id).toList(),
     );
-    await _persist(next);
     state = next;
+    await _persist(next);
     return true;
   }
 
@@ -304,8 +313,8 @@ class ThemeNotifier extends Notifier<ThemeState> {
           if (t.id == updated.id) updated else t,
       ],
     );
-    await _persist(next);
     state = next;
+    await _persist(next);
     return true;
   }
 }
@@ -392,8 +401,9 @@ class FrostedGlassNotifier extends Notifier<FrostedState> {
       card: state.card,
       sheet: state.sheet,
     );
-    await _persist(next);
+    // 先同步赋内存态再持久化，避免连续快速操作基于旧 state 丢失更新。
     state = next;
+    await _persist(next);
   }
 
   Future<void> setAppBar(bool value) async {
@@ -404,8 +414,8 @@ class FrostedGlassNotifier extends Notifier<FrostedState> {
       card: state.card,
       sheet: state.sheet,
     );
-    await _persist(next);
     state = next;
+    await _persist(next);
   }
 
   Future<void> setCard(bool value) async {
@@ -416,8 +426,8 @@ class FrostedGlassNotifier extends Notifier<FrostedState> {
       card: value,
       sheet: state.sheet,
     );
-    await _persist(next);
     state = next;
+    await _persist(next);
   }
 
   Future<void> setSheet(bool value) async {
@@ -428,8 +438,8 @@ class FrostedGlassNotifier extends Notifier<FrostedState> {
       card: state.card,
       sheet: value,
     );
-    await _persist(next);
     state = next;
+    await _persist(next);
   }
 }
 
@@ -458,9 +468,10 @@ class TransitionBlurNotifier extends Notifier<bool> {
 
   Future<void> set(bool value) async {
     if (state == value) return;
+    // 先同步赋内存态再持久化，避免连续快速操作丢失更新。
+    state = value;
     final prefs = await SharedPreferences.getInstance();
     _prefsCache = prefs;
     await prefs.setBool(_key, value);
-    state = value;
   }
 }

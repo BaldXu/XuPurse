@@ -32,6 +32,9 @@ class _MinePageState extends ConsumerState<MinePage>
   Widget build(BuildContext context) {
     final total = ref.watch(totalAssetsProvider).value ?? 0;
     final baseCurrency = ref.watch(baseCurrencyProvider).value ?? 'CNY';
+    // 当前账本名（账本可新建/切换/删除，不能硬编码 'XuPurse'）
+    final bookName =
+        ref.watch(currentBookProvider).value?.name ?? 'XuPurse';
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
     final appBar = AppBar(title: const Text('我的'));
@@ -54,7 +57,7 @@ class _MinePageState extends ConsumerState<MinePage>
         ),
         children: [
           // ── 用户卡：账本身份 + 总资产概览 ──
-          _UserCard(bookName: 'XuPurse', currency: baseCurrency, total: total),
+          _UserCard(bookName: bookName, currency: baseCurrency, total: total),
           const SizedBox(height: XpSpacing.m),
 
           // ── 分组：通用 ──
@@ -162,6 +165,8 @@ class _UserCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    // 本位币符号：CNY 用 ¥，其他币种直接显示代码（与记账弹窗一致）。
+    final symbol = currency == 'CNY' ? '¥' : currency;
 
     return XpCard(
       padding: const EdgeInsets.all(XpSpacing.xl),
@@ -206,7 +211,7 @@ class _UserCard extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                '¥${formatYuan(total)}',
+                '$symbol${formatYuan(total)}',
                 style: textTheme.titleMedium
                     ?.copyWith(fontWeight: FontWeight.w700)
                     .tabular,

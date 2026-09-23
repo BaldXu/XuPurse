@@ -125,6 +125,10 @@ class BillService {
   }
 
   /// 修改账单：旧账单影响反向应用 → 更新 → 新账单影响正向应用（算法一）。
+  ///
+  /// [clearCurrency]：编辑外币账单时用户改回「跟随账户币种」后显式清空
+  /// currencyCode/currencyAmount/baseCurrency（否则 `?? old` 会静默保留
+  /// 旧外币标记，导致无法撤销外币记账）。
   Future<void> updateBill(
     String id, {
     BillType? type,
@@ -140,6 +144,7 @@ class BillService {
     String? currencyCode,
     int? currencyAmount,
     String? baseCurrency,
+    bool clearCurrency = false,
   }) async {
     final old = await _bills.getById(id);
     if (old == null) throw NotFoundException('账单不存在: $id');
@@ -187,9 +192,15 @@ class BillService {
           incomeAccountId: Value(newIncomeAccountId),
           time: Value(newTime),
           comment: Value(comment ?? old.comment),
-          currencyCode: Value(currencyCode ?? old.currencyCode),
-          currencyAmount: Value(currencyAmount ?? old.currencyAmount),
-          baseCurrency: Value(baseCurrency ?? old.baseCurrency),
+          currencyCode: Value(
+            clearCurrency ? null : (currencyCode ?? old.currencyCode),
+          ),
+          currencyAmount: Value(
+            clearCurrency ? null : (currencyAmount ?? old.currencyAmount),
+          ),
+          baseCurrency: Value(
+            clearCurrency ? null : (baseCurrency ?? old.baseCurrency),
+          ),
           extra: Value(extra?.encode() ?? old.extra),
           updatedAt: Value(nowMs()),
         ),

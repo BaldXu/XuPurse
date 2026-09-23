@@ -58,6 +58,42 @@ void main() {
       expect(DateTime.fromMillisecondsSinceEpoch(prev.end).day, 5);
     });
 
+    test('跨整月边界但非 1 号起止(6/15~7/15)不误判为整月，按整天数平移', () {
+      // 旧实现只校验年/月，会把 6/15~7/15 误对齐成上期 5/1~6/1（丢 15 天）；
+      // 正确为保持区间长度平移 30 天：5/16~6/15。
+      final s = DateTime(2026, 6, 15);
+      final e = DateTime(2026, 7, 15);
+      final prev = prevCalendarRange(
+        s.millisecondsSinceEpoch,
+        e.millisecondsSinceEpoch,
+      );
+      final ps = DateTime.fromMillisecondsSinceEpoch(prev.start);
+      final pe = DateTime.fromMillisecondsSinceEpoch(prev.end);
+      expect(ps.year, 2026);
+      expect(ps.month, 5);
+      expect(ps.day, 16);
+      expect(pe.month, 6);
+      expect(pe.day, 15);
+    });
+
+    test('跨整月边界的 30 天区间(8/31~9/30)不误判为整月', () {
+      // 8/31~9/30 跨月边界且端点都非 1 号，旧实现误对齐到 7/1~8/1；
+      // 正确为保持区间长度平移 30 天：8/1~8/31。
+      final s = DateTime(2026, 8, 31);
+      final e = DateTime(2026, 9, 30);
+      final prev = prevCalendarRange(
+        s.millisecondsSinceEpoch,
+        e.millisecondsSinceEpoch,
+      );
+      final ps = DateTime.fromMillisecondsSinceEpoch(prev.start);
+      final pe = DateTime.fromMillisecondsSinceEpoch(prev.end);
+      expect(ps.month, 8);
+      expect(ps.day, 1);
+      expect(pe.month, 8);
+      expect(pe.day, 31);
+    });
+
+
     test('非整点起点不误判为日历月（滚动平移兜底）', () {
       // 9/1 12:00 ~ 10/1 12:00 不是日历月端点（非 00:00）。
       final s = DateTime(2026, 9, 1, 12);

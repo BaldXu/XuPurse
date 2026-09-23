@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/constants/enums.dart';
 import '../data/database/app_database.dart';
 import '../data/database/database_manager.dart';
+import '../data/database/global_database.dart' show Book;
 import '../data/import/import_service.dart';
 import '../data/repositories/account_repository.dart';
 import '../data/repositories/bill_repository.dart';
@@ -76,6 +77,18 @@ final baseCurrencyProvider = FutureProvider<String>((ref) async {
     global.books,
   )..where((t) => t.id.equals(id))).getSingleOrNull();
   return book?.baseCurrency ?? 'CNY';
+});
+
+/// 当前账本信息（名称/本位币等；我的页用户卡用）。切换账本后经
+/// databaseManagerProvider 的 override/invalidate 联动刷新。
+final currentBookProvider = FutureProvider<Book?>((ref) async {
+  final mgr = ref.watch(databaseManagerProvider);
+  final id = mgr.currentBookId;
+  if (id == null) return null;
+  final global = await mgr.global();
+  return (global.select(
+    global.books,
+  )..where((t) => t.id.equals(id))).getSingleOrNull();
 });
 
 // ---------- 数据流 ----------

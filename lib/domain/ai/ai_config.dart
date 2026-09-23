@@ -200,8 +200,9 @@ class AiConfigNotifier extends Notifier<AiState> {
       configs: configs,
       currentId: state.currentId ?? id, // 首个配置自动设为当前
     );
-    await _persist(next);
+    // 先同步赋内存态再持久化，避免连续快速操作基于旧 state 丢失更新。
     state = next;
+    await _persist(next);
     return id;
   }
 
@@ -209,16 +210,16 @@ class AiConfigNotifier extends Notifier<AiState> {
     final configs = state.configs.where((c) => c.id != id).toList();
     final currentId = state.currentId == id ? null : state.currentId;
     final next = AiState(configs: configs, currentId: currentId);
-    await _persist(next);
     state = next;
+    await _persist(next);
   }
 
   /// 切换当前使用的配置（跳过已停用的）。
   Future<void> select(String id) async {
     if (!state.configs.any((c) => c.id == id && c.enabled)) return;
     final next = state.copyWith(currentId: id);
-    await _persist(next);
     state = next;
+    await _persist(next);
   }
 
   /// 启用/停用配置。
@@ -228,7 +229,7 @@ class AiConfigNotifier extends Notifier<AiState> {
         c.id == id ? c.copyWith(enabled: enabled) : c,
     ];
     final next = AiState(configs: configs, currentId: state.currentId);
-    await _persist(next);
     state = next;
+    await _persist(next);
   }
 }

@@ -91,11 +91,13 @@ class _AiChatSheetState extends ConsumerState<_AiChatSheet> {
 
   Future<void> _newConversation() async {
     final conv = await ref.read(aiChatProvider.notifier).createConversation();
+    if (!mounted) return;
     setState(() => _convId = conv.id);
   }
 
   Future<void> _deleteConversation(String id) async {
     await ref.read(aiChatProvider.notifier).deleteConversation(id);
+    if (!mounted) return;
     final list = ref.read(aiChatProvider);
     if (_convId == id) {
       setState(() => _convId = list.isEmpty ? null : list.first.id);
@@ -122,10 +124,16 @@ class _AiChatSheetState extends ConsumerState<_AiChatSheet> {
     _scrollToBottom();
 
     try {
-      // 只带当前会话历史（不含占位空消息）
-      final history = _current(ref.read(aiChatProvider))!.messages.sublist(
+      // 只带当前会话历史（不含占位空消息）。
+      // 发送期间会话可能被删除：重新读取一次，为空则放弃（避免 ! 空断言崩溃）。
+      final convNow = _current(ref.read(aiChatProvider));
+      if (convNow == null) {
+        if (mounted) setState(() => _sending = false);
+        return;
+      }
+      final history = convNow.messages.sublist(
         0,
-        _current(ref.read(aiChatProvider))!.messages.length - 1,
+        convNow.messages.length - 1,
       );
 
       // 附带本机统计摘要（仅首次发送时生成，后续复用）

@@ -144,6 +144,8 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
     final editingUserTheme = !current.isPreset;
     if (editingUserTheme) {
       // 当前是用户自建主题：保存并生效到当前主题（原地更新，不新增）。
+      // 基于 current 补齐所有字段，避免「外观定制」区的字体/字号/卡片
+      // 样式/圆角被颜色保存静默重置。
       final updated = AppTheme(
         id: current.id,
         name: name,
@@ -151,6 +153,11 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
         background: _background,
         cardColor: _cardColor,
         sheetColor: _sheetColor,
+        fontFamily: current.fontFamily,
+        fontScale: current.fontScale,
+        cardStyle: current.cardStyle,
+        cardRadius: current.cardRadius,
+        isDark: current.isDark,
       );
       await notifier.updateCurrentTheme(updated);
     } else {
@@ -170,7 +177,10 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
     if (!mounted) return;
     setState(() {
       _nameCtrl.clear();
-      _seed = ref.read(currentThemeProvider).seedColor;
+      // 用 themeProvider.current（按 currentId 选中的浅色自建主题）而非
+      // currentThemeProvider（暗色模式下会强制返回暗色预设），避免取色器
+      // seed 预览被重置成暗色主题的种子色。
+      _seed = ref.read(themeProvider).current.seedColor;
       _background = null;
       _cardColor = null;
       _sheetColor = null;

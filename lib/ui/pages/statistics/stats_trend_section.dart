@@ -272,7 +272,8 @@ class _TrendCompareCard extends ConsumerStatefulWidget {
   ConsumerState<_TrendCompareCard> createState() => _TrendCompareCardState();
 }
 
-class _TrendCompareCardState extends ConsumerState<_TrendCompareCard> {
+class _TrendCompareCardState extends ConsumerState<_TrendCompareCard>
+    with StatsSectionRefresh {
   late Future<_TrendCompareData> _future;
 
   @override
@@ -289,13 +290,16 @@ class _TrendCompareCardState extends ConsumerState<_TrendCompareCard> {
     }
   }
 
+  @override
+  void onDataVersionChanged() {
+    _future = _load();
+  }
+
   Future<_TrendCompareData> _load() async {
     final repo = ref.read(billRepoProvider);
     final span = widget.end - widget.start;
-    // 上期用日历对齐（上月=上月），滚动窗口会切掉月初账单（见 helper 注释）。
-    final prev = prevCalendarRange(widget.start, widget.end);
-    final prevStart = prev.start;
-    final prevEnd = prev.end;
+    final prevStart = widget.start - span;
+    final prevEnd = widget.start;
 
     final curBills = await repo.listByRange(
       widget.start,

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../layout/xp_page_scaffold_mixin.dart';
-import '../widgets/app_icon.dart';
 import '../tokens/design_tokens.dart';
 
 /// 应用信息页：名称、版本、简介。
@@ -23,10 +22,16 @@ class _AboutPageState extends State<AboutPage> with XpPageScaffold<AboutPage> {
           shrinkWrap: true,
           padding: const EdgeInsets.all(32),
           children: [
-            AppIcon(
-              icon: Icons.account_balance_wallet,
-              size: 64,
-              color: scheme.primary,
+            // 固定展示 App 品牌图标（assets/icon/icon.png），不走 AppIcon，
+            // 不随图标包（简约/Twitter 表情）切换而变化。
+            ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: Image.asset(
+                'assets/icon/icon.png',
+                width: 64,
+                height: 64,
+                fit: BoxFit.cover,
+              ),
             ),
             const SizedBox(height: XpSpacing.m),
             Center(

@@ -193,10 +193,14 @@ class _ImportPageState extends ConsumerState<ImportPage>
           .read(importServiceProvider)
           .preview(source: source, bytes: file.bytes!, fileName: file.name);
       if (!mounted) return;
+      // 解析期间用户可能切换来源或换文件：结果只对「发起时的来源+文件」有效，
+      // 校验仍一致才提交，否则丢弃（避免旧来源预览覆盖新选择，误导入错误数据）。
+      if (_source != source || _file != file) return;
       setState(() => _preview = preview);
       await _showPreviewSheet();
     } catch (e) {
       if (!mounted) return;
+      if (_source != source || _file != file) return;
       setState(() => _error = '解析失败，请确认文件为 ${_sourceInfo[source]!.name} 备份：$e');
     }
   }

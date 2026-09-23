@@ -52,6 +52,10 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
+  # 应用品牌图标（assets/icon/icon.png）：应用信息页固定展示，不参与图标包切换。
+  assets:
+    - assets/icon/
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

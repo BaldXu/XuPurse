@@ -32,10 +32,13 @@ mixin StatsSectionRefresh<W extends ConsumerStatefulWidget>
       _lastVersion = ref.read(statsDataVersionProvider).value;
       ref.listenManual(statsDataVersionProvider, (prev, next) {
         final v = next.value;
-        if (v != null && _lastVersion != null && v != _lastVersion) {
+        if (v == null) return;
+        if (_lastVersion != null && v != _lastVersion) {
           _lastVersion = v;
-          onDataVersionChanged();
-        } else if (v != null) {
+          // ref.listenManual 只做副作用监听,不会触发重建;必须 setState,
+          // 否则 _future 换新对象 FutureBuilder 也不会重建,数据永远陈旧。
+          if (mounted) setState(onDataVersionChanged);
+        } else {
           _lastVersion = v;
         }
       });
@@ -142,7 +145,11 @@ String spanLabel(int spanMs) {
   final e = DateTime.fromMillisecondsSinceEpoch(end);
   // 端点都是当日 00:00 且 end 恰为 start 的「下个整月/整年」→ 日历月/年。
   final bool startIsMidnight = s.hour == 0 && s.minute == 0 && s.second == 0;
+  // 月份分支必须同时校验「两端都是 1 号」：仅年/月相同会让任意跨整月边界
+  // 的区间（如自定义 6/15~7/15、8/31~9/30）被误判为整月，错误对齐到月初。
   if (startIsMidnight &&
+      s.day == 1 &&
+      e.day == 1 &&
       e.year == (s.month == 12 ? s.year + 1 : s.year) &&
       e.month == (s.month == 12 ? 1 : s.month + 1)) {
     // 本月 → 上月（含 12 月跨年；DateTime(month:0) 自动落到上一年 12 月）。

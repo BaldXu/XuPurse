@@ -52,12 +52,11 @@ class _BookManagePageState extends ConsumerState<BookManagePage>
     final mgr = ref.read(databaseManagerProvider);
     if (mgr.currentBookId == bookId) return;
     await mgr.switchBook(bookId);
+    if (!mounted) return;
     _refreshProviders();
     setState(() => _revision++);
     _booksFuture = _loadBooks();
-    if (mounted) {
-      showXpSnack(context, '已切换账本');
-    }
+    showXpSnack(context, '已切换账本');
   }
 
   Future<void> _createBook() async {
@@ -91,6 +90,7 @@ class _BookManagePageState extends ConsumerState<BookManagePage>
     if (name == null || !mounted) return;
     final mgr = ref.read(databaseManagerProvider);
     await mgr.createBook(name: name);
+    if (!mounted) return;
     _refreshProviders();
     setState(() => _revision++);
     _booksFuture = _loadBooks();
@@ -116,6 +116,7 @@ class _BookManagePageState extends ConsumerState<BookManagePage>
         await mgr.createBook(name: '默认账本');
       }
     }
+    if (!mounted) return;
     _refreshProviders();
     setState(() => _revision++);
     _booksFuture = _loadBooks();

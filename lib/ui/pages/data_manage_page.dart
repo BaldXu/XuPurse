@@ -28,11 +28,15 @@ class _DataManagePageState extends ConsumerState<DataManagePage>
 
   Future<void> _exportBackup() async {
     if (_exporting) return;
+    final mgr = ref.read(databaseManagerProvider);
+    // bookId 为 null 时直接提示返回，避免 _exporting 卡死（下方 setState 不再执行）。
+    final bookId = mgr.currentBookId;
+    if (bookId == null) {
+      showXpSnack(context, '当前无账本，无法导出', error: true);
+      return;
+    }
     setState(() => _exporting = true);
     try {
-      final mgr = ref.read(databaseManagerProvider);
-      final bookId = mgr.currentBookId;
-      if (bookId == null) return;
       final global = await mgr.global();
       final json = await BackupService(
         ref.read(dbProvider),
@@ -74,6 +78,10 @@ class _DataManagePageState extends ConsumerState<DataManagePage>
     await db.customStatement('DELETE FROM import_mappings');
     // 重置为默认分类/账户种子
     await ref.read(databaseManagerProvider).seedBook(db);
+    // 失效时间下界缓存：清空后最早账单时间变化，首页日期选择器/趋势页
+    // 自定义范围下界需重新计算（FutureProvider 只 watch repo 身份不 watch 数据）。
+    ref.invalidate(minBillTimeProvider);
+    ref.invalidate(minDataTimeProvider);
   }
 
   void _showClearConfirm() {
