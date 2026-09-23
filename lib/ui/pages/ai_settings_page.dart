@@ -11,6 +11,7 @@ import '../widgets/xp_empty_state.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_fab.dart';
 import '../widgets/xp_snack.dart';
+import 'ai_help_page.dart';
 
 /// AI 设置页：多配置管理（新增/编辑/删除/启用停用/切换当前）+ 连通性测试。
 class AiSettingsPage extends ConsumerStatefulWidget {
@@ -30,12 +31,30 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage>
     return buildXpScaffold(
       appBar: AppBar(title: const Text('AI 设置')),
       body: aiState.configs.isEmpty
-          ? XpEmptyState(
-              icon: Icons.smart_toy_outlined,
-              title: '尚未配置 AI',
-              message: '支持 OpenAI 兼容 / Anthropic 兼容协议\n可保存多份配置随时切换',
-              actionLabel: '新增配置',
-              onAction: () => _edit(context, ref, null),
+          ? Column(
+              children: [
+                Expanded(
+                  child: XpEmptyState(
+                    icon: Icons.smart_toy_outlined,
+                    title: '尚未配置 AI',
+                    message: '支持 OpenAI 兼容 / Anthropic 兼容协议\n可保存多份配置随时切换',
+                    actionLabel: '新增配置',
+                    onAction: () => _edit(context, ref, null),
+                  ),
+                ),
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      XpSpacing.l,
+                      0,
+                      XpSpacing.l,
+                      XpSpacing.m,
+                    ),
+                    child: _HelpEntry(onTap: () => _openHelp(context)),
+                  ),
+                ),
+              ],
             )
           : ListView(
               padding: const EdgeInsets.fromLTRB(
@@ -78,6 +97,8 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage>
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
+                const SizedBox(height: XpSpacing.xl),
+                _HelpEntry(onTap: () => _openHelp(context)),
               ],
             ),
       floatingActionButton: aiState.configs.isEmpty
@@ -100,6 +121,11 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage>
     ).push(XpRoute(builder: (_) => _AiConfigEditPage(existing: existing)));
   }
 
+  /// 打开「配置AI有什么用？」介绍页。
+  static void _openHelp(BuildContext context) {
+    Navigator.of(context).push(XpRoute(builder: (_) => const AiHelpPage()));
+  }
+
   Future<void> _confirmDelete(
     BuildContext context,
     WidgetRef ref,
@@ -115,6 +141,28 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage>
     if (ok && context.mounted) {
       await ref.read(aiConfigProvider.notifier).remove(config.id);
     }
+  }
+}
+
+/// 「配置AI有什么用？」入口：点击跳转 AI 介绍页。
+class _HelpEntry extends StatelessWidget {
+  const _HelpEntry({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return XpCard(
+      padding: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      child: ListTile(
+        leading: Icon(Icons.help_outline, color: scheme.primary),
+        title: const Text('配置AI有什么用？'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: onTap,
+      ),
+    );
   }
 }
 
