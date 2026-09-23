@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/ai/ai_config.dart';
+import '../../domain/ai/ai_scope.dart';
 import '../../domain/ai/ai_service.dart';
 import '../../domain/ai/stats_context.dart';
 import '../../state/theme_provider.dart';
+import '../layout/xp_page_scaffold_mixin.dart';
+import '../pages/ai_scope_page.dart';
 import '../tokens/design_tokens.dart';
 import 'app_icon.dart';
 import 'xp_empty_state.dart';
@@ -111,7 +114,6 @@ class _AiChatSheet extends ConsumerStatefulWidget {
 class _AiChatSheetState extends ConsumerState<_AiChatSheet> {
   String? _convId;
   bool _sending = false;
-  bool _attachStats = true; // 附带本机统计摘要（聚合口径）
   bool _thinking = false; // 思考模式（默认关闭；仅支持的模型显示开关）
   String? _statsCache; // 每次打开聊天窗只生成一次
 
@@ -201,11 +203,15 @@ class _AiChatSheetState extends ConsumerState<_AiChatSheet> {
       }
       final history = convNow.messages.sublist(0, convNow.messages.length - 1);
 
-      // 附带本机统计摘要（仅首次发送时生成，后续复用）
+      // 附带本机统计摘要（数据范围由「数据范围设置」控制；仅首次发送时生成，
+      // 后续复用）。总开关关闭时 build() 返回空串，等同纯聊天模式。
       var systemPrompt = kDefaultSystemPrompt;
-      if (_attachStats) {
-        _statsCache ??= await AiStatsContext(ref).build();
-        systemPrompt = '$kDefaultSystemPrompt\n\n$_statsCache';
+      if (ref.read(aiScopeProvider).enabled) {
+        final stats = _statsCache ?? await AiStatsContext(ref).build();
+        _statsCache = stats;
+        if (stats.isNotEmpty) {
+          systemPrompt = '$kDefaultSystemPrompt\n\n$stats';
+        }
       }
 
       final reply = await client.chat(
@@ -304,23 +310,14 @@ class _AiChatSheetState extends ConsumerState<_AiChatSheet> {
                   ),
                   onPressed: () => setState(() => _thinking = !_thinking),
                 ),
-              // 附带统计数据开关（聚合口径，保护隐私）
+              // 数据范围设置入口：跳转「AI 数据范围设置」页（控制给 AI 的摘要范围）
               IconButton(
-                tooltip: _attachStats ? '附带统计数据：开（点击关闭）' : '附带统计数据：关（点击开启）',
-                icon: Icon(
-                  _attachStats
-                      ? Icons.dataset_linked
-                      : Icons.dataset_linked_outlined,
-                  size: 22,
-                  color: _attachStats
-                      ? Theme.of(context).colorScheme.primary
-                      : Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+                tooltip: '数据范围设置',
+                icon: const Icon(Icons.tune, size: 22),
                 onPressed: () {
-                  setState(() {
-                    _attachStats = !_attachStats;
-                    if (!_attachStats) _statsCache = null;
-                  });
+                  Navigator.of(
+                    context,
+                  ).push(XpRoute(builder: (_) => const AiScopePage()));
                 },
               ),
               IconButton(

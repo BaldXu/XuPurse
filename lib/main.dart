@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'data/database/database_manager.dart';
 import 'domain/ai/ai_config.dart';
+import 'domain/ai/ai_scope.dart';
 import 'domain/ai/ai_service.dart';
 import 'domain/services/currency_service.dart';
 import 'state/providers.dart';
@@ -24,6 +25,7 @@ Future<void> main() async {
   await TransitionBlurNotifier.init();
   await IconPackNotifier.init();
   await AiConfigNotifier.init();
+  await AiScopeNotifier.init();
   await AiChatNotifier.init();
 
   // 初始化数据库管理器：打开全局库 → 无账本则创建默认账本 → 打开第一个账本

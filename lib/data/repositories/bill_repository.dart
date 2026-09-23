@@ -232,6 +232,37 @@ class BillRepository {
 
   // ---------- 标签关联 ----------
 
+  /// 时间段内按备注文本汇总金额（AI 统计摘要用；收支类型，不含转账；
+  /// 不含「不计入收支」）。[limit] 只取金额最高的前 N 条备注。
+  Future<List<({String comment, int amount})>> sumByCommentInRange(
+    int start,
+    int end, {
+    int limit = 10,
+  }) async {
+    final rows = await _db
+        .customSelect(
+          'SELECT comment AS c, SUM(amount) AS s FROM bills '
+          'WHERE type IN (?, ?) AND time >= ? AND time < ?'
+          " AND comment IS NOT NULL AND comment != ''"
+          '$_excludedSql GROUP BY comment ORDER BY s DESC LIMIT ?',
+          variables: [
+            Variable(BillType.expense.name),
+            Variable(BillType.income.name),
+            Variable(start),
+            Variable(end),
+            Variable(limit),
+          ],
+        )
+        .get();
+    return [
+      for (final r in rows)
+        (
+          comment: r.data['c'] as String? ?? '',
+          amount: r.data['s'] as int? ?? 0,
+        ),
+    ];
+  }
+
   /// 账单的全部标签 ID
   Future<List<String>> tagIdsOf(String billId) async {
     final rows = await (_db.select(
