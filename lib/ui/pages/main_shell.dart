@@ -5,6 +5,7 @@ import '../../state/theme_provider.dart';
 import '../layout/breakpoints.dart';
 import '../layout/lazy_indexed_stack.dart';
 import '../widgets/app_icon.dart';
+import '../widgets/ai_chat_sheet.dart';
 import '../widgets/xp_fab.dart';
 import '../widgets/xp_frosted_bar.dart';
 import 'accounts_page.dart';
@@ -57,6 +58,14 @@ class _MainShellState extends ConsumerState<MainShell> {
 
   static const _labels = ['明细', '资产', '统计', '我的'];
 
+  /// 切换主导航 tab；进入统计页(index 2)时重置 AI 悬浮按钮高度位置。
+  void _selectTab(int i) {
+    if (i == 2) {
+      ref.read(aiFabTopProvider.notifier).state = null;
+    }
+    setState(() => _index = i);
+  }
+
   /// 明细页「记一笔」FAB。放在外层壳（而非内层页面 Scaffold）：
   /// 外层 Scaffold 会把 FAB 自动置于底部导航之上，避免被磨砂导航遮挡。
   Widget _buildFab() {
@@ -75,7 +84,7 @@ class _MainShellState extends ConsumerState<MainShell> {
           children: [
             NavigationRail(
               selectedIndex: _index,
-              onDestinationSelected: (i) => setState(() => _index = i),
+              onDestinationSelected: _selectTab,
               // extended：图标 + 文字标签的宽侧栏
               labelType: NavigationRailLabelType.none,
               extended: true,
@@ -120,7 +129,7 @@ class _MainShellState extends ConsumerState<MainShell> {
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       selectedIndex: _index,
-      onDestinationSelected: (i) => setState(() => _index = i),
+      onDestinationSelected: _selectTab,
       destinations: [
         for (var i = 0; i < _labels.length; i++)
           NavigationDestination(

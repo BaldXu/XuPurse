@@ -231,10 +231,18 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage>
       body: LayoutBuilder(
         builder: (context, constraints) {
           final wide = constraints.maxWidth >= kSectionBreakpoint;
-          return wide ? _buildWide(range) : _buildNarrow(range);
+          final content = wide ? _buildWide(range) : _buildNarrow(range);
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              content,
+              // AI 悬浮按钮：默认右侧 30% 高度、可上下拖动，
+              // 每次进入统计页重置位置（见 MainShell 切 tab 处理）。
+              const AiDraggableFab(),
+            ],
+          );
         },
       ),
-      floatingActionButton: const AiFab(),
     );
   }
 
