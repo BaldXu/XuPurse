@@ -19,10 +19,14 @@ class StatsCategorySection extends ConsumerStatefulWidget {
     super.key,
     required this.start,
     required this.end,
+    this.onReady,
   });
 
   final int start;
   final int end;
+
+  /// 数据加载完成（成功或失败）后的回调；统计页用它切换分区可见性。
+  final VoidCallback? onReady;
 
   @override
   ConsumerState<StatsCategorySection> createState() => _CategorySectionState();
@@ -35,20 +39,29 @@ class _CategorySectionState extends ConsumerState<StatsCategorySection>
   @override
   void initState() {
     super.initState();
-    _future = _load();
+    _reload();
   }
 
   @override
   void didUpdateWidget(covariant StatsCategorySection oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.start != widget.start || oldWidget.end != widget.end) {
-      _future = _load();
+      _reload();
     }
   }
 
   @override
   void onDataVersionChanged() {
+    _reload();
+  }
+
+  /// 触发查询并在完成（成功或失败）后通知 onReady。
+  void _reload() {
     _future = _load();
+    _future.then(
+      (_) => widget.onReady?.call(),
+      onError: (_) => widget.onReady?.call(),
+    );
   }
 
   Future<_CategoryData> _load() async {

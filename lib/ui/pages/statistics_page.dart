@@ -125,6 +125,27 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage>
     }
   }
 
+  // 数据已就绪的分区集合（key 同分区 ValueKey 规则）。
+  // 未就绪的分区以不可见(Offstage)方式挂载并触发数据查询，数据加载完成
+  // （onReady 回调）后才翻转为可见，避免切换瞬间把分区首帧构建/数据加载
+  // 暴露在可见帧上导致闪屏；初始分区也走同一机制。
+  final Set<String> _readySections = {};
+
+  String _sectionKey(_Section s, ({int start, int end}) range) =>
+      '${s.name}-${range.start}-${range.end}';
+
+  void _markSectionReady(_Section s, ({int start, int end}) range) {
+    if (!mounted) return;
+    final k = _sectionKey(s, range);
+    if (_readySections.contains(k)) return;
+    setState(() => _readySections.add(k));
+  }
+
+  void _select(_Section s) {
+    if (s == _section) return;
+    setState(() => _section = s);
+  }
+
   /// 下拉按钮上显示的范围名。
   String get _rangeLabel {
     if (_preset != StatsRangePreset.custom) return _preset.label;
@@ -223,8 +244,7 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage>
         NavigationRail(
           selectedIndex: _section.index,
           labelType: NavigationRailLabelType.all,
-          onDestinationSelected: (i) =>
-              setState(() => _section = _Section.values[i]),
+          onDestinationSelected: (i) => _select(_Section.values[i]),
           destinations: [
             for (final s in _Section.values)
               NavigationRailDestination(
@@ -259,7 +279,7 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage>
                 selected: selected,
                 showCheckmark: false,
                 visualDensity: VisualDensity.compact,
-                onSelected: (_) => setState(() => _section = s),
+                onSelected: (_) => _select(s),
               );
             },
           ),
@@ -270,38 +290,71 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage>
   }
 
   /// 当前分区内容；用 ValueKey 保证切换范围后重新加载。
+  /// 未就绪的分区：可见层只显示骨架，分区以不可见(Offstage)方式挂载并触发
+  /// 数据查询，onReady 数据就绪后翻转 offstage 让分区可见（同 key 保活，
+  /// 直接渲染完整内容，避免首帧构建/数据加载暴露在可见帧上的闪屏）。
   Widget _buildSection(({int start, int end}) range) {
-    final key = ValueKey('${_section.name}-${range.start}-${range.end}');
-    Widget section = switch (_section) {
+    // 捕获本次构建的分区快照：onReady 回调读取它而非 State 字段，
+    // 避免快速连续切 tab 时旧分区的加载完成误标记当前选中的新分区。
+    final target = _section;
+    final key = ValueKey('${target.name}-${range.start}-${range.end}');
+    final ready = _readySections.contains(_sectionKey(target, range));
+    final section = _sectionWidget(
+      target,
+      range,
+      key: key,
+      onReady: () => _markSectionReady(target, range),
+    );
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (!ready) const XpSkeletonList(key: ValueKey('stats-tab-pending')),
+        Offstage(offstage: !ready, child: section),
+      ],
+    );
+  }
+
+  /// 按当前分区构造内容组件（宽屏限宽居中）。
+  Widget _sectionWidget(
+    _Section s,
+    ({int start, int end}) range, {
+    required Key key,
+    VoidCallback? onReady,
+  }) {
+    Widget section = switch (s) {
       _Section.overview => StatsOverviewSection(
         key: key,
         start: range.start,
         end: range.end,
+        onReady: onReady,
       ),
       _Section.category => StatsCategorySection(
         key: key,
         start: range.start,
         end: range.end,
+        onReady: onReady,
       ),
       _Section.trend => StatsTrendSection(
         key: key,
         start: range.start,
         end: range.end,
+        onReady: onReady,
       ),
       _Section.budget => StatsBudgetSection(
         key: key,
         start: range.start,
         end: range.end,
+        onReady: onReady,
       ),
       _Section.tag => StatsTagSection(
         key: key,
         start: range.start,
         end: range.end,
+        onReady: onReady,
       ),
     };
     // 宽屏限宽居中，避免卡片/图表在桌面大屏上无限拉伸。
-    section = ContentWidthBox(maxWidth: 960, child: section);
-    return section;
+    return ContentWidthBox(maxWidth: 960, child: section);
   }
 }
 

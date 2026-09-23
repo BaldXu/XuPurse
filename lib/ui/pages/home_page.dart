@@ -203,7 +203,14 @@ class _HomePageState extends ConsumerState<HomePage>
           );
           return Padding(
             padding: const EdgeInsets.only(bottom: XpSpacing.m),
-            child: i < 12 ? XpStaggerIn(index: i, child: item) : item,
+            // key 稳定 stagger 的 State，避免列表 rebuild 时前 12 组动画重播
+            child: i < 12
+                ? XpStaggerIn(
+                    key: ValueKey(section.dayStart),
+                    index: i,
+                    child: item,
+                  )
+                : item,
           );
         },
       ),

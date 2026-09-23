@@ -13,10 +13,18 @@ import 'stats_shared.dart';
 
 /// 趋势分区：支出柱状趋势（粒度自适应/手动切换）+ 一级分类环比。
 class StatsTrendSection extends ConsumerStatefulWidget {
-  const StatsTrendSection({super.key, required this.start, required this.end});
+  const StatsTrendSection({
+    super.key,
+    required this.start,
+    required this.end,
+    this.onReady,
+  });
 
   final int start;
   final int end;
+
+  /// 数据加载完成（成功或失败）后的回调；统计页用它切换分区可见性。
+  final VoidCallback? onReady;
 
   @override
   ConsumerState<StatsTrendSection> createState() => _TrendSectionState();
@@ -31,7 +39,7 @@ class _TrendSectionState extends ConsumerState<StatsTrendSection>
   void initState() {
     super.initState();
     _granularity = granularityFor(widget.start, widget.end);
-    _future = _load();
+    _reload();
   }
 
   @override
@@ -40,13 +48,22 @@ class _TrendSectionState extends ConsumerState<StatsTrendSection>
     if (oldWidget.start != widget.start || oldWidget.end != widget.end) {
       // 范围变化：重置为自适应默认粒度，并重新加载
       _granularity = granularityFor(widget.start, widget.end);
-      _future = _load();
+      _reload();
     }
   }
 
   @override
   void onDataVersionChanged() {
+    _reload();
+  }
+
+  /// 触发查询并在完成（成功或失败）后通知 onReady。
+  void _reload() {
     _future = _load();
+    _future.then(
+      (_) => widget.onReady?.call(),
+      onError: (_) => widget.onReady?.call(),
+    );
   }
 
   Future<_TrendData> _load() async {

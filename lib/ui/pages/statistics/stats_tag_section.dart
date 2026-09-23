@@ -13,10 +13,18 @@ import 'stats_shared.dart';
 
 /// 标签分区：标签支出 Top 横向条形。
 class StatsTagSection extends ConsumerStatefulWidget {
-  const StatsTagSection({super.key, required this.start, required this.end});
+  const StatsTagSection({
+    super.key,
+    required this.start,
+    required this.end,
+    this.onReady,
+  });
 
   final int start;
   final int end;
+
+  /// 数据加载完成（成功或失败）后的回调；统计页用它切换分区可见性。
+  final VoidCallback? onReady;
 
   @override
   ConsumerState<StatsTagSection> createState() => _TagSectionState();
@@ -36,20 +44,29 @@ class _TagSectionState extends ConsumerState<StatsTagSection>
   @override
   void initState() {
     super.initState();
-    _future = _load();
+    _reload();
   }
 
   @override
   void didUpdateWidget(covariant StatsTagSection oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.start != widget.start || oldWidget.end != widget.end) {
-      _future = _load();
+      _reload();
     }
   }
 
   @override
   void onDataVersionChanged() {
+    _reload();
+  }
+
+  /// 触发查询并在完成（成功或失败）后通知 onReady。
+  void _reload() {
     _future = _load();
+    _future.then(
+      (_) => widget.onReady?.call(),
+      onError: (_) => widget.onReady?.call(),
+    );
   }
 
   Future<_TagData> _load() async {

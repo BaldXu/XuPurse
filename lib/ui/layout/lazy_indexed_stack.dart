@@ -122,7 +122,12 @@ class _LazyIndexedStackState extends State<LazyIndexedStack>
     final incoming = _incomingIndex;
     final children = <Widget>[];
     for (var i = 0; i < widget.pages.length; i++) {
-      final page = KeyedSubtree(key: _pageKeys[i], child: widget.pages[i]);
+      // RepaintBoundary：转场/保活期间各页独立图层，进入页只重光栅化自身，
+      // 旧页图层直接复用，避免整栈重绘拖垮转场动画。
+      final page = KeyedSubtree(
+        key: _pageKeys[i],
+        child: RepaintBoundary(child: widget.pages[i]),
+      );
       if (i == _displayIndex) {
         children.add(page);
       } else if (i == incoming) {
