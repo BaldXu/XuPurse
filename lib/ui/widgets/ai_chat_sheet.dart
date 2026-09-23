@@ -27,8 +27,8 @@ class AiDraggableFab extends ConsumerStatefulWidget {
 }
 
 class _AiDraggableFabState extends ConsumerState<AiDraggableFab> {
-  /// 默认位于页面可用高度 30% 处。
-  static const double _defaultFraction = 0.30;
+  /// 默认位于页面可用高度 70% 处。
+  static const double _defaultFraction = 0.70;
 
   /// 右缘留白（与页面左右边距一致）。
   static const double _rightInset = XpSpacing.l;
