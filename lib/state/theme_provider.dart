@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -348,7 +349,11 @@ class FrostedState {
   bool get barsOn => enabled && appBar;
 
   /// 卡片磨砂是否实际生效。
-  bool get cardsOn => enabled && card;
+  ///
+  /// Release 强制关闭：卡片磨砂的真实模糊快照（BackdropFilter 对未就绪
+  /// 图层 readback）存在闪灰黑问题，正式版不开放该效果；
+  /// debug/profile 保留以便排查（设置页开关同步隐藏）。
+  bool get cardsOn => !kReleaseMode && enabled && card;
 
   /// 配置弹窗磨砂是否实际生效。
   bool get sheetOn => enabled && sheet;

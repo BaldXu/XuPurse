@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -514,17 +515,21 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
                   onChanged: notifier.setAppBar,
                 ),
               ),
-              const Divider(height: 1, indent: 16, endIndent: 16),
-              ListTile(
-                leading: Icon(Icons.style_outlined, color: scheme.primary),
-                title: const Text('卡片磨砂'),
-                subtitle: const Text('卡片表面白色磨砂（σ10 · 透明度 0.55）'),
-                enabled: state.enabled,
-                trailing: Switch(
-                  value: state.card,
-                  onChanged: notifier.setCard,
+              // 卡片磨砂：Release 强制关闭并隐藏开关（效果存在闪灰黑问题，
+              // 见 FrostedState.cardsOn）；debug/profile 保留以便排查。
+              if (!kReleaseMode) ...[
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                ListTile(
+                  leading: Icon(Icons.style_outlined, color: scheme.primary),
+                  title: const Text('卡片磨砂'),
+                  subtitle: const Text('卡片表面白色磨砂（σ10 · 透明度 0.55）'),
+                  enabled: state.enabled,
+                  trailing: Switch(
+                    value: state.card,
+                    onChanged: notifier.setCard,
+                  ),
                 ),
-              ),
+              ],
               const Divider(height: 1, indent: 16, endIndent: 16),
               ListTile(
                 leading: Icon(Icons.article_outlined, color: scheme.primary),
