@@ -31,6 +31,18 @@ class HomePage extends ConsumerStatefulWidget {
 
 class _HomePageState extends ConsumerState<HomePage>
     with XpPageScaffold<HomePage> {
+  // ── 折叠状态（方案 A：重建 entries + 状态集合，展开轻量淡入）──
+
+  /// 已折叠的月（key = '年-月'）：分组卡常驻，其下日组卡隐藏。
+  final Set<String> _collapsedMonths = {};
+
+  /// 已折叠的年：年分组卡常驻，该年所有月/日卡隐藏。
+  final Set<int> _collapsedYears = {};
+
+  /// 本次操作刚展开的月（key = '年-月'）：下一帧给其日组卡包 _FadeIn
+  /// 淡入一次；post-frame 清空，滚动回收重建不会误播动画。
+  final Set<String> _expandAnimate = {};
+
   @override
   Widget build(BuildContext context) {
     // 首次挂载（切 tab 进来）只渲染骨架：整页树（Hero 汇总 + 过滤栏 +
@@ -114,6 +126,11 @@ class _HomePageState extends ConsumerState<HomePage>
             ),
             // ── 账单流 ──
             billsAsync.when(
+              // 关键：逐月加载时 billsProvider 因 watch 重建会短暂进入
+              // loading；若不跳过，列表被骨架替换导致内容塌缩，深滚位置被
+              // 钳回顶部（表现为「加载后自动回滚到最上面」）。跳过重载
+              // loading 后继续展示旧列表，新数据在底部追加、滚动位置不动。
+              skipLoadingOnReload: true,
               loading: () => const SliverFillRemaining(
                 hasScrollBody: false,
                 child: XpSkeletonList(),
@@ -156,11 +173,17 @@ class _HomePageState extends ConsumerState<HomePage>
   }
 
   /// 按日分组，每组一张卡片（组头含当日小计，分组时顺带累计）。
+  /// 日分组之上叠加月/年分组卡（时间倒序，滚动方向新→旧）：
+  /// - 每月第一组日卡前插月分组卡（含列表首组，统一显示）；
+  /// - 跨年处再插主题色年分组卡（与当月月分组卡同现）；
+  /// - 卡内红绿条：条总长 = 收入，红 = 支出占比，绿 = 余额占比。
   Widget _buildBillSliver(
     BuildContext context,
     WidgetRef ref,
     List<Bill> bills,
   ) {
+    // 逐月收支柱（红绿条数据源；刻意不受类型筛选影响）
+    final summaries = ref.watch(monthlySummariesProvider).value ?? const {};
     final sections = <_DaySection>[];
     for (final bill in bills) {
       final dt = DateTime.fromMillisecondsSinceEpoch(bill.time);
@@ -185,6 +208,89 @@ class _HomePageState extends ConsumerState<HomePage>
       if (bill.type == 'income') s.income += bill.amount;
     }
 
+    // 扁平化列表条目：跨月插月分组卡；跨年在其上再插主题色年分组卡。
+    // 折叠（方案 A：重建 entries + 状态集合）：
+    // - 月折叠：该月日组卡隐藏，月分组卡常驻可再展开；
+    // - 年折叠：该年所有月/日卡隐藏，年分组卡常驻可再展开。
+    void toggleMonth(String key) {
+      setState(() {
+        if (_collapsedMonths.contains(key)) {
+          _collapsedMonths.remove(key);
+          _expandAnimate.add(key);
+        } else {
+          _collapsedMonths.add(key);
+          _expandAnimate.remove(key);
+        }
+      });
+      _clearExpandAnimateAfterFrame();
+    }
+
+    void toggleYear(int year) {
+      setState(() {
+        if (_collapsedYears.contains(year)) {
+          _collapsedYears.remove(year);
+          // 展开动画覆盖该年所有月（逐月柱数据已全量在手）
+          for (final k in summaries.keys) {
+            if (k.startsWith('$year-')) _expandAnimate.add(k);
+          }
+        } else {
+          _collapsedYears.add(year);
+        }
+      });
+      _clearExpandAnimateAfterFrame();
+    }
+
+    // 稳定索引：日卡在「全量 sections」中的位置。折叠会压缩条目数，但
+    // stagger 判断（<12）必须基于未折叠的稳定位置——否则折叠后深处日卡
+    // 跨界进入前 12 组会被新包 XpStaggerIn，触发淡入意外重播。
+    final stableIndex = <int, int>{};
+    for (var i = 0; i < sections.length; i++) {
+      stableIndex[sections[i].dayStart] = i;
+    }
+
+    final entries = <_BillListEntry>[];
+    String? prevMonthKey;
+    int? prevYear;
+    for (final section in sections) {
+      final y = section.day.year;
+      final m = section.day.month;
+      final monthKey = '$y-$m';
+      final yearCollapsed = _collapsedYears.contains(y);
+      final monthCollapsed = _collapsedMonths.contains(monthKey);
+      if (prevYear != null && y != prevYear) {
+        entries.add(
+          _YearHeaderEntry(
+            y,
+            _yearSummary(summaries, y),
+            collapsed: yearCollapsed,
+          ),
+        );
+      }
+      if (!yearCollapsed) {
+        if (prevMonthKey == null || monthKey != prevMonthKey) {
+          entries.add(
+            _MonthHeaderEntry(
+              y,
+              m,
+              summaries['$y-$m'],
+              collapsed: monthCollapsed,
+            ),
+          );
+        }
+        if (!monthCollapsed) {
+          entries.add(
+            _DayEntry(
+              section,
+              stableIndex[section.dayStart]!,
+              animateIn: _expandAnimate.contains(monthKey),
+            ),
+          );
+        }
+      }
+      prevYear = y;
+      prevMonthKey = monthKey;
+    }
+
     return SliverPadding(
       padding: const EdgeInsets.fromLTRB(
         XpSpacing.l,
@@ -193,29 +299,58 @@ class _HomePageState extends ConsumerState<HomePage>
         96,
       ),
       sliver: SliverList.builder(
-        itemCount: sections.length,
+        itemCount: entries.length,
         itemBuilder: (context, i) {
-          final section = sections[i];
-          // stagger 淡入试点:仅前 12 组做动画,更深处直接渲染(性能守则)
-          final item = _DayGroupCard(
-            section: section,
-            onTapBill: (bill) => BookkeepingSheet.show(context, bill: bill),
-            onLongPressBill: (bill) => _confirmDelete(context, ref, bill),
-          );
-          return Padding(
-            padding: const EdgeInsets.only(bottom: XpSpacing.m),
-            // key 稳定 stagger 的 State，避免列表 rebuild 时前 12 组动画重播
-            child: i < 12
-                ? XpStaggerIn(
-                    key: ValueKey(section.dayStart),
-                    index: i,
-                    child: item,
-                  )
-                : item,
-          );
+          final entry = entries[i];
+          return switch (entry) {
+            _YearHeaderEntry() => _YearGroupHeader(
+              year: entry.year,
+              summary: entry.summary,
+              collapsed: entry.collapsed,
+              onTap: () => toggleYear(entry.year),
+            ),
+            _MonthHeaderEntry() => _MonthGroupHeader(
+              year: entry.year,
+              month: entry.month,
+              summary: entry.summary,
+              collapsed: entry.collapsed,
+              onTap: () => toggleMonth('${entry.year}-${entry.month}'),
+            ),
+            _DayEntry() => _buildDayCard(context, ref, entry),
+          };
         },
       ),
     );
+  }
+
+  /// 日组卡：展开动画（_FadeIn）优先，其次维持 stagger 试点（仅前 12 组）。
+  Widget _buildDayCard(BuildContext context, WidgetRef ref, _DayEntry entry) {
+    final card = _DayGroupCard(
+      section: entry.section,
+      onTapBill: (bill) => BookkeepingSheet.show(context, bill: bill),
+      onLongPressBill: (bill) => _confirmDelete(context, ref, bill),
+    );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: XpSpacing.m),
+      child: entry.animateIn
+          ? _FadeIn(child: card)
+          : entry.dayIndex < 12
+          ? XpStaggerIn(
+              // key 稳定 stagger 的 State，避免列表 rebuild 时前 12 组动画重播
+              key: ValueKey(entry.section.dayStart),
+              index: entry.dayIndex,
+              child: card,
+            )
+          : card,
+    );
+  }
+
+  /// 展开动画标记只在下一帧生效：post-frame 清空，滚动回收重建时集合
+  /// 已空 → 不会误播动画（_FadeIn 只在展开瞬间构建一次）。
+  void _clearExpandAnimateAfterFrame() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _expandAnimate.clear();
+    });
   }
 
   /// 弹出日期范围选择（下界 = 最早账单日，上界 = 今天）。
@@ -278,6 +413,24 @@ String _grouped(String raw) {
     if (remain > 0 && remain % 3 == 0) buf.write(',');
   }
   return parts.length > 1 ? '${buf.toString()}.${parts[1]}' : buf.toString();
+}
+
+/// 汇总某年的逐月收支柱（范围为当前已加载区间，与列表展示口径一致）。
+({int expense, int income})? _yearSummary(
+  Map<String, ({int expense, int income})> summaries,
+  int year,
+) {
+  var expense = 0;
+  var income = 0;
+  var found = false;
+  for (final e in summaries.entries) {
+    if (e.key.startsWith('$year-')) {
+      found = true;
+      expense += e.value.expense;
+      income += e.value.income;
+    }
+  }
+  return found ? (expense: expense, income: income) : null;
 }
 
 /// Hero 月汇总卡：大金额（Display 32/w700 tabular）+ 支收小计行。
@@ -500,6 +653,55 @@ class _FilterBar extends ConsumerWidget {
   }
 }
 
+/// 明细列表条目（时间倒序）：分组头 或 日组卡。
+sealed class _BillListEntry {
+  const _BillListEntry();
+}
+
+/// 月分组头：跨月处（含列表首组）的卡片头——日历图标 +「x年x月」+
+/// 红绿比例条，标记「从这里往下都是该月明细」。
+class _MonthHeaderEntry extends _BillListEntry {
+  const _MonthHeaderEntry(
+    this.year,
+    this.month,
+    this.summary, {
+    required this.collapsed,
+  });
+
+  final int year;
+  final int month;
+
+  /// 该月收支柱（红绿条数据；null = 未加载）。
+  final ({int expense, int income})? summary;
+
+  /// 该月是否已折叠（日组卡隐藏，分组卡常驻可再展开）。
+  final bool collapsed;
+}
+
+/// 年分组头：跨年处的主题色大卡，比月卡更显眼。
+class _YearHeaderEntry extends _BillListEntry {
+  const _YearHeaderEntry(this.year, this.summary, {required this.collapsed});
+
+  final int year;
+
+  /// 该年收支柱（当前已加载月份的合计；null = 未加载）。
+  final ({int expense, int income})? summary;
+
+  /// 该年是否已折叠（该年所有月/日卡隐藏，分组卡常驻可再展开）。
+  final bool collapsed;
+}
+
+/// 日组卡条目（dayIndex 供 stagger 差分延迟；animateIn 供展开淡入）。
+class _DayEntry extends _BillListEntry {
+  const _DayEntry(this.section, this.dayIndex, {required this.animateIn});
+
+  final _DaySection section;
+  final int dayIndex;
+
+  /// 是否本次展开动画目标（包 _FadeIn 淡入一次）。
+  final bool animateIn;
+}
+
 /// 单日账单分组数据（分组遍历时顺带累计当日小计）。
 class _DaySection {
   _DaySection({required this.dayStart, required this.day, required this.bills});
@@ -509,6 +711,235 @@ class _DaySection {
   final List<Bill> bills;
   int expense = 0;
   int income = 0;
+}
+
+/// 月分组卡：日历图标 +「x年x月」+ 红绿比例条，卡片背景与日组卡同层。
+/// 点击折叠/展开该月（折叠时箭头朝下提示展开，展开时朝上提示收起）。
+class _MonthGroupHeader extends StatelessWidget {
+  const _MonthGroupHeader({
+    required this.year,
+    required this.month,
+    this.summary,
+    required this.collapsed,
+    required this.onTap,
+  });
+
+  final int year;
+  final int month;
+  final ({int expense, int income})? summary;
+  final bool collapsed;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, XpSpacing.xs, 0, XpSpacing.m),
+      child: XpCard(
+        onTap: onTap,
+        padding: const EdgeInsets.symmetric(
+          horizontal: XpSpacing.l,
+          vertical: XpSpacing.m,
+        ),
+        child: Row(
+          children: [
+            AppIcon(
+              icon: Icons.calendar_month_outlined,
+              size: 18,
+              color: colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: XpSpacing.s),
+            Text(
+              '$year年$month月',
+              style: textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: XpSpacing.l),
+            Expanded(
+              child: _RatioBar(
+                expense: summary?.expense ?? 0,
+                income: summary?.income ?? 0,
+              ),
+            ),
+            const SizedBox(width: XpSpacing.s),
+            AnimatedRotation(
+              turns: collapsed ? 0 : 0.5,
+              duration: XpMotion.component,
+              curve: XpMotion.easeOut,
+              child: AppIcon(
+                icon: Icons.keyboard_arrow_down,
+                size: 18,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 年分组卡：主题色大卡——日历图标 +「x年」大字 + 红绿比例条，比月卡显眼。
+/// 点击折叠/展开该年。
+class _YearGroupHeader extends StatelessWidget {
+  const _YearGroupHeader({
+    required this.year,
+    this.summary,
+    required this.collapsed,
+    required this.onTap,
+  });
+
+  final int year;
+  final ({int expense, int income})? summary;
+  final bool collapsed;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, XpSpacing.s, 0, XpSpacing.xs),
+      child: XpCard(
+        color: colorScheme.primary,
+        onTap: onTap,
+        padding: const EdgeInsets.all(XpSpacing.l),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                AppIcon(
+                  icon: Icons.calendar_month,
+                  size: 22,
+                  color: colorScheme.onPrimary,
+                ),
+                const SizedBox(width: XpSpacing.s),
+                Text(
+                  '$year年',
+                  style: textTheme.titleLarge?.copyWith(
+                    color: colorScheme.onPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const Spacer(),
+                AnimatedRotation(
+                  turns: collapsed ? 0 : 0.5,
+                  duration: XpMotion.component,
+                  curve: XpMotion.easeOut,
+                  child: AppIcon(
+                    icon: Icons.keyboard_arrow_down,
+                    size: 22,
+                    color: colorScheme.onPrimary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: XpSpacing.m),
+            _RatioBar(
+              height: 8,
+              expense: summary?.expense ?? 0,
+              income: summary?.income ?? 0,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 储蓄率条：绿底 = 该范围总收入；红条从最左按占比增长 = 支出进度，
+/// 剩余绿 = 储蓄。支出超出收入（或收入为 0 但有支出）时整条变灰黑；
+/// 无任何收支数据时不渲染。
+class _RatioBar extends StatelessWidget {
+  const _RatioBar({
+    required this.expense,
+    required this.income,
+    this.height = 6,
+  });
+
+  final int expense;
+  final int income;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    if (expense <= 0 && income <= 0) return const SizedBox.shrink();
+    // 无收入或有支出超支 → 整条灰黑（无储蓄可看）
+    final over = income <= 0 || expense > income;
+    final Widget fill;
+    if (over) {
+      fill = const ColoredBox(color: XpElevation.shadow);
+    } else {
+      // 绿底（总收入）铺满整条；红（支出）用 Positioned 显式定宽、恒靠左。
+      // 不用 flex/StackFit：宽 = 条宽 × 占比，任何约束下都精确渲染。
+      fill = LayoutBuilder(
+        builder: (context, constraints) {
+          final redWidth = constraints.maxWidth * (expense / income);
+          return Stack(
+            children: [
+              const Positioned.fill(
+                child: ColoredBox(color: XpSemanticColors.income),
+              ),
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: redWidth,
+                child: const ColoredBox(color: XpSemanticColors.expenseStrong),
+              ),
+            ],
+          );
+        },
+      );
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(XpRadius.pill),
+      child: SizedBox(height: height, child: fill),
+    );
+  }
+}
+
+/// 展开淡入：State 创建后淡入一次（无 index 差分，时长 XpMotion.component）。
+/// 仅由「折叠展开」触发（_expandAnimate 命中时包一层），滚动回收重建
+/// 不包此组件，不会误播动画；reduce-motion 时直接返回 child。
+class _FadeIn extends StatefulWidget {
+  const _FadeIn({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_FadeIn> createState() => _FadeInState();
+}
+
+class _FadeInState extends State<_FadeIn> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: XpMotion.component,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) return widget.child;
+    return FadeTransition(
+      opacity: CurvedAnimation(parent: _controller, curve: XpMotion.easeOut),
+      child: widget.child,
+    );
+  }
 }
 
 /// 日组卡：组头（日期 + 当日小计）+ 当日账单行。

@@ -175,6 +175,37 @@ class BillRepository {
         });
   }
 
+  /// 时间段内按「年-月」分组收支柱流（首页分组卡储蓄率条；不含转账）。
+  /// 刻意不排除「不计入收支」账单：与明细列表/日卡口径一致——条反映
+  /// 用户在该月实际看到的所有收支。时间倒序（新年份在前）。
+  Stream<List<({int year, int month, int expense, int income})>>
+  watchMonthlySummaryInRange(int start, int end) {
+    return _db
+        .customSelect(
+          "SELECT CAST(strftime('%Y', time / 1000, 'unixepoch', 'localtime') AS INTEGER) AS y, "
+          "CAST(strftime('%m', time / 1000, 'unixepoch', 'localtime') AS INTEGER) AS m, "
+          "SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) AS expense, "
+          "SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) AS income "
+          "FROM bills WHERE time >= ? AND time < ? "
+          "AND type IN ('expense', 'income') "
+          "GROUP BY y, m ORDER BY y DESC, m DESC",
+          variables: [Variable(start), Variable(end)],
+          readsFrom: {_db.bills},
+        )
+        .watch()
+        .map(
+          (rows) => [
+            for (final r in rows)
+              (
+                year: r.data['y'] as int,
+                month: r.data['m'] as int,
+                expense: r.data['expense'] as int? ?? 0,
+                income: r.data['income'] as int? ?? 0,
+              ),
+          ],
+        );
+  }
+
   /// 时间段内按分类汇总金额（统计页分类占比；不含转账；不含「不计入收支」）。
   Future<List<({String categoryId, int amount})>> sumByCategoryInRange(
     int start,

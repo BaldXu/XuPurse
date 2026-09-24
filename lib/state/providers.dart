@@ -130,6 +130,16 @@ final minDataTimeProvider = FutureProvider<int?>((ref) async {
   return minBill < minSnap ? minBill : minSnap;
 });
 
+/// 首页明细范围（自定义范围优先，否则「本月往前 months 个月 ~ 明天零点」）。
+({int start, int end}) _homeRange(int months, ({int start, int end})? custom) {
+  if (custom != null) return custom;
+  final now = DateTime.now();
+  return (
+    start: DateTime(now.year, now.month - (months - 1)).millisecondsSinceEpoch,
+    end: DateTime(now.year, now.month, now.day + 1).millisecondsSinceEpoch,
+  );
+}
+
 /// 首页账单流（时间倒序；范围 = 自定义范围，或「本月往前 months 个月 ~ 今天」）
 final billsProvider = StreamProvider<List<Bill>>((ref) {
   final type = switch (ref.watch(homeTypeFilterProvider)) {
@@ -137,22 +147,39 @@ final billsProvider = StreamProvider<List<Bill>>((ref) {
     HomeTypeFilter.expense => BillType.expense,
     HomeTypeFilter.income => BillType.income,
   };
-  final months = ref.watch(homeMonthsProvider);
-  final custom = ref.watch(homeCustomRangeProvider);
-  final now = DateTime.now();
-  final int start;
-  final int end;
-  if (custom != null) {
-    start = custom.start;
-    end = custom.end;
-  } else {
-    start = DateTime(now.year, now.month - (months - 1)).millisecondsSinceEpoch;
-    end = DateTime(now.year, now.month, now.day + 1).millisecondsSinceEpoch;
-  }
+  final range = _homeRange(
+    ref.watch(homeMonthsProvider),
+    ref.watch(homeCustomRangeProvider),
+  );
   return ref
       .watch(billRepoProvider)
-      .watchPage(limit: 1000000, type: type, start: start, end: end);
+      .watchPage(
+        limit: 1000000,
+        type: type,
+        start: range.start,
+        end: range.end,
+      );
 });
+
+/// 首页范围内逐月收支柱（分组头储蓄率条数据源；key = '年-月'）。
+/// 口径与明细列表一致：不含转账、含「不计入收支」账单；刻意不随类型
+/// 筛选变化（条需要收/支双方，筛选只影响明细列表本身）。
+final monthlySummariesProvider =
+    StreamProvider<Map<String, ({int expense, int income})>>((ref) {
+      final range = _homeRange(
+        ref.watch(homeMonthsProvider),
+        ref.watch(homeCustomRangeProvider),
+      );
+      return ref
+          .watch(billRepoProvider)
+          .watchMonthlySummaryInRange(range.start, range.end)
+          .map(
+            (rows) => {
+              for (final r in rows)
+                '${r.year}-${r.month}': (expense: r.expense, income: r.income),
+            },
+          );
+    });
 
 /// 全部分类（账单列表展示分类名/图标用）
 final categoriesProvider = StreamProvider<List<Category>>((ref) {

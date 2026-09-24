@@ -20,6 +20,7 @@ class XpCard extends StatefulWidget {
     super.key,
     required this.child,
     this.padding,
+    this.color,
     this.onTap,
     this.onLongPress,
     this.clipBehavior,
@@ -33,6 +34,10 @@ class XpCard extends StatefulWidget {
   /// 裁剪行为（如分组卡内嵌多行 ListTile 时传 [Clip.antiAlias],
   /// 让 ripple/按压态被圆角裁剪）。
   final Clip? clipBehavior;
+
+  /// 自定义背景色（如主题色年分组卡）。给定后禁用磨砂表面
+  /// （白色磨砂会冲淡纯色底），改走实色 Card。
+  final Color? color;
 
   /// 卡片磨砂参数：真实高斯模糊 σ10 · 白 0.55（比弹窗磨砂更透）。
   /// FAB 磨砂（XpFab）共享同一参数，保证「卡片化」表面视觉一致。
@@ -61,13 +66,13 @@ class _XpCardState extends State<XpCard> {
     final hasTap = widget.onTap != null;
     final baseElev = cardStyle.elevation ?? 0;
     final animOn = hasTap && !MediaQuery.disableAnimationsOf(context);
-    // 卡片磨砂开启时：表面由下方真实模糊层（σ10 + 白 0.55）提供，
-    // 内部 Card 置透明避免双层白。
     final cardsOn = ProviderScope.containerOf(
       context,
       listen: false,
     ).read(frostedGlassProvider).cardsOn;
-    final frostEnabled = cardsOn;
+    // 卡片磨砂开启时：表面由下方真实模糊层（σ10 + 白 0.55）提供，
+    // 内部 Card 置透明避免双层白。实色卡（color 非空）不走磨砂。
+    final frostEnabled = cardsOn && widget.color == null;
 
     final Widget padded = Padding(
       padding: widget.padding ?? const EdgeInsets.all(XpSpacing.l),
@@ -83,7 +88,7 @@ class _XpCardState extends State<XpCard> {
         shape: cardStyle.shape,
         margin: EdgeInsets.zero,
         clipBehavior: widget.clipBehavior,
-        color: frostEnabled ? Colors.transparent : null,
+        color: frostEnabled ? Colors.transparent : widget.color,
         child: padded,
       );
       if (hasTap) {
@@ -115,7 +120,7 @@ class _XpCardState extends State<XpCard> {
               shape: cardStyle.shape,
               margin: EdgeInsets.zero,
               clipBehavior: widget.clipBehavior,
-              color: frostEnabled ? Colors.transparent : null,
+              color: frostEnabled ? Colors.transparent : widget.color,
               child: child,
             ),
           ),

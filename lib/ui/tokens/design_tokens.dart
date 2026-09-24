@@ -88,6 +88,10 @@ abstract final class XpSemanticColors {
   /// 支出
   static const Color expense = Color(0xFFF0645A);
 
+  /// 支出（更正红）：全局支出色偏珊瑚/橙调，储蓄条等细条视觉上需要更
+  /// 纯的正红（用户指定仅条内使用，不改全局 expense）。
+  static const Color expenseStrong = Color(0xFFE5484D);
+
   /// 收入
   static const Color income = Color(0xFF20B978);
 
