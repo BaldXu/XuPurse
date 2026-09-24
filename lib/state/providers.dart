@@ -15,6 +15,7 @@ import '../data/repositories/snapshot_repository.dart';
 import '../data/repositories/tag_repository.dart';
 import '../domain/services/account_service.dart';
 import '../domain/services/bill_service.dart';
+import '../domain/services/category_service.dart';
 import '../domain/services/currency_service.dart';
 
 /// 数据库管理器（main 中完成账本初始化后 override 注入）。
@@ -60,6 +61,9 @@ final billServiceProvider = Provider(
 );
 final accountServiceProvider = Provider(
   (ref) => AccountService(ref.watch(dbProvider)),
+);
+final categoryServiceProvider = Provider(
+  (ref) => CategoryService(ref.watch(dbProvider)),
 );
 
 /// 第三方导入引擎

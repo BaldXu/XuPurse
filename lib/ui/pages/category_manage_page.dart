@@ -13,6 +13,7 @@ import '../widgets/xp_fab.dart';
 import '../widgets/xp_snack.dart';
 import '../../state/providers.dart';
 import '../tokens/design_tokens.dart';
+import 'category_merge_page.dart';
 
 /// 分类管理页（两级树；支出/收入/转账 三 tab）。
 class CategoryManagePage extends ConsumerStatefulWidget {
@@ -31,6 +32,19 @@ class _CategoryManagePageState extends ConsumerState<CategoryManagePage>
       child: buildXpScaffold(
         appBar: AppBar(
           title: const Text('分类管理'),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                final merged = await Navigator.of(context).push<bool>(
+                  XpRoute(builder: (_) => const CategoryMergePage()),
+                );
+                if (merged == true && context.mounted) {
+                  showXpSnack(context, '分类合并完成');
+                }
+              },
+              child: const Text('分类合并'),
+            ),
+          ],
           bottom: const TabBar(
             tabs: [
               Tab(text: '支出'),
