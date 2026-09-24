@@ -43,7 +43,7 @@ class _AiHelpPageState extends State<AiHelpPage>
         children: [
           Text(
             '接入 AI 后，账本的查账、算账可以交给 AI 代劳。'
-            '下面是接入方法和已经支持的功能。',
+            '下面是接入方法、已经支持的功能，以及它的能力边界。',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: scheme.onSurfaceVariant,
             ),
@@ -105,16 +105,40 @@ class _AiHelpPageState extends State<AiHelpPage>
               '内置隐私规则，只基于摘要作答，不会向你索要手机号等敏感信息',
             ],
           ),
+          const SizedBox(height: XpSpacing.xl),
+          Text(
+            'AI 的局限',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           const SizedBox(height: XpSpacing.m),
           const _FeatureCard(
-            icon: Icons.currency_exchange,
-            title: '一键设置汇率',
-            where: '入口：「资产」→「汇率设置」→「AI 更新汇率」',
+            icon: Icons.info_outline,
+            title: '不会联网，拿不到实时信息',
             points: [
-              '让 AI 联网获取最新汇率，先预览对比，确认后一键写入，'
-                  '省去手动查表',
-              '适合有外币账户、希望汇率保持准确的情况',
+              '本 App 只调用 AI 的「对话接口」：把账本摘要发过去，把回答取回来，'
+                  '除此之外不会为它开启任何额外能力',
+              '各家服务商的联网搜索 / 工具调用（OpenAI、Anthropic、DeepSeek、'
+                  '火山方舟等）参数名、返回格式、开关方式都不一样，没有通用做法；'
+                  '逐个适配并长期维护成本太高，本 App 不做这件事',
+              '所以 AI 只能凭训练时记住的知识作答。遇到实时数据类问题'
+                  '（最新汇率、今日股价、新闻、天气），它给出的答案可能过时'
+                  '甚至是错的，而且语气往往很肯定',
+              '这跟你的配置无关：换任何服务商、任何模型都一样，'
+                  '只要请求里不带工具参数，就没有哪家会自动联网',
             ],
+          ),
+          const SizedBox(height: XpSpacing.xs),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: XpSpacing.xs),
+            child: Text(
+              '因此凡是需要实时数据的功能（例如汇率更新），本 App 都改为'
+              '直连公开数据源，不经过 AI。',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
           ),
         ],
       ),
@@ -169,13 +193,15 @@ class _FeatureCard extends StatelessWidget {
   const _FeatureCard({
     required this.icon,
     required this.title,
-    required this.where,
+    this.where,
     required this.points,
   });
 
   final IconData icon;
   final String title;
-  final String where;
+
+  /// 使用入口；能力说明类卡片无入口，传 null。
+  final String? where;
   final List<String> points;
 
   @override
@@ -206,13 +232,15 @@ class _FeatureCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: XpSpacing.xs),
-          Text(
-            where,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: scheme.onSurfaceVariant,
+          if (where != null) ...[
+            const SizedBox(height: XpSpacing.xs),
+            Text(
+              where!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
             ),
-          ),
+          ],
           const SizedBox(height: XpSpacing.m),
           for (var i = 0; i < points.length; i++)
             Padding(

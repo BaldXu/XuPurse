@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../domain/ai/ai_config.dart';
-import '../../domain/ai/rate_updater.dart';
 import '../../domain/services/currency_service.dart';
+import '../../domain/services/exchange_rate_service.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../widgets/app_icon.dart';
@@ -23,8 +22,8 @@ class CurrencySettingsPage extends ConsumerStatefulWidget {
 
 class _CurrencySettingsPageState extends ConsumerState<CurrencySettingsPage>
     with XpPageScaffold<CurrencySettingsPage> {
-  /// AI 更新汇率进行中标志。
-  bool _aiUpdating = false;
+  /// 一键更新汇率进行中标志。
+  bool _updating = false;
 
   @override
   Widget build(BuildContext context) {
@@ -92,58 +91,67 @@ class _CurrencySettingsPageState extends ConsumerState<CurrencySettingsPage>
             ),
           ),
           const SizedBox(height: XpSpacing.l),
-          // ── AI 更新汇率入口（仅已接入 AI 时显示）──
-          if (ref.watch(aiConfigProvider).isConfigured) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: XpSpacing.l),
-              child: XpCard(
-                onTap: _aiUpdating ? null : _startAiUpdate,
-                child: Padding(
-                  padding: const EdgeInsets.all(XpSpacing.l),
-                  child: Row(
-                    children: [
-                      AppIcon(
-                        icon: Icons.auto_awesome,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(width: XpSpacing.m),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('AI 更新汇率', style: textTheme.titleSmall),
-                            const SizedBox(height: 2),
-                            Text(
-                              'AI 获取最新汇率，确认后写入',
-                              style: textTheme.bodySmall?.copyWith(
-                                color: textTheme.bodySmall?.color?.withValues(
-                                  alpha: 0.6,
-                                ),
+          // ── 一键更新汇率入口（走公开汇率源，不依赖 AI 配置）──
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: XpSpacing.l),
+            child: XpCard(
+              onTap: _updating ? null : _startUpdate,
+              child: Padding(
+                padding: const EdgeInsets.all(XpSpacing.l),
+                child: Row(
+                  children: [
+                    AppIcon(
+                      icon: Icons.sync,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: XpSpacing.m),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('一键更新汇率', style: textTheme.titleSmall),
+                          const SizedBox(height: 2),
+                          Text(
+                            '从公开汇率源获取最新汇率，确认后写入',
+                            style: textTheme.bodySmall?.copyWith(
+                              color: textTheme.bodySmall?.color?.withValues(
+                                alpha: 0.6,
                               ),
                             ),
-                          ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _lastUpdatedLabel(
+                              ref.watch(rateLastUpdatedProvider),
+                            ),
+                            style: textTheme.bodySmall?.copyWith(
+                              color: textTheme.bodySmall?.color?.withValues(
+                                alpha: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (_updating)
+                      const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    else
+                      Icon(
+                        Icons.chevron_right,
+                        color: textTheme.bodySmall?.color?.withValues(
+                          alpha: 0.5,
                         ),
                       ),
-                      if (_aiUpdating)
-                        const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      else
-                        Icon(
-                          Icons.chevron_right,
-                          color: textTheme.bodySmall?.color?.withValues(
-                            alpha: 0.5,
-                          ),
-                        ),
-                    ],
-                  ),
+                  ],
                 ),
               ),
             ),
-            const SizedBox(height: XpSpacing.l),
-          ],
+          ),
+          const SizedBox(height: XpSpacing.l),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: XpSpacing.l),
             child: XpCard(
@@ -207,27 +215,29 @@ class _CurrencySettingsPageState extends ConsumerState<CurrencySettingsPage>
     );
   }
 
-  /// 点击「AI 更新汇率」：调 AI → 失败弹错误弹窗 → 成功弹预览对比，
-  /// 用户确认后才逐个写入汇率配置。
-  Future<void> _startAiUpdate() async {
-    if (_aiUpdating) return;
-    setState(() => _aiUpdating = true);
+  /// 点击「一键更新汇率」：拉取公开汇率源 → 失败弹错误弹窗 → 成功弹预览对比，
+  /// 用户确认后才逐个写入汇率配置，并记录「上次更新时间」。
+  Future<void> _startUpdate() async {
+    if (_updating) return;
+    setState(() => _updating = true);
     try {
-      final result = await fetchAiRates(ref);
+      final rates = await fetchRates();
       if (!mounted) return;
       // 预览对比：修改前后汇率 + 涨跌幅，用户确认才写入。
-      final confirmed = await _showRatePreviewDialog(result.rates);
+      final confirmed = await _showRatePreviewDialog(rates);
       if (!confirmed || !mounted) return;
       final service = ref.read(currencyServiceProvider.notifier);
       var updated = 0;
-      for (final e in result.rates.entries) {
+      for (final e in rates.entries) {
         await service.setOverride(e.key, e.value);
         updated++;
       }
+      // 仅在用户确认且写入成功后记录生效时间。
+      await ref.read(rateLastUpdatedProvider.notifier).markNow();
       if (mounted) {
         showXpSnack(context, '已更新 $updated 种货币汇率');
       }
-    } on AiRateException catch (e) {
+    } on RateFetchException catch (e) {
       if (mounted) {
         await _showErrorDialog(e.message);
       }
@@ -236,15 +246,26 @@ class _CurrencySettingsPageState extends ConsumerState<CurrencySettingsPage>
         await _showErrorDialog('更新汇率时发生未知错误：$e');
       }
     } finally {
-      if (mounted) setState(() => _aiUpdating = false);
+      if (mounted) setState(() => _updating = false);
     }
+  }
+
+  /// 「上次更新时间」展示文案；区分首次读取中与从未更新过。
+  String _lastUpdatedLabel(AsyncValue<DateTime?> v) {
+    final t = v.value;
+    if (t != null) {
+      String p(int n) => n.toString().padLeft(2, '0');
+      return '上次更新：${t.year}-${p(t.month)}-${p(t.day)} '
+          '${p(t.hour)}:${p(t.minute)}';
+    }
+    return v.isLoading ? '上次更新：读取中…' : '上次更新：尚未更新过';
   }
 
   /// 错误弹窗：展示失败原因，由用户自行排查。
   Future<void> _showErrorDialog(String message) {
     return showXpDialog<void>(
       context: context,
-      title: 'AI 更新汇率失败',
+      title: '更新汇率失败',
       content: message,
       actions: [
         FilledButton(
