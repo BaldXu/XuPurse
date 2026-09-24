@@ -122,7 +122,10 @@ class _TotalReportCard extends StatelessWidget {
       income += r.income;
       expense += r.expense;
     }
-    final balance = income - expense;
+    // 累计资产变动 = 最新年末资产 − 最早期初资产（逐年年末 = 下一年年初，首尾相消）。
+    final latest = reports.first;
+    final earliest = reports.last;
+    final assetDelta = latest.endAssets - earliest.startAssets;
     final span = reports.isEmpty
         ? '暂无记录'
         : reports.length == 1
@@ -186,9 +189,9 @@ class _TotalReportCard extends StatelessWidget {
               ),
               Expanded(
                 child: ReportMetricCell(
-                  label: '累计结余',
-                  value: signedYuan(balance),
-                  valueColor: deltaColor(context, balance),
+                  label: '累计资产变动',
+                  value: signedYuan(assetDelta),
+                  valueColor: deltaColor(context, assetDelta),
                 ),
               ),
             ],
@@ -199,7 +202,7 @@ class _TotalReportCard extends StatelessWidget {
   }
 }
 
-/// 单年报告入口卡：年份 + 收支结余摘要 + 记账条数。
+/// 单年报告入口卡：年份 + 收支资产变动摘要 + 记账条数。
 class _YearReportCard extends StatelessWidget {
   const _YearReportCard({required this.report, required this.onTap});
 
@@ -210,7 +213,8 @@ class _YearReportCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
-    final balance = report.income - report.expense;
+    final assetDelta = report.endAssets - report.startAssets;
+    final hasBaseline = report.hasAssetBaseline;
 
     return XpCard(
       onTap: onTap,
@@ -259,9 +263,11 @@ class _YearReportCard extends StatelessWidget {
               ),
               Expanded(
                 child: ReportMetricCell(
-                  label: '结余',
-                  value: signedYuan(balance),
-                  valueColor: deltaColor(context, balance),
+                  label: '资产变动',
+                  value: hasBaseline ? signedYuan(assetDelta) : '—',
+                  valueColor: hasBaseline
+                      ? deltaColor(context, assetDelta)
+                      : null,
                 ),
               ),
             ],

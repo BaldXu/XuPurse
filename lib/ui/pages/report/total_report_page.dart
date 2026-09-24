@@ -82,7 +82,7 @@ class _TotalReportPageState extends ConsumerState<TotalReportPage>
   }
 }
 
-/// 累计概览：全部年份的收支结余 + 年限 / 年均支出 / 手动调整次数。
+/// 累计概览：全部年份的收支 + 累计资产变动 + 年限 / 年均支出 / 手动调整次数。
 class _SummaryCard extends StatelessWidget {
   const _SummaryCard({required this.reports});
 
@@ -103,7 +103,10 @@ class _SummaryCard extends StatelessWidget {
       bills += r.billCount;
       adjusts += r.adjustCount;
     }
-    final balance = income - expense;
+    // 累计资产变动 = 最新年末资产 − 最早期初资产（逐年年末 = 下一年年初，首尾相消）。
+    final latest = reports.first;
+    final earliest = reports.last;
+    final assetDelta = latest.endAssets - earliest.startAssets;
 
     // 年份升序，用于跨度和年均计算。
     final ascending = reports.reversed.toList();
@@ -135,9 +138,9 @@ class _SummaryCard extends StatelessWidget {
               ),
               Expanded(
                 child: ReportMetricCell(
-                  label: '累计结余',
-                  value: signedYuan(balance),
-                  valueColor: deltaColor(context, balance),
+                  label: '累计资产变动',
+                  value: signedYuan(assetDelta),
+                  valueColor: deltaColor(context, assetDelta),
                 ),
               ),
             ],
@@ -202,10 +205,14 @@ class _YearCompareCard extends StatelessWidget {
         ),
     ];
 
-    // 结余最高的年份（用于卡片底部小结）。
-    var best = years.first;
+    // 资产变动最高的年份（仅看有资产基准的年份；用于卡片底部小结）。
+    YearReport? best;
     for (final r in years) {
-      if (r.income - r.expense > best.income - best.expense) best = r;
+      if (!r.hasAssetBaseline) continue;
+      if (best == null ||
+          r.endAssets - r.startAssets > best.endAssets - best.startAssets) {
+        best = r;
+      }
     }
 
     return XpCard(
@@ -274,11 +281,11 @@ class _YearCompareCard extends StatelessWidget {
                       final i = group.x.toInt();
                       if (i < 0 || i >= years.length) return null;
                       final r = years[i];
-                      final balance = r.income - r.expense;
+                      final assetDelta = r.endAssets - r.startAssets;
                       return BarTooltipItem(
                         '${r.year} 年\n支出 ¥ ${formatYuan(r.expense)}'
                         '\n收入 ¥ ${formatYuan(r.income)}'
-                        '\n结余 ${signedYuan(balance)}',
+                        '\n资产变动 ${r.hasAssetBaseline ? signedYuan(assetDelta) : '—'}',
                         TextStyle(
                           color: scheme.onSurface,
                           fontSize: 12,
@@ -292,12 +299,14 @@ class _YearCompareCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: XpSpacing.xs),
-          Text(
-            '结余最高：${best.year} 年 ${signedYuan(best.income - best.expense)}',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: scheme.onSurfaceVariant,
+          if (best != null)
+            Text(
+              '资产变动最高：${best.year} 年 '
+              '${signedYuan(best.endAssets - best.startAssets)}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -338,7 +347,7 @@ class _YearBreakdownCard extends StatelessWidget {
   }
 }
 
-/// 单个年份行：年份 + 笔数 + 结余 / 收支摘要。
+/// 单个年份行：年份 + 笔数 + 资产变动 / 收支摘要。
 class _YearRow extends StatelessWidget {
   const _YearRow({required this.report, required this.ongoing});
 
@@ -351,7 +360,10 @@ class _YearRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
-    final balance = report.income - report.expense;
+    // 右侧主数值：资产变动（年末 − 年初），更贴合个人实际资产变化；
+    // 缺少期初/期末快照时无法计算，显示占位。
+    final assetDelta = report.endAssets - report.startAssets;
+    final hasBaseline = report.hasAssetBaseline;
 
     return InkWell(
       onTap: () => Navigator.of(
@@ -410,10 +422,12 @@ class _YearRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  signedYuan(balance),
+                  hasBaseline ? signedYuan(assetDelta) : '—',
                   style: textTheme.titleSmall
                       ?.copyWith(
-                        color: deltaColor(context, balance),
+                        color: hasBaseline
+                            ? deltaColor(context, assetDelta)
+                            : scheme.onSurfaceVariant,
                         fontWeight: FontWeight.w700,
                       )
                       .tabular,

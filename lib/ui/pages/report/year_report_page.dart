@@ -9,6 +9,7 @@ import '../../tokens/design_tokens.dart';
 import '../../widgets/xp_card.dart';
 import '../../widgets/xp_empty_state.dart';
 import '../../widgets/xp_skeleton.dart';
+import '../../widgets/xp_sliding_segmented.dart';
 import '../statistics/stats_shared.dart';
 import 'report_providers.dart';
 import 'report_widgets.dart';
@@ -101,7 +102,23 @@ class _YearReportPageState extends ConsumerState<YearReportPage>
         const SizedBox(height: XpSpacing.l),
         _MonthlyCard(report: report, monthly: detail.monthly),
         const SizedBox(height: XpSpacing.l),
-        _CategoryCard(detail: detail),
+        _CategoryCard(
+          title: '支出构成',
+          subtitleLabel: '全年支出',
+          emptyHint: '该年暂无支出',
+          leafSum: detail.expenseByCategory,
+          detail: detail,
+        ),
+        const SizedBox(height: XpSpacing.l),
+        _CategoryCard(
+          title: '收入构成',
+          subtitleLabel: '全年收入',
+          emptyHint: '该年暂无收入',
+          leafSum: detail.incomeByCategory,
+          detail: detail,
+        ),
+        const SizedBox(height: XpSpacing.l),
+        _ExpenseRankCard(detail: detail),
         const SizedBox(height: XpSpacing.l),
         const ReportFootnote(
           '口径说明：收入 / 支出不含转账、手动调整余额产生的调账账单，'
@@ -469,19 +486,62 @@ class _MonthlyCard extends StatelessWidget {
   }
 }
 
-/// 支出构成：一级分类 Top5 环形图 + 图例。
-class _CategoryCard extends StatelessWidget {
-  const _CategoryCard({required this.detail});
+/// 收支构成：一级 / 二级分类 Top5 环形图 + 图例（支出 / 收入共用）。
+class _CategoryCard extends StatefulWidget {
+  const _CategoryCard({
+    required this.title,
+    required this.subtitleLabel,
+    required this.emptyHint,
+    required this.leafSum,
+    required this.detail,
+  });
+
+  final String title;
+
+  /// 副标题前缀（如「全年支出」），拼接合计金额。
+  final String subtitleLabel;
+
+  /// 该方向无数据时的空态文案。
+  final String emptyHint;
+
+  /// 叶子分类汇总（支出或收入）。
+  final List<({String categoryId, int amount})> leafSum;
 
   final YearDetail detail;
 
   @override
+  State<_CategoryCard> createState() => _CategoryCardState();
+}
+
+/// 构成粒度：一级（归并到父分类） / 二级（叶子分类直显，更精细）。
+enum _CompositionLevel { top, leaf }
+
+class _CategoryCardState extends State<_CategoryCard> {
+  _CompositionLevel _level = _CompositionLevel.top;
+
+  /// 按当前粒度归并（一级上溯父分类、二级按叶子直显），金额降序。
+  /// 两种粒度汇总金额相同（同一批叶子只换分组方式）。
+  List<({String name, int amount})> _sorted() {
+    if (_level == _CompositionLevel.top) {
+      return widget.detail.topLevelSum(widget.leafSum);
+    }
+    final s = [...widget.leafSum]..sort((a, b) => b.amount.compareTo(a.amount));
+    return [
+      for (final e in s)
+        (name: widget.detail.nameOf(e.categoryId), amount: e.amount),
+    ];
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final sorted = detail.topLevelSum();
+    final sorted = _sorted();
     if (sorted.isEmpty) {
-      return const XpCard(
+      return XpCard(
         padding: EdgeInsets.zero,
-        child: XpEmptyState(icon: Icons.pie_chart_outline, title: '该年暂无支出'),
+        child: XpEmptyState(
+          icon: Icons.pie_chart_outline,
+          title: widget.emptyHint,
+        ),
       );
     }
     final total = sorted.fold<int>(0, (s, e) => s + e.amount);
@@ -511,9 +571,27 @@ class _CategoryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ReportSectionTitle(
-            title: '支出构成',
-            subtitle: '全年支出 ¥ ${formatYuan(total)}',
+          Row(
+            children: [
+              Expanded(
+                child: ReportSectionTitle(
+                  title: widget.title,
+                  subtitle: '${widget.subtitleLabel} ¥ ${formatYuan(total)}',
+                ),
+              ),
+              const SizedBox(width: XpSpacing.m),
+              SizedBox(
+                width: 120,
+                child: XpSlidingSegmented<_CompositionLevel>(
+                  items: const [
+                    XpSegmentedItem(value: _CompositionLevel.top, label: '一级'),
+                    XpSegmentedItem(value: _CompositionLevel.leaf, label: '二级'),
+                  ],
+                  selected: _level,
+                  onChanged: (v) => setState(() => _level = v),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: XpSpacing.m),
           Row(
@@ -582,6 +660,183 @@ class _CategoryCard extends StatelessWidget {
             '${formatYuan(amount)}（${(amount / total * 100).toStringAsFixed(0)}%）',
             style: theme.textTheme.labelSmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 支出构成排行：按标签 / 备注聚合排序；无标签 / 无备注的支出不计入。
+class _ExpenseRankCard extends StatefulWidget {
+  const _ExpenseRankCard({required this.detail});
+
+  final YearDetail detail;
+
+  @override
+  State<_ExpenseRankCard> createState() => _ExpenseRankCardState();
+}
+
+/// 排行维度：标签 / 备注。
+enum _RankMode { tag, comment }
+
+class _ExpenseRankCardState extends State<_ExpenseRankCard> {
+  _RankMode _mode = _RankMode.tag;
+
+  /// 当前维度下的排行数据（金额降序；备注已由查询按金额降序 Top10 返回）。
+  List<({String name, int amount})> _rows() {
+    if (_mode == _RankMode.tag) {
+      final s = [...widget.detail.expenseByTag]
+        ..sort((a, b) => b.amount.compareTo(a.amount));
+      return [
+        for (final e in s)
+          (name: widget.detail.tagName(e.tagId), amount: e.amount),
+      ];
+    }
+    return [
+      for (final e in widget.detail.expenseByComment)
+        (name: e.comment, amount: e.amount),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final isTag = _mode == _RankMode.tag;
+    final rows = _rows();
+    final total = rows.fold<int>(0, (s, e) => s + e.amount);
+
+    return XpCard(
+      padding: const EdgeInsets.fromLTRB(
+        XpSpacing.l,
+        XpSpacing.m,
+        XpSpacing.l,
+        XpSpacing.s,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '支出构成排行',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 120,
+                child: XpSlidingSegmented<_RankMode>(
+                  items: const [
+                    XpSegmentedItem(value: _RankMode.tag, label: '标签'),
+                    XpSegmentedItem(value: _RankMode.comment, label: '备注'),
+                  ],
+                  selected: _mode,
+                  onChanged: (v) => setState(() => _mode = v),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: XpSpacing.xs),
+          Text(
+            isTag ? '按标签合计支出排序；没有标签的支出不计入' : '按备注合计支出排序；没有备注的支出不计入',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: XpSpacing.s),
+          if (rows.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: Text(
+                  isTag ? '本年暂无带标签的支出' : '本年暂无带备注的支出',
+                  style: theme.textTheme.bodySmall,
+                ),
+              ),
+            )
+          else
+            for (var i = 0; i < rows.length; i++)
+              _RankRow(
+                rank: i + 1,
+                name: rows[i].name,
+                amount: rows[i].amount,
+                percent: total <= 0 ? 0 : rows[i].amount / total,
+                color: piePalette[i % piePalette.length],
+              ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 排行单行：序号 + 色点 + 名称 + 金额 + 占比。
+class _RankRow extends StatelessWidget {
+  const _RankRow({
+    required this.rank,
+    required this.name,
+    required this.amount,
+    required this.percent,
+    required this.color,
+  });
+
+  final int rank;
+  final String name;
+  final int amount;
+  final double percent;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 20,
+            child: Text(
+              '$rank',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: XpSpacing.s),
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: XpSpacing.s),
+          Expanded(
+            child: Text(
+              name,
+              style: theme.textTheme.bodyMedium,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Text(
+            formatYuan(amount),
+            style: theme.textTheme.bodyMedium
+                ?.copyWith(fontWeight: FontWeight.w600)
+                .tabular,
+          ),
+          const SizedBox(width: 6),
+          SizedBox(
+            width: 46,
+            child: Text(
+              '${(percent * 100).toStringAsFixed(1)}%',
+              textAlign: TextAlign.right,
+              style: theme.textTheme.labelSmall
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant)
+                  .tabular,
             ),
           ),
         ],

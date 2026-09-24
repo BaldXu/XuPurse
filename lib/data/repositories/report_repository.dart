@@ -65,6 +65,19 @@ class ReportRepository {
   /// 「调账账单」判定（[AccountService.setBalance] 写入的 extra 标记）。
   static const String _isAdjust = "extra LIKE '%\"isAdjustment\":true%'";
 
+  /// 「常规账单」判定（`bills b` 表别名版，JOIN 查询用）。
+  static const String _isRegularB =
+      "(b.extra IS NULL OR (b.extra NOT LIKE '%\"isAdjustment\":true%'"
+      " AND b.extra NOT LIKE '%\"excludeFromStats\":true%'"
+      " AND b.extra NOT LIKE '%\"notInTotal\":true%'))";
+
+  /// 计算口径版本：修改任何年度汇总 / 期初期末资产的计算逻辑后必须 +1。
+  ///
+  /// 数据指纹只跟踪数据变化（账单/账户/快照/汇率），不感知代码逻辑变化；
+  /// 若不加版本号，逻辑修复后已落库的旧口径缓存会一直沿用（如年初资产
+  /// 曾把「有快照但晚于年初」的账户按当前余额计入）。
+  static const int _computeVersion = 2;
+
   // ---------- 门槛 ----------
 
   /// 门槛判定：常规记账条数 + 首末时间（一条 SQL）。
@@ -162,6 +175,54 @@ class ReportRepository {
     ];
   }
 
+  /// 某年按标签汇总的支出（口径同年度报告：排除调账与「不计入收支」）。
+  /// 同一账单打多个标签时各自计入该标签。
+  Future<List<({String tagId, int amount})>> tagSumOfYear(int year) async {
+    final start = DateTime(year).millisecondsSinceEpoch;
+    final end = DateTime(year + 1).millisecondsSinceEpoch;
+    final rows = await _db
+        .customSelect(
+          'SELECT bt.tag_id AS tid, SUM(b.amount) AS s FROM bills b '
+          'JOIN bill_tags bt ON bt.bill_id = b.id '
+          "WHERE b.type = 'expense' AND b.time >= ? AND b.time < ? "
+          'AND $_isRegularB GROUP BY bt.tag_id',
+          variables: [Variable(start), Variable(end)],
+        )
+        .get();
+    return [
+      for (final r in rows)
+        (
+          tagId: r.data['tid'] as String? ?? '',
+          amount: r.data['s'] as int? ?? 0,
+        ),
+    ];
+  }
+
+  /// 某年按备注汇总的支出 TopN（口径同年度报告；无备注的账单不计入）。
+  Future<List<({String comment, int amount})>> commentSumOfYear(
+    int year, {
+    int limit = 10,
+  }) async {
+    final start = DateTime(year).millisecondsSinceEpoch;
+    final end = DateTime(year + 1).millisecondsSinceEpoch;
+    final rows = await _db
+        .customSelect(
+          'SELECT comment AS c, SUM(amount) AS s FROM bills '
+          "WHERE type = 'expense' AND time >= ? AND time < ? AND $_isRegular "
+          " AND comment IS NOT NULL AND comment != '' "
+          'GROUP BY comment ORDER BY s DESC LIMIT ?',
+          variables: [Variable(start), Variable(end), Variable(limit)],
+        )
+        .get();
+    return [
+      for (final r in rows)
+        (
+          comment: r.data['c'] as String? ?? '',
+          amount: r.data['s'] as int? ?? 0,
+        ),
+    ];
+  }
+
   /// 全部年度报告流（年份倒序；重算后自动推送）。
   Stream<List<YearReport>> watchAll() => (_db.select(
     _db.yearReports,
@@ -252,7 +313,9 @@ WHERE type IN ('expense', 'income') AND time >= ? AND time < ?
   ///
   /// 口径对齐 totalAssetsProvider：fund 恒计入，debt/record 仅 includeInAssets
   /// 时计入，外币按当前汇率折算。逐账户取 `timestamp < boundary` 的最后一条有效
-  /// 快照；无快照时回退 currentBalance（存量账户可能全无快照合约）。
+  /// 快照；回退规则与趋势页 [buildTrendPoints] 对齐：
+  /// - 有快照但都晚于 boundary（如年中新建账户）→ 按 0 计，该时点账户尚未入账；
+  /// - 完全无快照（存量账户可能全无快照合约）→ 回退 currentBalance 作全程平直值。
   Future<({int total, bool hasSnapshot})> _assetsAt(
     int boundary,
     String baseCurrency,
@@ -265,7 +328,10 @@ SELECT a.currency AS currency,
        COALESCE((SELECT s.balance FROM balance_snapshots s
                  WHERE s.account_id = a.id AND s.is_valid = 1 AND s.timestamp < ?
                  ORDER BY s.timestamp DESC, s.rowid DESC LIMIT 1),
-                a.current_balance) AS bal,
+                CASE WHEN EXISTS (SELECT 1 FROM balance_snapshots s
+                                  WHERE s.account_id = a.id AND s.is_valid = 1)
+                     THEN 0
+                     ELSE a.current_balance END) AS bal,
        (SELECT COUNT(*) FROM balance_snapshots s
         WHERE s.account_id = a.id AND s.is_valid = 1 AND s.timestamp < ?) AS snap_count
 FROM accounts a
@@ -310,9 +376,9 @@ WHERE a.enabled = 1
         .getSingle();
     final codes = rates.keys.toList()..sort();
     final rateStr = [for (final c in codes) '$c=${rates[c]}'].join(',');
-    return '${agg.data['bc']}:${agg.data['bu']}:'
+    return 'v$_computeVersion:$baseCurrency:$rateStr:'
+        '${agg.data['bc']}:${agg.data['bu']}:'
         '${agg.data['ac']}:${agg.data['au']}:'
-        '${agg.data['sc']}:${agg.data['su']}:'
-        '$baseCurrency:$rateStr';
+        '${agg.data['sc']}:${agg.data['su']}';
   }
 }

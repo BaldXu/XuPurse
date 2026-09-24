@@ -67,6 +67,7 @@ void main() {
     required int time,
     String? extra,
     String? incomeAccountId,
+    String? comment,
   }) async {
     final id = 'bill-${seq++}';
     await db
@@ -79,6 +80,7 @@ void main() {
             amount: amount,
             time: time,
             extra: Value(extra),
+            comment: Value(comment),
             incomeAccountId: Value(incomeAccountId),
             createdAt: now,
             updatedAt: now,
@@ -284,11 +286,8 @@ void main() {
       await recompute();
 
       // 人为打标记：指纹一致时应跳过，标记保留即证明未重算。
-      await (db.update(
-        db.yearReports,
-      )..where((t) => t.year.equals(2023))).write(
-        const YearReportsCompanion(computedAt: Value(-1)),
-      );
+      await (db.update(db.yearReports)..where((t) => t.year.equals(2023)))
+          .write(const YearReportsCompanion(computedAt: Value(-1)));
       await recompute();
       expect((await yearOf(2023))!.computedAt, -1);
 
@@ -322,7 +321,9 @@ void main() {
       await recompute();
       expect((await repo.listAll()).length, 2);
 
-      await (db.delete(db.bills)..where((t) => t.time.isSmallerThanValue(ts(2024)))).go();
+      await (db.delete(
+        db.bills,
+      )..where((t) => t.time.isSmallerThanValue(ts(2024)))).go();
       await recompute();
       final all = await repo.listAll();
       expect(all.length, 1);
@@ -416,6 +417,76 @@ void main() {
       expect(byCat[catB], 1000);
       expect(sums.length, 2);
     });
+
+    test('tagSumOfYear / commentSumOfYear 按年聚合支出且口径同年度报告', () async {
+      final cat = await insertCategory('餐饮', BillType.expense);
+      // 带标签/备注的常规支出
+      final bill1 = await insertBill(
+        type: BillType.expense,
+        categoryId: cat,
+        amount: 3000,
+        time: ts(2023, 2, 1),
+        comment: '氪金',
+      );
+      // 无备注的常规支出（不计入备注排行）
+      await insertBill(
+        type: BillType.expense,
+        categoryId: cat,
+        amount: 2000,
+        time: ts(2023, 3, 1),
+      );
+      // 双标签支出（各自计入该标签）
+      final bill3 = await insertBill(
+        type: BillType.expense,
+        categoryId: cat,
+        amount: 4000,
+        time: ts(2023, 4, 1),
+        comment: '氪金',
+      );
+      // 调账 / 不计入收支：标签与备注排行都应排除
+      await insertBill(
+        type: BillType.expense,
+        categoryId: cat,
+        amount: 9999,
+        time: ts(2023, 5, 1),
+        extra: '{"isAdjustment":true}',
+        comment: '余额调整',
+      );
+      await insertBill(
+        type: BillType.expense,
+        categoryId: cat,
+        amount: 8888,
+        time: ts(2023, 6, 1),
+        extra: '{"excludeFromStats":true}',
+        comment: '大额氪金',
+      );
+      // 跨年账单不计入
+      await insertBill(
+        type: BillType.expense,
+        categoryId: cat,
+        amount: 7777,
+        time: ts(2024, 6, 1),
+        comment: '氪金',
+      );
+      for (final entry in [
+        BillTagsCompanion.insert(billId: bill1, tagId: 'tag-a'),
+        BillTagsCompanion.insert(billId: bill3, tagId: 'tag-a'),
+        BillTagsCompanion.insert(billId: bill3, tagId: 'tag-b'),
+      ]) {
+        await db.into(db.billTags).insert(entry);
+      }
+
+      final tagSums = await repo.tagSumOfYear(2023);
+      final byTag = {for (final e in tagSums) e.tagId: e.amount};
+      expect(byTag['tag-a'], 7000);
+      expect(byTag['tag-b'], 4000);
+      expect(tagSums.length, 2);
+
+      final commentSums = await repo.commentSumOfYear(2023);
+      expect(commentSums, hasLength(1));
+      expect(commentSums.single.comment, '氪金');
+      expect(commentSums.single.amount, 7000);
+    });
   });
 
   group('资产时点', () {
@@ -461,6 +532,31 @@ void main() {
       expect(y.hasAssetBaseline, isFalse);
       expect(y.startAssets, 500000);
       expect(y.endAssets, 500000);
+    });
+
+    test('有快照但均晚于期初边界时，期初按 0 计（与趋势页口径一致）', () async {
+      final cat = await insertCategory('工资', BillType.income);
+      final acc = await insertAccount(balance: 0);
+      // 账户首条快照在 2023 年中：2023 年初（1/1）时点该账户尚未入账 → 期初 0，
+      // 不回落 current_balance（否则会虚增年初资产）。
+      await insertSnapshot(
+        accountId: acc,
+        balance: 800000,
+        timestamp: ts(2023, 6, 30),
+      );
+      await insertBill(
+        type: BillType.income,
+        categoryId: cat,
+        amount: 10000,
+        time: ts(2023, 6, 1),
+      );
+      await recompute();
+
+      final y = (await yearOf(2023))!;
+      expect(y.startAssets, 0);
+      expect(y.endAssets, 800000);
+      // 期初无快照 → 无完整资产基准，资产变动卡片按「缺少快照」处理。
+      expect(y.hasAssetBaseline, isFalse);
     });
 
     test('作废快照不参与时点取值', () async {
