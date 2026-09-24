@@ -41,6 +41,7 @@ class _BookManagePageState extends ConsumerState<BookManagePage>
 
   void _refreshProviders() {
     ref.invalidate(dbProvider);
+    ref.invalidate(currentBookProvider);
     ref.invalidate(baseCurrencyProvider);
     ref.invalidate(minBillTimeProvider);
     ref.read(homeMonthsProvider.notifier).state = 1;

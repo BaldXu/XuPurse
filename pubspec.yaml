@@ -40,6 +40,9 @@ dependencies:
   http: ^1.6.0
   package_info_plus: ^8.1.0
 
+  # 备份加密（AES-GCM + Argon2id，Web 端走 WebCrypto / 纯 Dart 派生）
+  cryptography: ^2.7.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

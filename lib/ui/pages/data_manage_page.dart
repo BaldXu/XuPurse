@@ -3,8 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/backup/backup_service.dart';
-import '../../data/backup/saver.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
@@ -12,9 +10,11 @@ import '../widgets/app_icon.dart';
 import '../widgets/xp_card.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_snack.dart';
+import 'backup_page.dart';
 import 'import_page.dart';
+import 'restore_page.dart';
 
-/// 数据管理页：第三方数据导入 + 备份导出 + 清空所有数据（开发用）。
+/// 数据管理页：第三方数据导入 + 备份 + 清空所有数据（开发用）。
 class DataManagePage extends ConsumerStatefulWidget {
   const DataManagePage({super.key});
 
@@ -24,37 +24,6 @@ class DataManagePage extends ConsumerStatefulWidget {
 
 class _DataManagePageState extends ConsumerState<DataManagePage>
     with XpPageScaffold<DataManagePage> {
-  bool _exporting = false;
-
-  Future<void> _exportBackup() async {
-    if (_exporting) return;
-    final mgr = ref.read(databaseManagerProvider);
-    // bookId 为 null 时直接提示返回，避免 _exporting 卡死（下方 setState 不再执行）。
-    final bookId = mgr.currentBookId;
-    if (bookId == null) {
-      showXpSnack(context, '当前无账本，无法导出', error: true);
-      return;
-    }
-    setState(() => _exporting = true);
-    try {
-      final global = await mgr.global();
-      final json = await BackupService(
-        ref.read(dbProvider),
-        global,
-      ).exportBook(bookId);
-      final name =
-          'xupurse_backup_${DateTime.now().millisecondsSinceEpoch}.json';
-      final path = await saveBackupFile(name, json);
-      if (!mounted) return;
-      setState(() => _exporting = false);
-      showXpSnack(context, '备份已导出：$path');
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _exporting = false);
-      showXpSnack(context, '备份失败：$e', error: true);
-    }
-  }
-
   /// 清空当前账本全部业务数据并重新写入种子（分类/账户）。
   ///
   /// 直接删表而非重建库：drift 的 watch 流会自动刷新，页面即时回到
@@ -91,7 +60,7 @@ class _DataManagePageState extends ConsumerState<DataManagePage>
       contentWidget: const Text(
         '将删除当前账本的全部账单、账户、分类、预算、导入记录等数据，'
         '并重置为默认分类与默认账户。\n\n此操作不可恢复，'
-        '如需保留请先「备份导出」。\n\n'
+        '如需保留请先「备份」。\n\n'
         '确认需长按按钮 3 秒（松开即取消）。',
       ),
       actions: [
@@ -142,16 +111,24 @@ class _DataManagePageState extends ConsumerState<DataManagePage>
                 const Divider(height: 1, indent: 16, endIndent: 16),
                 ListTile(
                   leading: const _TintedIcon(Icons.backup_outlined),
-                  title: const Text('备份导出'),
-                  subtitle: const Text('导出当前账本全部数据为 JSON 文件'),
-                  trailing: _exporting
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.chevron_right, size: 20),
-                  onTap: _exportBackup,
+                  title: const Text('备份'),
+                  subtitle: const Text('全量备份数据库与设置，可加密'),
+                  trailing: const Icon(Icons.chevron_right, size: 20),
+                  onTap: () => Navigator.push(
+                    context,
+                    XpRoute(builder: (_) => const BackupPage()),
+                  ),
+                ),
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                ListTile(
+                  leading: const _TintedIcon(Icons.restore),
+                  title: const Text('恢复备份'),
+                  subtitle: const Text('从备份文件恢复数据，可解密加密备份'),
+                  trailing: const Icon(Icons.chevron_right, size: 20),
+                  onTap: () => Navigator.push(
+                    context,
+                    XpRoute(builder: (_) => const RestorePage()),
+                  ),
                 ),
               ],
             ),

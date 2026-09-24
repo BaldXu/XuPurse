@@ -104,6 +104,32 @@ class DatabaseManager {
     return bookId;
   }
 
+  /// 从备份注册账本（恢复用）：仅写全局登记，不写种子数据，不切换当前
+  /// 账本。账本内业务数据由恢复流程逐表写入。
+  Future<void> registerBook({
+    required String id,
+    required String name,
+    String baseCurrency = 'CNY',
+    String? remark,
+    int? createdAt,
+    int? updatedAt,
+  }) async {
+    final globalDb = await global();
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await globalDb
+        .into(globalDb.books)
+        .insert(
+          BooksCompanion.insert(
+            id: id,
+            name: name,
+            baseCurrency: Value(baseCurrency),
+            remark: Value(remark),
+            createdAt: createdAt ?? now,
+            updatedAt: updatedAt ?? now,
+          ),
+        );
+  }
+
   /// 删除账本（级联：清空并关闭整个账本数据库 + 移除全局登记）。
   Future<void> deleteBook(String bookId) async {
     final db = _openedBooks.remove(bookId);
@@ -128,6 +154,17 @@ class DatabaseManager {
 
   /// 切换账本
   Future<AppDatabase> switchBook(String bookId) => openBook(bookId);
+
+  /// 打开账本库但不切换当前账本（备份导出等只读场景用，避免副作用
+  /// 改变 [currentBookId] 导致当前账本被悄悄切换）。
+  Future<AppDatabase> openBookReadOnly(String bookId) async {
+    final existing = _openedBooks[bookId];
+    if (existing != null) return existing;
+    final db = _bookFactory(bookId);
+    await db.customSelect('SELECT 1').get();
+    _openedBooks[bookId] = db;
+    return db;
+  }
 
   /// 修改账本本位币（全局库 books.base_currency）。
   Future<void> updateBookBaseCurrency(String bookId, String code) async {

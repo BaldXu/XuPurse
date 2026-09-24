@@ -90,7 +90,7 @@ class _MinePageState extends ConsumerState<MinePage>
                 _Entry(
                   icon: Icons.folder_open_outlined,
                   title: '数据管理',
-                  subtitle: '第三方数据导入、备份导出',
+                  subtitle: '第三方数据导入、全量备份',
                   onTap: () => _push(context, const DataManagePage()),
                 ),
                 // 报告汇总：达到展示门槛（≥10 条记账 且 跨度 > 1 周）才出现
