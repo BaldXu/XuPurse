@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 
 import '../layout/xp_page_scaffold_mixin.dart';
-import '../widgets/app_icon.dart';
 import '../widgets/xp_card.dart';
+import '../widgets/xp_param_row.dart';
 import 'budget_manage_page.dart';
 import 'category_manage_page.dart';
 import 'currency_settings_page.dart';
+import 'default_account_page.dart';
 import 'ledger_manage_page.dart';
 import 'tag_manage_page.dart';
 import '../tokens/design_tokens.dart';
 
-/// 设置页：基础数据与偏好入口（分类/标签/预算/业务记录/汇率）。
+/// 设置页：基础数据与偏好入口（默认账户/分类/标签/预算/业务记录/汇率）。
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
 
@@ -38,32 +39,38 @@ class _SettingsPageState extends State<SettingsPage>
             child: Column(
               children: [
                 _entry(
-                  context,
+                  Icons.account_balance_wallet_outlined,
+                  '默认账户',
+                  subtitle: '记账时自动带出的收 / 支账户',
+                  onTap: () => _push(context, const DefaultAccountPage()),
+                ),
+                const XpParamDivider(indent: kXpParamDividerIndentWithLeading),
+                _entry(
                   Icons.category_outlined,
                   '分类管理',
                   onTap: () => _push(context, const CategoryManagePage()),
                 ),
+                const XpParamDivider(indent: kXpParamDividerIndentWithLeading),
                 _entry(
-                  context,
                   Icons.label_outline,
                   '标签管理',
                   onTap: () => _push(context, const TagManagePage()),
                 ),
+                const XpParamDivider(indent: kXpParamDividerIndentWithLeading),
                 _entry(
-                  context,
                   Icons.savings_outlined,
                   '预算管理',
                   onTap: () => _push(context, const BudgetManagePage()),
                 ),
+                const XpParamDivider(indent: kXpParamDividerIndentWithLeading),
                 _entry(
-                  context,
                   Icons.handshake_outlined,
                   '业务记录',
                   subtitle: '借贷 / 报销 / 退款 / 分期',
                   onTap: () => _push(context, const LedgerManagePage()),
                 ),
+                const XpParamDivider(indent: kXpParamDividerIndentWithLeading),
                 _entry(
-                  context,
                   Icons.currency_exchange,
                   '汇率设置',
                   subtitle: '本位币与汇率覆盖',
@@ -78,17 +85,15 @@ class _SettingsPageState extends State<SettingsPage>
   }
 
   Widget _entry(
-    BuildContext context,
     IconData icon,
     String title, {
     String? subtitle,
     VoidCallback? onTap,
   }) {
-    return ListTile(
-      leading: AppIcon(icon: icon),
-      title: Text(title),
-      subtitle: subtitle == null ? null : Text(subtitle),
-      trailing: const Icon(Icons.chevron_right, size: 20),
+    return XpParamRow(
+      leadingIcon: icon,
+      label: title,
+      subtitle: subtitle,
       onTap: onTap,
     );
   }

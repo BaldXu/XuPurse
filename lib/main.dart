@@ -6,6 +6,7 @@ import 'domain/ai/ai_config.dart';
 import 'domain/ai/ai_scope.dart';
 import 'domain/ai/ai_service.dart';
 import 'domain/services/currency_service.dart';
+import 'state/default_account_provider.dart';
 import 'state/providers.dart';
 import 'state/icon_pack_provider.dart';
 import 'state/theme_provider.dart';
@@ -24,6 +25,7 @@ Future<void> main() async {
   await FrostedGlassNotifier.init();
   await TransitionBlurNotifier.init();
   await IconPackNotifier.init();
+  await DefaultAccountNotifier.init();
   await AiConfigNotifier.init();
   await AiScopeNotifier.init();
   await AiChatNotifier.init();

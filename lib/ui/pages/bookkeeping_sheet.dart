@@ -4,19 +4,39 @@ import 'package:intl/intl.dart';
 
 import '../../core/constants/enums.dart';
 import '../../core/utils/amount.dart';
-import '../../core/utils/app_colors.dart';
 import '../../core/utils/bill_extra.dart';
 import '../../data/database/app_database.dart';
 import '../../domain/services/currency_service.dart';
+import '../../state/default_account_provider.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
-import '../widgets/xp_snack.dart';
-import '../widgets/xp_sheet.dart';
-import '../widgets/xp_skeleton.dart';
+import '../tokens/currency_meta.dart';
+import '../tokens/design_tokens.dart';
 import '../widgets/app_icon.dart';
 import '../widgets/bill_tile.dart' show kExpenseColor, kIncomeColor;
+import '../widgets/xp_card.dart';
+import '../widgets/xp_param_row.dart';
+import '../widgets/xp_picker_sheet.dart';
+import '../widgets/xp_sheet.dart';
+import '../widgets/xp_skeleton.dart';
 import '../widgets/xp_sliding_segmented.dart';
-import '../tokens/design_tokens.dart';
+import '../widgets/xp_snack.dart';
+
+/// 弹窗最大高度占屏比（95%，接近全屏的记账面板）。
+const double _maxHeightFactor = 0.95;
+
+/// 数字键盘按键高度（同时作为金额显示行的基准高度）。
+const double _keyHeight = 44;
+
+/// 分类网格列数与单元格宽高比。
+const int _categoryColumns = 5;
+const double _categoryAspect = 0.95;
+
+/// 备注 / 手续费内嵌输入框宽度。
+const double _inlineFieldWidth = 160;
+
+/// 分类选中态的描边宽度。
+const double _cellBorderWidth = 1.5;
 
 /// 记账弹窗：支出 / 收入 / 转账 + 数字键盘 + 二级分类 + 账户选择。
 ///
@@ -27,8 +47,13 @@ class BookkeepingSheet extends ConsumerStatefulWidget {
   final Bill? initialBill;
 
   static Future<void> show(BuildContext context, {Bill? bill}) {
+    // 记账弹窗 95% 屏高、出场动画比通用弹层更慢（XpMotion.container），
+    // 滑入/滑出用非线性曲线（easeOutCubic）。
     return showXpSheet(
       context: context,
+      heightFactor: 0.95,
+      transitionDuration: XpMotion.container,
+      transitionCurve: Curves.easeOutCubic,
       builder: (_) => Padding(
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -69,10 +94,15 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
     super.initState();
     final bill = widget.initialBill;
     _type = bill == null ? BillType.expense : BillType.values.byName(bill.type);
-    // 默认分类兜底：分类流就绪时补选（原逻辑写在 build 内，已移出）
+    // 分类 / 账户流就绪时补选默认项（原逻辑写在 build 内，已移出）
     ref.listenManual(
       categoriesProvider,
       (_, __) => _ensureDefaultCategory(),
+      fireImmediately: true,
+    );
+    ref.listenManual(
+      accountsProvider,
+      (_, __) => _ensureDefaultAccount(),
       fireImmediately: true,
     );
     if (bill != null) {
@@ -131,6 +161,24 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
     if (!hasSubs) _subId = def.id;
   }
 
+  /// 无选中时兜底默认账户：优先用「设置 - 默认账户」里的偏好，
+  /// 未设置或账户已不在当前账本时取第一个可用账户（见 docs/modules.md）。
+  void _ensureDefaultAccount() {
+    // 转账的转出 / 转入需用户显式选择，不做兜底
+    if (_type == BillType.transfer) return;
+    if (_accountOf(_accountId) != null) return;
+    final accounts =
+        ref.read(accountsProvider).valueOrNull ?? const <Account>[];
+    if (accounts.isEmpty) return;
+    final prefs = ref.read(defaultAccountProvider);
+    final preferred = _type == BillType.expense
+        ? prefs.expenseAccountId
+        : prefs.incomeAccountId;
+    _accountId = _accountOf(preferred)?.id ?? accounts.first.id;
+    // 账户变化后回到跟随账户币种
+    _currencyCode = null;
+  }
+
   /// 编辑模式：回填账单标签（避免保存时清空原标签）。
   Future<void> _loadTags() async {
     final bill = widget.initialBill;
@@ -139,15 +187,19 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
     if (mounted) setState(() => _tagIds.addAll(ids));
   }
 
-  /// 当前账户币种（无账户或未命中按 CNY 兜底）。
-  String _accountCurrencyOf(String? id) {
+  /// 按 id 取账户；未命中返回 null。
+  Account? _accountOf(String? id) {
+    if (id == null) return null;
     final accounts =
         ref.read(accountsProvider).valueOrNull ?? const <Account>[];
     for (final a in accounts) {
-      if (a.id == id) return a.currency;
+      if (a.id == id) return a;
     }
-    return 'CNY';
+    return null;
   }
+
+  /// 当前账户币种（无账户或未命中按 CNY 兜底）。
+  String _accountCurrencyOf(String? id) => _accountOf(id)?.currency ?? 'CNY';
 
   /// 记账币种（未显式选择时跟随账户币种）。
   String get _effectiveCurrency =>
@@ -208,6 +260,89 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
   }
 
   void _clear() => _amountText.value = '';
+
+  // ---------- 选择 ----------
+
+  /// 账户选择面板；[income] 为 true 时改的是转入账户。
+  Future<void> _pickAccount({required bool income}) async {
+    final accounts =
+        ref.read(accountsProvider).valueOrNull ?? const <Account>[];
+    if (accounts.isEmpty) {
+      _toast('暂无可用账户');
+      return;
+    }
+    final choice = await showAccountPickerSheet(
+      context: context,
+      accounts: accounts,
+      selectedId: income ? _incomeAccountId : _accountId,
+      title: switch ((_type, income)) {
+        (BillType.transfer, false) => '转出账户',
+        (BillType.transfer, true) => '转入账户',
+        _ => '账户',
+      },
+    );
+    if (choice == null || !mounted) return;
+    setState(() {
+      if (income) {
+        _incomeAccountId = choice.value;
+      } else {
+        _accountId = choice.value;
+        // 切换账户后回到跟随账户币种
+        _currencyCode = null;
+      }
+    });
+  }
+
+  /// 记账币种面板（首项「跟随账户」回传 null）。
+  Future<void> _pickCurrency() async {
+    final accountCurrency = _accountCurrencyOf(_accountId);
+    final choice = await showCurrencyPickerSheet(
+      context: context,
+      accountCurrency: accountCurrency,
+      currentCode: _currencyCode,
+    );
+    if (choice == null || !mounted) return;
+    setState(() {
+      // 选到与账户币种一致时等价于「跟随账户」，归一化成 null
+      _currencyCode = choice.value == accountCurrency ? null : choice.value;
+    });
+  }
+
+  /// 标签多选面板（新选中的标签若带优先币种，同步记账币种）。
+  Future<void> _pickTags() async {
+    final tags = ref.read(tagsProvider).valueOrNull ?? const <Tag>[];
+    if (tags.isEmpty) return;
+    final picked = await showTagPickerSheet(
+      context: context,
+      tags: tags,
+      selectedIds: _tagIds,
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      final added = picked.difference(_tagIds);
+      _tagIds
+        ..clear()
+        ..addAll(picked);
+      for (final tag in tags) {
+        if (!added.contains(tag.id)) continue;
+        final prefer = tag.preferCurrency;
+        if (prefer != null && prefer.isNotEmpty) {
+          _currencyCode = prefer;
+          break;
+        }
+      }
+    });
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showXpDatePicker(
+      context: context,
+      initialDate: _date,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) setState(() => _date = picked);
+  }
 
   // ---------- 保存 ----------
 
@@ -363,28 +498,28 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
     if (!xpEnterSettled) {
       return const XpSkeletonPage();
     }
+    final isTransfer = _type == BillType.transfer;
     return ConstrainedBox(
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.9,
+        maxHeight: MediaQuery.of(context).size.height * _maxHeightFactor,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildTabs(scheme),
+          _buildTypeTabs(),
           const Divider(height: 1),
-          // 分类/转账主体 + 明细设置都在滚动区内，键盘固定底部，
+          // 分类/转账主体 + 明细参数行都在滚动区内，键盘固定底部，
           // 内容多时可滑动，避免挤压显得局促。
           Flexible(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.only(bottom: XpSpacing.s),
+              padding: const EdgeInsets.symmetric(vertical: XpSpacing.m),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (_type == BillType.transfer)
-                    _buildTransferBody(scheme)
-                  else
+                  if (!isTransfer) ...[
                     _buildCategoryBody(),
-                  const Divider(height: 1),
+                    const SizedBox(height: XpSpacing.m),
+                  ],
                   _buildSettingsSection(scheme),
                 ],
               ),
@@ -397,45 +532,40 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
     );
   }
 
-  Widget _buildTabs(ColorScheme scheme) {
+  Widget _buildTypeTabs() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         XpSpacing.l,
         XpSpacing.s,
         XpSpacing.l,
-        XpSpacing.xs,
+        XpSpacing.m,
       ),
-      child: Center(
-        child: SizedBox(
-          width: 200,
-          height: 35,
-          child: XpSlidingSegmented<BillType>(
-            items: const [
-              XpSegmentedItem(
-                value: BillType.expense,
-                label: '支出',
-                icon: Icons.south_west,
-              ),
-              XpSegmentedItem(
-                value: BillType.income,
-                label: '收入',
-                icon: Icons.north_east,
-              ),
-              XpSegmentedItem(
-                value: BillType.transfer,
-                label: '转账',
-                icon: Icons.swap_horiz,
-              ),
-            ],
-            selected: _type,
-            onChanged: (t) => setState(() {
-              _type = t;
-              _parentId = null;
-              _subId = null;
-              _ensureDefaultCategory();
-            }),
+      child: XpSlidingSegmented<BillType>(
+        items: const [
+          XpSegmentedItem(
+            value: BillType.expense,
+            label: '支出',
+            icon: Icons.south_west,
           ),
-        ),
+          XpSegmentedItem(
+            value: BillType.income,
+            label: '收入',
+            icon: Icons.north_east,
+          ),
+          XpSegmentedItem(
+            value: BillType.transfer,
+            label: '转账',
+            icon: Icons.swap_horiz,
+          ),
+        ],
+        selected: _type,
+        onChanged: (t) => setState(() {
+          _type = t;
+          _parentId = null;
+          _subId = null;
+          _ensureDefaultCategory();
+          _ensureDefaultAccount();
+        }),
       ),
     );
   }
@@ -462,303 +592,286 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
       childrenOf.putIfAbsent(c.parentId!, () => []).add(c);
     }
     final accent = _type == BillType.expense ? kExpenseColor : kIncomeColor;
+    // 逐行构建分类网格：点击带子分类的一级分类后，展开区紧贴该行下方
+    // 「裂开」插入（AnimatedSize 平滑撑开），子分类以同列数网格呈现。
+    final rows = <Widget>[];
+    for (var i = 0; i < parents.length; i += _categoryColumns) {
+      final end = i + _categoryColumns < parents.length
+          ? i + _categoryColumns
+          : parents.length;
+      final rowParents = parents.sublist(i, end);
+      rows.add(
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final c in rowParents)
+              Expanded(
+                child: AspectRatio(
+                  aspectRatio: _categoryAspect,
+                  child: _CategoryCell(
+                    category: c,
+                    selected: _parentId == c.id,
+                    accent: accent,
+                    onTap: () => setState(() {
+                      _parentId = c.id;
+                      final subs = childrenOf[c.id] ?? const [];
+                      _subId = subs.isEmpty ? c.id : null;
+                    }),
+                  ),
+                ),
+              ),
+            // 末行不足 5 列时空位补齐，保持网格对齐
+            for (var j = rowParents.length; j < _categoryColumns; j++)
+              const Expanded(child: SizedBox.shrink()),
+          ],
+        ),
+      );
+      final subs = childrenOf[_parentId] ?? const [];
+      if (subs.isNotEmpty && rowParents.any((c) => c.id == _parentId)) {
+        rows.add(_buildSubCategoryPanel(subs, accent));
+      }
+    }
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: XpSpacing.m,
-        vertical: XpSpacing.s,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: XpSpacing.l),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          GridView.builder(
+        children: rows,
+      ),
+    );
+  }
+
+  /// 二级分类展开区：紧贴选中行下方插入，5 列网格 + 首项「全部」。
+  Widget _buildSubCategoryPanel(List<Category> subs, Color accent) {
+    return AnimatedSize(
+      duration: XpMotion.component,
+      curve: XpMotion.easeOut,
+      alignment: Alignment.topCenter,
+      child: Padding(
+        padding: const EdgeInsets.only(top: XpSpacing.s),
+        child: Container(
+          padding: const EdgeInsets.all(XpSpacing.m),
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(XpRadius.s),
+          ),
+          child: GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: parents.length,
+            padding: EdgeInsets.zero,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 5,
-              childAspectRatio: 0.82,
+              crossAxisCount: _categoryColumns,
+              childAspectRatio: _categoryAspect,
+              mainAxisSpacing: XpSpacing.s,
             ),
+            itemCount: subs.length + 1,
             itemBuilder: (context, i) {
-              final c = parents[i];
-              final selected = _parentId == c.id;
-              return _CategoryCell(
-                category: c,
-                selected: selected,
+              if (i == 0) {
+                return _SubCategoryCell(
+                  icon: Icons.all_inclusive,
+                  label: '全部',
+                  selected: _subId == null || _subId == _parentId,
+                  accent: accent,
+                  onTap: () => setState(() => _subId = _parentId),
+                );
+              }
+              final sub = subs[i - 1];
+              return _SubCategoryCell(
+                iconName: sub.icon,
+                label: sub.name,
+                selected: _subId == sub.id,
                 accent: accent,
-                onTap: () => setState(() {
-                  _parentId = c.id;
-                  final subs = childrenOf[c.id] ?? const [];
-                  _subId = subs.isEmpty ? c.id : null;
-                }),
+                onTap: () => setState(() => _subId = sub.id),
               );
             },
           ),
-          if (childrenOf[_parentId]?.isNotEmpty == true)
-            SizedBox(
-              height: 40,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(right: XpSpacing.s),
-                    child: ChoiceChip(
-                      label: const Text('全部'),
-                      selected: _subId == _parentId,
-                      onSelected: (_) => setState(() => _subId = _parentId),
-                    ),
-                  ),
-                  for (final sub in childrenOf[_parentId]!)
-                    Padding(
-                      padding: const EdgeInsets.only(right: XpSpacing.s),
-                      child: ChoiceChip(
-                        label: Text(sub.name),
-                        selected: _subId == sub.id,
-                        onSelected: (_) => setState(() => _subId = sub.id),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-        ],
+        ),
       ),
     );
   }
 
-  /// 转账主体：转出/转入账户选择 + 手续费
-  Widget _buildTransferBody(ColorScheme scheme) {
-    final accountsAsync = ref.watch(accountsProvider);
-    if (accountsAsync.isLoading) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(XpSpacing.xl),
-          child: CircularProgressIndicator(),
+  /// 明细参数区：账户 / 币种 / 标签 / 日期 / 备注（转账为转出 / 转入 / 手续费）。
+  ///
+  /// 全部走统一样式的 [XpParamRow]，值折叠展示，点击展开二级选择面板。
+  Widget _buildSettingsSection(ColorScheme scheme) {
+    final tags = ref.watch(tagsProvider).valueOrNull ?? const <Tag>[];
+    final isTransfer = _type == BillType.transfer;
+    final accountCurrency = _accountCurrencyOf(_accountId);
+
+    final rows = <Widget>[];
+    void add(Widget row) {
+      if (rows.isNotEmpty) {
+        rows.add(
+          const XpParamDivider(indent: kXpParamDividerIndentWithLeading),
+        );
+      }
+      rows.add(row);
+    }
+
+    if (isTransfer) {
+      add(
+        XpParamRow(
+          leadingIcon: Icons.south_west,
+          label: '转出账户',
+          value: _accountOf(_accountId)?.name ?? '未选择',
+          onTap: () => _pickAccount(income: false),
+        ),
+      );
+      add(
+        XpParamRow(
+          leadingIcon: Icons.north_east,
+          label: '转入账户',
+          value: _accountOf(_incomeAccountId)?.name ?? '未选择',
+          onTap: () => _pickAccount(income: true),
+        ),
+      );
+      add(
+        XpParamRow(
+          leadingIcon: Icons.percent,
+          label: '手续费',
+          subtitle: '到账金额 = 转出金额 − 手续费',
+          showChevron: false,
+          valueWidget: _inlineField(
+            controller: _feeController,
+            hint: '0.00',
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          ),
+        ),
+      );
+    } else {
+      add(
+        XpParamRow(
+          leadingIcon: Icons.account_balance_wallet_outlined,
+          label: '账户',
+          value: _accountOf(_accountId)?.name ?? '未选择',
+          onTap: () => _pickAccount(income: false),
         ),
       );
     }
-    final accounts = accountsAsync.value ?? const <Account>[];
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: XpSpacing.l,
-        vertical: XpSpacing.s,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _AccountPicker(
-            label: '转出账户',
-            accounts: accounts,
-            selectedId: _accountId,
-            onChanged: (id) => setState(() => _accountId = id),
-          ),
-          const SizedBox(height: XpSpacing.s),
-          const Center(child: Icon(Icons.south)),
-          const SizedBox(height: XpSpacing.s),
-          _AccountPicker(
-            label: '转入账户',
-            accounts: accounts,
-            selectedId: _incomeAccountId,
-            onChanged: (id) => setState(() => _incomeAccountId = id),
-          ),
-          const SizedBox(height: XpSpacing.s),
-          TextField(
-            controller: _feeController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: '手续费（元，可选；到账金额 = 转出金额 - 手续费）',
-              prefixIcon: Icon(Icons.percent),
-              isDense: true,
-            ),
-          ),
-        ],
+
+    add(
+      XpParamRow(
+        leadingIcon: Icons.currency_exchange,
+        label: '记账币种',
+        subtitle: _currencyCode == null ? '跟随账户币种' : '账户币种 $accountCurrency',
+        value:
+            '${XpCurrencyMetaConfig.flagOf(_effectiveCurrency)} '
+            '$_effectiveCurrency',
+        onTap: _pickCurrency,
       ),
     );
-  }
 
-  /// 明细设置区：账户 + 币种 + 标签 + 备注 + 日期 + 不计入收支。
-  Widget _buildSettingsSection(ColorScheme scheme) {
-    final accounts = ref.watch(accountsProvider).value ?? const <Account>[];
-    final tags = ref.watch(tagsProvider).valueOrNull ?? const <Tag>[];
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        XpSpacing.l,
-        XpSpacing.m,
-        XpSpacing.l,
-        XpSpacing.m,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (_type != BillType.transfer) ...[
-            _AccountPicker(
-              label: '账户',
-              accounts: accounts,
-              selectedId: _accountId,
-              onChanged: (id) => setState(() {
-                _accountId = id;
-                // 切换账户后回到跟随账户币种
-                if (_type != BillType.transfer) _currencyCode = null;
-              }),
-            ),
-            const SizedBox(height: 10),
-          ],
-          _buildCurrencyRow(),
-          if (tags.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            _buildTagRow(tags),
-          ],
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _commentController,
-                  decoration: const InputDecoration(
-                    hintText: '备注（可选）',
-                    prefixIcon: Icon(Icons.edit_note),
-                  ),
-                ),
-              ),
-              TextButton.icon(
-                onPressed: _pickDate,
-                icon: const AppIcon(icon: Icons.today, size: 18),
-                label: Text(DateFormat('M月d日').format(_date)),
-              ),
-            ],
-          ),
-          if (_type != BillType.transfer) ...[
-            const SizedBox(height: XpSpacing.xs),
-            _buildExcludeToggle(scheme),
-          ],
-        ],
+    if (tags.isNotEmpty) {
+      add(
+        XpParamRow(
+          leadingIcon: Icons.label_outline,
+          label: '标签',
+          value: _tagSummary(tags),
+          onTap: _pickTags,
+        ),
+      );
+    }
+
+    add(
+      XpParamRow(
+        leadingIcon: Icons.event_outlined,
+        label: '日期',
+        value: DateFormat('M月d日').format(_date),
+        onTap: _pickDate,
       ),
     );
-  }
 
-  /// 「不计入收支」开关：仅记流水与余额，不参与收入/支出统计。
-  Widget _buildExcludeToggle(ColorScheme scheme) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: XpSpacing.xs),
-      child: Row(
-        children: [
-          AppIcon(
-            icon: Icons.visibility_off_outlined,
-            size: 18,
-            color: scheme.onSurfaceVariant,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('不计入收支', style: Theme.of(context).textTheme.bodyMedium),
-                Text(
-                  '仅记录流水与余额，不计入收支统计',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Switch(
+    add(
+      XpParamRow(
+        leadingIcon: Icons.edit_note,
+        label: '备注',
+        showChevron: false,
+        valueWidget: _inlineField(controller: _commentController, hint: '可选'),
+      ),
+    );
+
+    if (!isTransfer) {
+      add(
+        XpParamRow(
+          leadingIcon: Icons.visibility_off_outlined,
+          label: '不计入收支',
+          subtitle: '仅记录流水与余额，不计入统计',
+          showChevron: false,
+          onTap: () => setState(() => _excludeFromStats = !_excludeFromStats),
+          valueWidget: Switch(
             value: _excludeFromStats,
             onChanged: (v) => setState(() => _excludeFromStats = v),
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
-        ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            XpSpacing.l,
+            0,
+            XpSpacing.l,
+            XpSpacing.s,
+          ),
+          child: Text(
+            '明细信息',
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: XpSpacing.l),
+          child: XpCard(
+            padding: EdgeInsets.zero,
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: rows,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 已选标签摘要（未选择时给出占位文案）。
+  String _tagSummary(List<Tag> tags) {
+    if (_tagIds.isEmpty) return '未选择';
+    final names = tags
+        .where((t) => _tagIds.contains(t.id))
+        .map((t) => t.name)
+        .toList();
+    return names.isEmpty ? '未选择' : names.join('、');
+  }
+
+  /// 参数行内嵌输入框（右对齐、无边框），如备注 / 手续费。
+  Widget _inlineField({
+    required TextEditingController controller,
+    required String hint,
+    TextInputType? keyboardType,
+  }) {
+    final textTheme = Theme.of(context).textTheme;
+    return SizedBox(
+      width: _inlineFieldWidth,
+      child: TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        textAlign: TextAlign.right,
+        style: textTheme.bodyLarge,
+        decoration: InputDecoration(
+          isDense: true,
+          border: InputBorder.none,
+          hintText: hint,
+          hintStyle: textTheme.bodyLarge?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
       ),
     );
-  }
-
-  /// 记账币种选择（null = 跟随账户币种）。
-  Widget _buildCurrencyRow() {
-    final accCur = _accountCurrencyOf(_accountId);
-    final selected = _effectiveCurrency;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '记账币种（账户 $accCur${selected == accCur ? '' : ' · 当前 $selected'}）',
-          style: Theme.of(context).textTheme.labelMedium,
-        ),
-        const SizedBox(height: XpSpacing.xs),
-        SizedBox(
-          height: 36,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            children: [
-              for (final code in CurrencyService.supportedCodes)
-                Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: ChoiceChip(
-                    label: Text(code),
-                    selected: selected == code,
-                    onSelected: (_) => setState(() {
-                      _currencyCode = code == accCur ? null : code;
-                    }),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// 标签行（含 preferCurrency 的标签选中后自动切换记账币种）。
-  Widget _buildTagRow(List<Tag> tags) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('标签', style: Theme.of(context).textTheme.labelMedium),
-        const SizedBox(height: XpSpacing.xs),
-        SizedBox(
-          height: 36,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            children: [
-              for (final tag in tags)
-                Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: ChoiceChip(
-                    label: Text(
-                      tag.name,
-                      style: tag.preferCurrency != null
-                          ? TextStyle(
-                              color: Theme.of(context).colorScheme.primary,
-                              fontWeight: FontWeight.w600,
-                            )
-                          : null,
-                    ),
-                    selected: _tagIds.contains(tag.id),
-                    onSelected: (v) => setState(() {
-                      if (v) {
-                        _tagIds.add(tag.id);
-                        if (tag.preferCurrency != null &&
-                            tag.preferCurrency!.isNotEmpty) {
-                          _currencyCode = tag.preferCurrency!;
-                        }
-                      } else {
-                        _tagIds.remove(tag.id);
-                      }
-                    }),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _pickDate() async {
-    final picked = await showXpDatePicker(
-      context: context,
-      initialDate: _date,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
-    if (picked != null) setState(() => _date = picked);
   }
 
   Widget _buildKeyboard(ColorScheme scheme) {
@@ -770,12 +883,7 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
     final billCur = _effectiveCurrency;
     // 金额显示区局部刷新：按键只重建这里（P7）
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        XpSpacing.m,
-        0,
-        XpSpacing.m,
-        XpSpacing.m,
-      ),
+      padding: const EdgeInsets.all(XpSpacing.m),
       child: Column(
         children: [
           ValueListenableBuilder<String>(
@@ -793,7 +901,7 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
               return Column(
                 children: [
                   SizedBox(
-                    height: 48,
+                    height: _keyHeight,
                     child: Row(
                       children: [
                         Text(
@@ -818,13 +926,14 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
                     ),
                   ),
                   SizedBox(
-                    height: 18,
+                    height: XpSpacing.l,
                     child: Align(
                       alignment: Alignment.centerRight,
                       child: Text(
                         converted == null
                             ? ''
                             : '≈ $accCur ${formatYuan(converted)}',
+                        maxLines: 1,
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: scheme.onSurfaceVariant,
                         ),
@@ -835,7 +944,7 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
               );
             },
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: XpSpacing.s),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -890,8 +999,6 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
   }
 }
 
-const double _keyHeight = 48;
-
 /// 数字键盘按键
 class _KeyButton extends StatelessWidget {
   const _KeyButton({required this.label, required this.onTap});
@@ -909,11 +1016,7 @@ class _KeyButton extends StatelessWidget {
           onPressed: onTap,
           style: OutlinedButton.styleFrom(
             padding: EdgeInsets.zero,
-            textStyle: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              fontFeatures: [FontFeature.tabularFigures()],
-            ),
+            textStyle: XpTextStyles.h3.tabular,
           ),
           child: Text(label),
         ),
@@ -922,7 +1025,7 @@ class _KeyButton extends StatelessWidget {
   }
 }
 
-/// 分类单元格
+/// 一级分类单元格
 class _CategoryCell extends StatelessWidget {
   const _CategoryCell({
     required this.category,
@@ -938,12 +1041,73 @@ class _CategoryCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return _CategoryCellView(
+      iconName: category.icon,
+      label: category.name,
+      selected: selected,
+      accent: accent,
+      onTap: onTap,
+    );
+  }
+}
+
+/// 二级分类展开区单元格（「全部」用 Material 图标，子分类用图标包）。
+class _SubCategoryCell extends StatelessWidget {
+  const _SubCategoryCell({
+    required this.label,
+    required this.selected,
+    required this.accent,
+    required this.onTap,
+    this.iconName,
+    this.icon,
+  });
+
+  final String? iconName;
+  final IconData? icon;
+  final String label;
+  final bool selected;
+  final Color accent;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return _CategoryCellView(
+      iconName: iconName,
+      iconData: icon,
+      label: label,
+      selected: selected,
+      accent: accent,
+      onTap: onTap,
+    );
+  }
+}
+
+/// 分类单元格公共视图：圆形图标 + 名称，选中态主题色描边。
+class _CategoryCellView extends StatelessWidget {
+  const _CategoryCellView({
+    required this.label,
+    required this.selected,
+    required this.accent,
+    required this.onTap,
+    this.iconName,
+    this.iconData,
+  });
+
+  final String? iconName;
+  final IconData? iconData;
+  final String label;
+  final bool selected;
+  final Color accent;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
     final color = selected
         ? accent
         : Theme.of(context).colorScheme.onSurfaceVariant;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(XpRadius.c),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -953,71 +1117,26 @@ class _CategoryCell extends StatelessWidget {
               color: selected ? accent.withValues(alpha: 0.18) : null,
               shape: BoxShape.circle,
               // 选中态:主题色描边强化,与主题色图标呼应
-              border: selected ? Border.all(color: accent, width: 1.5) : null,
+              border: selected
+                  ? Border.all(color: accent, width: _cellBorderWidth)
+                  : null,
             ),
-            child: AppIcon(name: category.icon, size: 24, color: color),
+            child: iconName != null
+                ? AppIcon(name: iconName!, size: 24, color: color)
+                : AppIcon(icon: iconData!, size: 24, color: color),
           ),
           const SizedBox(height: XpSpacing.xs),
           Text(
-            category.name,
+            label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 12,
+            style: XpTextStyles.caption.copyWith(
               color: selected ? accent : null,
               fontWeight: selected ? FontWeight.w600 : null,
             ),
           ),
         ],
       ),
-    );
-  }
-}
-
-/// 账户选择（横滑 chips）
-class _AccountPicker extends StatelessWidget {
-  const _AccountPicker({
-    required this.label,
-    required this.accounts,
-    required this.selectedId,
-    required this.onChanged,
-  });
-
-  final String label;
-  final List<Account> accounts;
-  final String? selectedId;
-  final ValueChanged<String?> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: Theme.of(context).textTheme.labelMedium),
-        const SizedBox(height: XpSpacing.xs),
-        SizedBox(
-          height: 44,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            children: [
-              for (final acc in accounts)
-                Padding(
-                  padding: const EdgeInsets.only(right: XpSpacing.s),
-                  child: ChoiceChip(
-                    avatar: AppIcon(
-                      name: acc.icon,
-                      size: 16,
-                      color: hexToColor(acc.color),
-                    ),
-                    label: Text(acc.name),
-                    selected: selectedId == acc.id,
-                    onSelected: (_) => onChanged(acc.id),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

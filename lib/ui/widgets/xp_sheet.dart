@@ -25,6 +25,8 @@ Future<T?> showXpSheet<T>({
   double heightFactor = 0.85,
   bool isDismissible = true,
   bool showDragHandle = true,
+  Duration transitionDuration = XpMotion.component,
+  Curve transitionCurve = Curves.easeOutCubic,
 }) {
   // 弹窗生命周期内状态稳定，展示前捕获一次。
   final container = ProviderScope.containerOf(context, listen: false);
@@ -36,7 +38,7 @@ Future<T?> showXpSheet<T>({
     barrierDismissible: isDismissible,
     barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
     barrierColor: Colors.transparent, // 遮罩视觉由 pageBuilder 自绘
-    transitionDuration: XpMotion.component,
+    transitionDuration: transitionDuration,
     // 出入场动画在 pageBuilder 内自驱（遮罩淡入 + 弹窗滑入）。
     transitionBuilder: (_, _, __, child) => child,
     pageBuilder: (ctx, animation, _) => _XpSheet(
@@ -46,6 +48,7 @@ Future<T?> showXpSheet<T>({
       showDragHandle: showDragHandle,
       sheetOn: sheetOn,
       sheetColor: sheetColor,
+      transitionCurve: transitionCurve,
     ),
   );
 }
@@ -59,6 +62,7 @@ class _XpSheet extends StatefulWidget {
     required this.showDragHandle,
     required this.sheetOn,
     required this.sheetColor,
+    required this.transitionCurve,
   });
 
   final WidgetBuilder builder;
@@ -67,6 +71,9 @@ class _XpSheet extends StatefulWidget {
   final bool showDragHandle;
   final bool sheetOn;
   final Color? sheetColor;
+
+  /// 滑入/滑出位移曲线（默认 easeOutCubic，可整体放慢或换曲线）。
+  final Curve transitionCurve;
 
   /// 弹窗表面磨砂的高斯模糊半径。
   static const double blurSigma = 10;
@@ -88,7 +95,7 @@ class _XpSheetState extends State<_XpSheet> with TickerProviderStateMixin {
   /// 表面磨砂淡入/淡出：滑入完成后淡入，开始关闭或下拉时淡出。
   late final AnimationController _frost;
 
-  /// 滑入位移曲线（与旧实现一致：全程 easeOutCubic）。
+  /// 滑入位移曲线（默认 easeOutCubic，非线性减速入场）。
   late final CurvedAnimation _slideCurve;
 
   late final void Function(AnimationStatus) _onStatus;
@@ -99,7 +106,7 @@ class _XpSheetState extends State<_XpSheet> with TickerProviderStateMixin {
     _frost = AnimationController(vsync: this, duration: XpMotion.component);
     _slideCurve = CurvedAnimation(
       parent: widget.animation,
-      curve: Curves.easeOutCubic,
+      curve: widget.transitionCurve,
     );
     // 磨砂只在弹窗到位后淡入；开始关闭/下拉时瞬间归零（不淡出——
     // 淡出期间每帧都在绘制模糊，而 sheet 又在移动，采样区每帧变化
