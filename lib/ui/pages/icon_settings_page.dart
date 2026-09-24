@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../state/icon_pack_provider.dart';
+import '../../state/theme_provider.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../widgets/app_icon.dart';
 import '../widgets/xp_snack.dart';
@@ -34,10 +35,15 @@ class _IconSettingsPageState extends ConsumerState<IconSettingsPage>
       Navigator.pop(context);
       return;
     }
-    await ref.read(iconPackProvider.notifier).set(_selected);
+    final ok = await ref.read(themeProvider.notifier).setIconPack(_selected);
     if (!mounted) return;
+    if (!ok) {
+      // 预设只读：需先在主题页复制为自定义主题。
+      showXpSnack(context, '内置预设不可修改，请先在主题页复制为自定义主题');
+      return;
+    }
     // 先提示再返回：pop 后 context 失效，不能再用它弹 snack。
-    showXpSnack(context, '图标已切换为「${_selected.label}」');
+    showXpSnack(context, '已应用到「${ref.read(themeProvider).current.name}」');
     Navigator.pop(context);
   }
 

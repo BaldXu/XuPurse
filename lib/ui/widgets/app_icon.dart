@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../core/utils/icons.dart';
 import '../../core/utils/twemoji_icons.dart';
 import '../../state/icon_pack_provider.dart';
+import '../../state/theme_provider.dart';
 
 /// 业务图标（分类/账户图标）：按当前图标包渲染，切换后整 App 自动刷新。
 ///

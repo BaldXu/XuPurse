@@ -14,6 +14,7 @@ class XpSlidingSegmented<T> extends StatefulWidget {
     required this.selected,
     required this.onChanged,
     this.height = 36,
+    this.enabled = true,
   });
 
   /// 选项列表（泛型值 + 展示标签），顺序即排列顺序。
@@ -27,6 +28,9 @@ class XpSlidingSegmented<T> extends StatefulWidget {
 
   /// 控件总高度（含内边距），默认 36。
   final double height;
+
+  /// 是否可交互（false 时置灰并忽略点击/拖拽，用于只读场景）。
+  final bool enabled;
 
   @override
   State<XpSlidingSegmented<T>> createState() => _XpSlidingSegmentedState<T>();
@@ -112,6 +116,7 @@ class _XpSlidingSegmentedState<T> extends State<XpSlidingSegmented<T>> {
       _dragged = false;
       _dragCenter = null;
     });
+    if (!widget.enabled) return;
     if (target != null && target != _selectedIndex) {
       widget.onChanged(widget.items[target].value);
     }
@@ -135,85 +140,91 @@ class _XpSlidingSegmentedState<T> extends State<XpSlidingSegmented<T>> {
 
     return MouseRegion(
       // web/桌面端：悬停显示手型光标，提示可点击/可拖动
-      cursor: SystemMouseCursors.click,
-      child: Container(
-        height: widget.height,
-        padding: const EdgeInsets.all(_inset),
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(XpRadius.pill),
-        ),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            _contentWidth = constraints.maxWidth;
-            final segWidth = constraints.maxWidth / n;
-            return GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onHorizontalDragStart: _onDragStart,
-              onHorizontalDragUpdate: _onDragUpdate,
-              onHorizontalDragEnd: _onDragEnd,
-              onHorizontalDragCancel: _onDragCancel,
-              child: Stack(
-                children: [
-                  // 滑动胶囊：拖拽中 0 时长跟随手指，松手后 XpMotion.component 吸附
-                  AnimatedAlign(
-                    alignment: _alignmentFor(center),
-                    duration: _dragging ? Duration.zero : XpMotion.component,
-                    curve: _dragging ? Curves.linear : XpMotion.easeOut,
-                    child: Container(
-                      width: segWidth,
-                      height: constraints.maxHeight,
-                      decoration: BoxDecoration(
-                        color: scheme.surface,
-                        borderRadius: BorderRadius.circular(XpRadius.pill),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.08),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
+      cursor: widget.enabled
+          ? SystemMouseCursors.click
+          : SystemMouseCursors.basic,
+      child: Opacity(
+        opacity: widget.enabled ? 1 : 0.4,
+        child: Container(
+          height: widget.height,
+          padding: const EdgeInsets.all(_inset),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(XpRadius.pill),
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              _contentWidth = constraints.maxWidth;
+              final segWidth = constraints.maxWidth / n;
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onHorizontalDragStart: widget.enabled ? _onDragStart : null,
+                onHorizontalDragUpdate: widget.enabled ? _onDragUpdate : null,
+                onHorizontalDragEnd: widget.enabled ? _onDragEnd : null,
+                onHorizontalDragCancel: widget.enabled ? _onDragCancel : null,
+                child: Stack(
+                  children: [
+                    // 滑动胶囊：拖拽中 0 时长跟随手指，松手后 XpMotion.component 吸附
+                    AnimatedAlign(
+                      alignment: _alignmentFor(center),
+                      duration: _dragging ? Duration.zero : XpMotion.component,
+                      curve: _dragging ? Curves.linear : XpMotion.easeOut,
+                      child: Container(
+                        width: segWidth,
+                        height: constraints.maxHeight,
+                        decoration: BoxDecoration(
+                          color: scheme.surface,
+                          borderRadius: BorderRadius.circular(XpRadius.pill),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.08),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  // 选项层（文字在胶囊之上，点击/拖拽命中）
-                  Row(
-                    children: [
-                      for (var i = 0; i < n; i++)
-                        Expanded(
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () {
-                              if (i != selectedIndex) {
-                                widget.onChanged(widget.items[i].value);
-                              }
-                            },
-                            child: Center(
-                              child: AnimatedDefaultTextStyle(
-                                duration: XpMotion.micro,
-                                curve: XpMotion.easeOut,
-                                style:
-                                    (textTheme.labelMedium ??
-                                            const TextStyle(fontSize: 12))
-                                        .copyWith(
-                                          color: i == selectedIndex
-                                              ? scheme.onSurface
-                                              : scheme.onSurfaceVariant,
-                                          fontWeight: i == selectedIndex
-                                              ? FontWeight.w600
-                                              : FontWeight.w500,
-                                        ),
-                                child: _ItemContent(item: widget.items[i]),
+                    // 选项层（文字在胶囊之上，点击/拖拽命中）
+                    Row(
+                      children: [
+                        for (var i = 0; i < n; i++)
+                          Expanded(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () {
+                                if (!widget.enabled) return;
+                                if (i != selectedIndex) {
+                                  widget.onChanged(widget.items[i].value);
+                                }
+                              },
+                              child: Center(
+                                child: AnimatedDefaultTextStyle(
+                                  duration: XpMotion.micro,
+                                  curve: XpMotion.easeOut,
+                                  style:
+                                      (textTheme.labelMedium ??
+                                              const TextStyle(fontSize: 12))
+                                          .copyWith(
+                                            color: i == selectedIndex
+                                                ? scheme.onSurface
+                                                : scheme.onSurfaceVariant,
+                                            fontWeight: i == selectedIndex
+                                                ? FontWeight.w600
+                                                : FontWeight.w500,
+                                          ),
+                                  child: _ItemContent(item: widget.items[i]),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          },
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ),
     );

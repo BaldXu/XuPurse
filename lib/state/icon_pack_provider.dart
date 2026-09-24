@@ -20,11 +20,12 @@ enum IconPack {
   );
 }
 
-/// 当前图标包（全局开关），持久化到 SharedPreferences。
+/// 图标包全局兜底配置，持久化到 SharedPreferences。
 ///
-/// UI 层统一通过 [AppIcon] 消费；切换后所有订阅 [iconPackProvider] 的
-/// 图标组件自动重建，实现「整 App 刷新图标」。
-final iconPackProvider = NotifierProvider<IconPackNotifier, IconPack>(
+/// 仅当当前主题未配置图标包(内置预设恒为 null)时生效，作为迁移/默认值兜底；
+/// 用户自建主题的图标包以 [AppTheme.iconPack] 为准。
+/// 当前生效图标包见 theme_provider.dart 的 [iconPackProvider]。
+final legacyIconPackProvider = NotifierProvider<IconPackNotifier, IconPack>(
   IconPackNotifier.new,
 );
 

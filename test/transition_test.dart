@@ -89,7 +89,7 @@ void main() {
     final container = ProviderScope.containerOf(
       tester.element(find.byType(_Home)),
     );
-    await container.read(transitionBlurProvider.notifier).set(false);
+    await container.read(legacyTransitionBlurProvider.notifier).set(false);
     await tester.pumpAndSettle();
 
     nav.push(XpRoute<void>(builder: (_) => const _Detail()));

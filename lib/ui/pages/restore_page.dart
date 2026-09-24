@@ -243,6 +243,10 @@ class _RestorePageState extends ConsumerState<RestorePage>
       ref.invalidate(frostedGlassProvider);
       ref.invalidate(transitionBlurProvider);
       ref.invalidate(iconPackProvider);
+      // 主题级字段为 null 时兜底回全局值，恢复设置后全局兜底也须重建。
+      ref.invalidate(legacyFrostedGlassProvider);
+      ref.invalidate(legacyTransitionBlurProvider);
+      ref.invalidate(legacyIconPackProvider);
       ref.invalidate(defaultAccountProvider);
       ref.invalidate(aiConfigProvider);
       ref.invalidate(aiScopeProvider);

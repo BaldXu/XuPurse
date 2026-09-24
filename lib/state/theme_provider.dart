@@ -5,10 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'icon_pack_provider.dart';
+
 /// 卡片样式风格。
 enum XpCardStyle { filled, outlined, elevated }
 
-/// 主题定义:颜色(seed/背景/卡片)+ 可选定制维度(字体/卡片样式/动画)。
+/// 主题定义:颜色(seed/背景/卡片)+ 可选定制维度(字体/卡片样式/动画)+
+/// 完整外观(图标包/磨砂玻璃/转场动效)。
 ///
 /// - 暗色模式是独立预设主题(preset_dark),系统暗色开关 = 切换到它;
 ///   用户自定义主题仅在浅色模式下生效,不参与暗色。
@@ -26,6 +29,9 @@ class AppTheme {
     this.fontScale = 1.0,
     this.cardStyle = XpCardStyle.filled,
     this.cardRadius,
+    this.iconPack,
+    this.frosted,
+    this.transitionBlur,
     this.isDark = false,
   });
 
@@ -47,6 +53,16 @@ class AppTheme {
 
   /// 卡片圆角覆盖(null = 跟随 token 默认 12)。
   final double? cardRadius;
+
+  /// 图标包覆盖(null = 跟随全局默认,见 [iconPackProvider])。
+  /// 用户自建主题在此显式保存;内置预设为 null,恒跟随全局兜底值。
+  final IconPack? iconPack;
+
+  /// 磨砂玻璃覆盖(null = 跟随全局默认,见 [frostedGlassProvider])。
+  final FrostedState? frosted;
+
+  /// 转场实时模糊开关覆盖(null = 跟随全局默认,见 [transitionBlurProvider])。
+  final bool? transitionBlur;
 
   /// 是否为暗色主题(暗色预设专用标记)。
   final bool isDark;
@@ -70,7 +86,7 @@ class AppTheme {
   );
 
   Map<String, Object?> toJson() => {
-    'v': 3,
+    'v': 4,
     'id': id,
     'name': name,
     'seedColor': _hex(seedColor),
@@ -81,10 +97,20 @@ class AppTheme {
     if (fontScale != 1.0) 'fontScale': fontScale,
     if (cardStyle != XpCardStyle.filled) 'cardStyle': cardStyle.name,
     if (cardRadius != null) 'cardRadius': cardRadius,
+    if (iconPack != null) 'iconPack': iconPack!.name,
+    if (frosted != null)
+      'frosted': {
+        'enabled': frosted!.enabled,
+        'appBar': frosted!.appBar,
+        'card': frosted!.card,
+        'sheet': frosted!.sheet,
+      },
+    if (transitionBlur != null) 'transitionBlur': transitionBlur,
     if (isDark) 'isDark': true,
   };
 
-  /// 兼容 v1(无 v 字段,仅三色)、v2 与 v3(含弹窗背景色)格式。
+  /// 兼容 v1(无 v 字段,仅三色)、v2、v3(含弹窗背景色)与 v4(含图标/磨砂/
+  /// 转场)格式;缺失字段取默认。
   static AppTheme fromJson(Map<String, Object?> json) => AppTheme(
     id: json['id'] as String,
     name: json['name'] as String,
@@ -102,27 +128,67 @@ class AppTheme {
     fontScale: (json['fontScale'] as num?)?.toDouble() ?? 1.0,
     cardStyle: _cardStyleOf(json['cardStyle'] as String?),
     cardRadius: (json['cardRadius'] as num?)?.toDouble(),
+    iconPack: json['iconPack'] == null
+        ? null
+        : IconPack.fromName(json['iconPack'] as String),
+    frosted: _frostedOf(json['frosted']),
+    transitionBlur: json['transitionBlur'] as bool?,
     isDark: json['isDark'] as bool? ?? false,
   );
 
+  /// 解析嵌套磨砂对象;结构异常时返回 null(跟随全局默认,不阻断加载)。
+  static FrostedState? _frostedOf(Object? raw) {
+    if (raw is! Map) return null;
+    try {
+      final m = raw.cast<String, Object?>();
+      return FrostedState(
+        enabled: m['enabled'] as bool? ?? false,
+        appBar: m['appBar'] as bool? ?? true,
+        card: m['card'] as bool? ?? false,
+        sheet: m['sheet'] as bool? ?? false,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
   AppTheme copyWith({
+    String? name,
+    Color? seedColor,
+    Color? background,
+    bool clearBackground = false,
+    Color? cardColor,
+    bool clearCardColor = false,
+    Color? sheetColor,
+    bool clearSheetColor = false,
     String? fontFamily,
+    bool clearFontFamily = false,
     double? fontScale,
     XpCardStyle? cardStyle,
     double? cardRadius,
-    bool clearFontFamily = false,
     bool clearCardRadius = false,
+    IconPack? iconPack,
+    bool clearIconPack = false,
+    FrostedState? frosted,
+    bool clearFrosted = false,
+    bool? transitionBlur,
+    bool clearTransitionBlur = false,
   }) => AppTheme(
     id: id,
-    name: name,
-    seedColor: seedColor,
-    background: background,
-    cardColor: cardColor,
-    sheetColor: sheetColor,
+    name: name ?? this.name,
+    seedColor: seedColor ?? this.seedColor,
+    background: clearBackground ? null : (background ?? this.background),
+    cardColor: clearCardColor ? null : (cardColor ?? this.cardColor),
+    sheetColor: clearSheetColor ? null : (sheetColor ?? this.sheetColor),
     fontFamily: clearFontFamily ? null : (fontFamily ?? this.fontFamily),
     fontScale: fontScale ?? this.fontScale,
     cardStyle: cardStyle ?? this.cardStyle,
     cardRadius: clearCardRadius ? null : (cardRadius ?? this.cardRadius),
+    iconPack: clearIconPack ? null : (iconPack ?? this.iconPack),
+    frosted: clearFrosted ? null : (frosted ?? this.frosted),
+    transitionBlur: clearTransitionBlur
+        ? null
+        : (transitionBlur ?? this.transitionBlur),
     isDark: isDark,
   );
 }
@@ -182,6 +248,17 @@ final currentThemeProvider = Provider<AppTheme>((ref) {
       Brightness.dark;
   if (platformDark) return darkThemePreset;
   return state.current;
+});
+
+/// 当前生效图标包：主题级覆盖 > 全局兜底。
+///
+/// UI 层统一通过 [AppIcon] 消费；切换主题即整套切换图标风格。
+/// 定义在本文件以复用 [currentThemeProvider]，避免与
+/// icon_pack_provider.dart 形成循环 import。
+final iconPackProvider = Provider<IconPack>((ref) {
+  final iconPack = ref.watch(currentThemeProvider).iconPack;
+  if (iconPack != null) return iconPack;
+  return ref.watch(legacyIconPackProvider);
 });
 
 class ThemeNotifier extends Notifier<ThemeState> {
@@ -248,6 +325,10 @@ class ThemeNotifier extends Notifier<ThemeState> {
       fontScale: theme.fontScale,
       cardStyle: theme.cardStyle,
       cardRadius: theme.cardRadius,
+      // v4 主题级覆盖必须原样保留，否则亮度兜底会静默重置它们。
+      iconPack: theme.iconPack,
+      frosted: theme.frosted,
+      transitionBlur: theme.transitionBlur,
       isDark: theme.isDark,
     );
   }
@@ -318,6 +399,48 @@ class ThemeNotifier extends Notifier<ThemeState> {
     await _persist(next);
     return true;
   }
+
+  /// 仅更新内存态、不落盘（滑动条拖动等高频预览场景用）。
+  ///
+  /// 拖动过程每 tick 只改内存驱动实时预览，拖动结束由 [flushPersist]
+  /// 一次性落盘，避免几十次全量序列化 + SharedPreferences 写入。
+  /// 注意：后续任何落盘操作（updateCurrentTheme 等）都会带上本次内存态，
+  /// 因此唯一需要在「无其他落盘操作」时手动 flush 的路径是离开页面。
+  void updateCurrentThemeSilent(AppTheme updated) {
+    if (updated.isPreset) return;
+    final next = ThemeState(
+      currentId: state.currentId,
+      userThemes: [
+        for (final t in state.userThemes)
+          if (t.id == updated.id) updated else t,
+      ],
+    );
+    state = next;
+  }
+
+  /// 把当前内存态落盘（配合 [updateCurrentThemeSilent] 使用）。
+  Future<void> flushPersist() => _persist(state);
+
+  /// 设置当前主题的图标包（仅用户自建主题可改）。
+  Future<bool> setIconPack(IconPack pack) async {
+    final cur = state.current;
+    if (cur.isPreset) return false;
+    return updateCurrentTheme(cur.copyWith(iconPack: pack));
+  }
+
+  /// 设置当前主题的磨砂玻璃配置（仅用户自建主题可改）。
+  Future<bool> setFrosted(FrostedState frosted) async {
+    final cur = state.current;
+    if (cur.isPreset) return false;
+    return updateCurrentTheme(cur.copyWith(frosted: frosted));
+  }
+
+  /// 设置当前主题的转场实时模糊开关（仅用户自建主题可改）。
+  Future<bool> setTransitionBlur(bool value) async {
+    final cur = state.current;
+    if (cur.isPreset) return false;
+    return updateCurrentTheme(cur.copyWith(transitionBlur: value));
+  }
 }
 
 /// 磨砂玻璃配置（独立于具体主题）：
@@ -359,11 +482,23 @@ class FrostedState {
   bool get sheetOn => enabled && sheet;
 }
 
-/// 全局磨砂玻璃配置，持久化到 SharedPreferences。
-final frostedGlassProvider =
+/// 磨砂玻璃全局兜底配置，持久化到 SharedPreferences。
+///
+/// 仅当当前主题未配置磨砂(内置预设恒为 null)时生效，作为迁移/默认值兜底；
+/// 用户自建主题的磨砂以 [AppTheme.frosted] 为准。
+final legacyFrostedGlassProvider =
     NotifierProvider<FrostedGlassNotifier, FrostedState>(
       FrostedGlassNotifier.new,
     );
+
+/// 当前生效磨砂玻璃配置：主题级覆盖 > 全局兜底。
+///
+/// 消费端(栏/卡/弹窗)全部经本 provider 读取，切换主题即整套切换磨砂外观。
+final frostedGlassProvider = Provider<FrostedState>((ref) {
+  final frosted = ref.watch(currentThemeProvider).frosted;
+  if (frosted != null) return frosted;
+  return ref.watch(legacyFrostedGlassProvider);
+});
 
 class FrostedGlassNotifier extends Notifier<FrostedState> {
   /// 旧版总开关 key（迁移：写入/读取仍用它表示 enabled）。
@@ -448,15 +583,22 @@ class FrostedGlassNotifier extends Notifier<FrostedState> {
   }
 }
 
-/// 实时模糊动效开关：页面转场时旧页后退的实时高斯模糊
+/// 实时模糊动效全局兜底开关：页面转场时旧页后退的实时高斯模糊
 /// （design_tokens [XpMotion.pageExitBlur]，默认 3）。
 ///
-/// 全局设置，独立于主题与磨砂玻璃；默认开启。关闭后转场退化为纯
-/// 位移 + 缩放 + 变暗（pageExitBlur 有效值归零），不再逐帧重算模糊
-/// 快照，低端机 / 省电场景可选。
-final transitionBlurProvider = NotifierProvider<TransitionBlurNotifier, bool>(
-  TransitionBlurNotifier.new,
-);
+/// 默认开启。关闭后转场退化为纯位移 + 缩放 + 变暗（pageExitBlur 有效值
+/// 归零），不再逐帧重算模糊快照，低端机 / 省电场景可选。
+/// 用户自建主题的转场开关以 [AppTheme.transitionBlur] 为准（null 时
+/// 兜底回本全局值，内置预设恒走兜底）。
+final legacyTransitionBlurProvider =
+    NotifierProvider<TransitionBlurNotifier, bool>(TransitionBlurNotifier.new);
+
+/// 当前生效实时模糊开关：主题级覆盖 > 全局兜底。
+final transitionBlurProvider = Provider<bool>((ref) {
+  final blur = ref.watch(currentThemeProvider).transitionBlur;
+  if (blur != null) return blur;
+  return ref.watch(legacyTransitionBlurProvider);
+});
 
 class TransitionBlurNotifier extends Notifier<bool> {
   static const _key = 'ui_transition_blur';
