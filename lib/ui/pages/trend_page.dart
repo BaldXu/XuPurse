@@ -57,12 +57,9 @@ class _TrendPageState extends ConsumerState<TrendPage>
     final bleedTop = ref.watch(frostedGlassProvider).barsOn
         ? xpFrostedBleedTop(context, appBar)
         : 0.0;
-    // 转场期间只渲染骨架：快照数据常在 300ms 转场内返回，此刻构建
-    // fl_chart 图表会撞上转场动画后半段抢 raster；completed 后数据
-    // 若已到则直接构建，未到继续由下方 loading 分支兜骨架。
-    if (!xpPushSettled) {
-      return buildXpScaffold(appBar: appBar, loading: true);
-    }
+    // 转场期间只渲染骨架（buildBody 门）：快照数据常在 300ms 转场内返回，
+    // 此刻构建 fl_chart 图表会撞上转场动画后半段抢 raster；completed 后
+    // 数据若已到则直接构建，未到继续由下方 loading 分支兜骨架。
     final snapsAsync = ref.watch(snapshotsProvider);
     final accounts = ref.watch(accountsProvider).value ?? const <Account>[];
     final total = ref.watch(totalAssetsProvider).value ?? 0;
@@ -87,7 +84,7 @@ class _TrendPageState extends ConsumerState<TrendPage>
     return buildXpScaffold(
       appBar: appBar,
       frostedBleed: true,
-      body: snapsAsync.when(
+      buildBody: (_) => snapsAsync.when(
         loading: () => const XpSkeletonPage(),
         error: (e, _) => XpErrorState(
           message: '$e',

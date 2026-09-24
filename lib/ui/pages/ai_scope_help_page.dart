@@ -22,7 +22,9 @@ class _AiScopeHelpPageState extends State<AiScopeHelpPage>
     final scheme = theme.colorScheme;
     return buildXpScaffold(
       appBar: AppBar(title: const Text('AI 如何读取我的数据？')),
-      body: ListView(
+      // 转场期间只渲染骨架（buildBody 门）：整页多张要点卡片，首帧全量
+      // 构建会与转场动画抢帧；completed 后首次构建真实内容。
+      buildBody: (_) => ListView(
         padding: const EdgeInsets.fromLTRB(
           XpSpacing.l,
           XpSpacing.s,

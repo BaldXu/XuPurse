@@ -122,7 +122,9 @@ class _AiScopePageState extends ConsumerState<AiScopePage>
             const SizedBox(width: XpSpacing.s),
           ],
         ),
-        body: ListView(
+        // 转场期间只渲染骨架（buildBody 门）：整页多张设置卡片 + PopScope
+        // 拦截，首帧全量构建会与转场动画抢帧；completed 后首次构建真实内容。
+        buildBody: (_) => ListView(
           padding: const EdgeInsets.fromLTRB(
             XpSpacing.l,
             XpSpacing.s,

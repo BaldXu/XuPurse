@@ -35,7 +35,9 @@ class _AccountManagePageState extends ConsumerState<AccountManagePage>
       appBar: AppBar(title: const Text('账户管理')),
       // 整页骨架：仅「无旧数据的首载」呈现；刷新期保留旧值不算 loading
       loading: accountsAsync.isLoading && accountsAsync.value == null,
-      body: Column(
+      // 转场期间只渲染骨架（buildBody 门）：账户列表可能几十行，首帧全量
+      // 构建会与转场动画抢帧；completed 后首次构建真实内容。
+      buildBody: (_) => Column(
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(

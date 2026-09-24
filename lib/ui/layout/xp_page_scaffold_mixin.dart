@@ -21,13 +21,20 @@ import '../widgets/xp_skeleton.dart';
 /// 整页滑入 + 旧页后退的双层级转场),mixin 内不再叠加内容级进场,
 /// 避免双重动画。特殊页面如需内容级进场,可自行包一层 [XpEntrance]
 /// (仅首次构建触发,尊重动画开关与 reduce-motion)。
-/// 首帧构建昂贵的页面另见 [xpPushSettled] 的骨架短路用法。
+///
+/// 重页面「转场动画期间不卡」的两个开关（页面只需做最小声明，逻辑全在
+/// 基类）：
+/// 1. 首帧构建昂贵的页面 → buildXpScaffold 传 [buildBody]（转场期间出
+///    骨架，completed 后首次构建真实内容，见 [xpPushSettled]）。
+/// 2. 进页面就要拉数据/算摘要的重页面 → initState 里 [xpRunWhenSettled]
+///    启动任务（把 DB 聚合/遍历等耗时任务推迟到转场结束后执行）。
 mixin XpPageScaffold<T extends StatefulWidget> on State<T> {
   double get xpMaxWidth => 720;
 
   // ── push 转场结束探测（重页面首帧骨架短路用）────────────────────
   Animation<double>? _xpRouteAnim;
   bool _xpSettled = false;
+  VoidCallback? _xpSettledTask;
 
   /// push 转场动画是否已结束（ completed ）。
   ///
@@ -46,9 +53,7 @@ mixin XpPageScaffold<T extends StatefulWidget> on State<T> {
     final route = ModalRoute.of(context);
     final anim = route?.animation;
     if (anim == null) return true; // 非 route 场景（如测试）不阻塞
-    if (!identical(anim, _xpRouteAnim)) {
-      _xpRouteAnim = anim..addStatusListener(_xpOnRouteStatus);
-    }
+    _xpEnsureRouteListener(anim);
     // 首帧 offstage 陷阱：ModalRoute 首帧会为 Hero 定位而离屏构建
     // （offstage），此刻 animation 代理 = kAlwaysCompleteAnimation
     // （status=completed），但转场其实刚起步（真实 controller 还在 0）。
@@ -64,13 +69,76 @@ mixin XpPageScaffold<T extends StatefulWidget> on State<T> {
     // 等不到 completed 而常驻(骨架脉冲无限循环,页面卡死在 loading)。
     if (anim.status == AnimationStatus.completed) {
       _xpSettled = true;
+      _xpRunSettledTask();
     }
     return _xpSettled;
+  }
+
+  /// 转场动画结束后再执行一次性的耗时任务（「进页面即拉数据」的重页面用）。
+  ///
+  /// 任务若在 initState 里同步启动（DB 聚合 / 遍历大量账单 / 生成摘要等），
+  /// 会与转场动画抢主线程导致动画掉帧；用本方法把任务推迟到转场
+  /// completed 后执行，动画零抢帧，用户感知为「转场完成后再加载」。
+  /// 非 route 场景（tab 常驻 / 测试）下立即执行。
+  ///
+  /// 用法（通常 initState 里调用一次）：
+  /// ```dart
+  /// xpRunWhenSettled(_load);
+  /// ```
+  void xpRunWhenSettled(VoidCallback task) {
+    if (_xpSettled) {
+      task();
+      return;
+    }
+    // ModalRoute.of 依赖 InheritedWidget 查询，不能在 initState 同步调用；
+    // 推迟到首帧构建后再挂 listener / 判状态。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _xpSchedule(task);
+    });
+  }
+
+  void _xpSchedule(VoidCallback task) {
+    final route = ModalRoute.of(context);
+    final anim = route?.animation;
+    if (anim == null) {
+      task(); // 非 route 场景（tab 常驻/测试）立即执行
+      return;
+    }
+    // 首帧 offstage 陷阱同 [xpPushSettled]：此刻动画代理显示 completed 但
+    // 转场刚起步，不能立即放行；挂 listener 等真实动画 completed 兜底。
+    if (route!.offstage) {
+      _xpSettledTask = task;
+      _xpEnsureRouteListener(anim);
+      return;
+    }
+    if (anim.status == AnimationStatus.completed) {
+      _xpSettled = true;
+      task();
+      return;
+    }
+    _xpSettledTask = task;
+    _xpEnsureRouteListener(anim);
+  }
+
+  void _xpEnsureRouteListener(Animation<double> anim) {
+    if (!identical(anim, _xpRouteAnim)) {
+      _xpRouteAnim = anim..addStatusListener(_xpOnRouteStatus);
+    }
   }
 
   void _xpOnRouteStatus(AnimationStatus status) {
     if (status == AnimationStatus.completed && mounted) {
       setState(() => _xpSettled = true);
+      _xpRunSettledTask();
+    }
+  }
+
+  void _xpRunSettledTask() {
+    final task = _xpSettledTask;
+    if (task != null) {
+      _xpSettledTask = null;
+      task();
     }
   }
 

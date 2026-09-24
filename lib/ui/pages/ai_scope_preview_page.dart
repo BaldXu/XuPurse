@@ -30,7 +30,9 @@ class _AiScopePreviewPageState extends ConsumerState<AiScopePreviewPage>
   @override
   void initState() {
     super.initState();
-    _load();
+    // 摘要生成对账本做大量 DB 聚合，转场期间同步启动会抢主线程掉帧；
+    // 推迟到转场 completed 后再执行（基类 xpRunWhenSettled）。
+    xpRunWhenSettled(_load);
   }
 
   Future<void> _load() async {

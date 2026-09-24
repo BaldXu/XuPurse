@@ -193,15 +193,13 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
   Widget build(BuildContext context) {
     final appBar = AppBar(title: const Text('主题外观'));
     // 本页静态内容重（主题球 + 多分区卡片），首帧全量构建会抢转场动画
-    // 的 raster 导致动画掉帧；转场期间渲染骨架，completed 后自动重建。
-    if (!xpPushSettled) {
-      return buildXpScaffold(appBar: appBar, loading: true);
-    }
+    // 的 raster 导致动画掉帧；buildBody 门：转场期间基类渲染骨架，
+    // completed 后自动重建（等价于旧的手写 xpPushSettled 短路）。
     final state = ref.watch(themeProvider);
     final scheme = Theme.of(context).colorScheme;
     return buildXpScaffold(
       appBar: appBar,
-      body: ListView(
+      buildBody: (_) => ListView(
         padding: const EdgeInsets.all(XpSpacing.l),
         children: [
           // ---- 第一层：预设主题（浅色） ----
