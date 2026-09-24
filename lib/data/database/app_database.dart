@@ -26,6 +26,7 @@ part 'app_database.g.dart';
     Instalments,
     Budgets,
     ImportMappings,
+    YearReports,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -46,7 +47,7 @@ class AppDatabase extends _$AppDatabase {
   factory AppDatabase.memory() => AppDatabase(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   /// 清空数据库：删除全部用户表并重置 schema 版本，下次打开时自动重建。
   ///
@@ -71,6 +72,10 @@ class AppDatabase extends _$AppDatabase {
     onCreate: (m) => m.createAll(),
     onUpgrade: (m, from, to) async {
       // 增量迁移：结构变更一律走 migration，禁止删库重建。
+      if (from < 2) {
+        // v2：新增年度报告汇总缓存表（纯派生数据，可随时全量重算）。
+        await m.createTable(yearReports);
+      }
     },
   );
 }

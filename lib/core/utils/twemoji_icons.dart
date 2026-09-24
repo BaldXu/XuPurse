@@ -196,6 +196,10 @@ final Map<IconData, String> materialEmojiNames = {
   Icons.backup_outlined: 'floppy_disk',
   Icons.file_download_outlined: 'inbox_tray',
 
+  // 报告汇总
+  Icons.insights_outlined: 'chart_increasing',
+  Icons.summarize_outlined: 'spiral_notepad',
+
   // 聊天 / AI / 表情
   Icons.chat: 'speech_balloon',
   Icons.chat_bubble: 'speech_balloon',

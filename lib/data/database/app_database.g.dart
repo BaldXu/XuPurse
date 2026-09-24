@@ -9024,6 +9024,686 @@ class ImportMappingsCompanion extends UpdateCompanion<ImportMapping> {
   }
 }
 
+class $YearReportsTable extends YearReports
+    with TableInfo<$YearReportsTable, YearReport> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $YearReportsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _yearMeta = const VerificationMeta('year');
+  @override
+  late final GeneratedColumn<int> year = GeneratedColumn<int>(
+    'year',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _incomeMeta = const VerificationMeta('income');
+  @override
+  late final GeneratedColumn<int> income = GeneratedColumn<int>(
+    'income',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _expenseMeta = const VerificationMeta(
+    'expense',
+  );
+  @override
+  late final GeneratedColumn<int> expense = GeneratedColumn<int>(
+    'expense',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _adjustNetMeta = const VerificationMeta(
+    'adjustNet',
+  );
+  @override
+  late final GeneratedColumn<int> adjustNet = GeneratedColumn<int>(
+    'adjust_net',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _startAssetsMeta = const VerificationMeta(
+    'startAssets',
+  );
+  @override
+  late final GeneratedColumn<int> startAssets = GeneratedColumn<int>(
+    'start_assets',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _endAssetsMeta = const VerificationMeta(
+    'endAssets',
+  );
+  @override
+  late final GeneratedColumn<int> endAssets = GeneratedColumn<int>(
+    'end_assets',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _billCountMeta = const VerificationMeta(
+    'billCount',
+  );
+  @override
+  late final GeneratedColumn<int> billCount = GeneratedColumn<int>(
+    'bill_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _adjustCountMeta = const VerificationMeta(
+    'adjustCount',
+  );
+  @override
+  late final GeneratedColumn<int> adjustCount = GeneratedColumn<int>(
+    'adjust_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _hasAssetBaselineMeta = const VerificationMeta(
+    'hasAssetBaseline',
+  );
+  @override
+  late final GeneratedColumn<bool> hasAssetBaseline = GeneratedColumn<bool>(
+    'has_asset_baseline',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("has_asset_baseline" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _sourceSigMeta = const VerificationMeta(
+    'sourceSig',
+  );
+  @override
+  late final GeneratedColumn<String> sourceSig = GeneratedColumn<String>(
+    'source_sig',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _computedAtMeta = const VerificationMeta(
+    'computedAt',
+  );
+  @override
+  late final GeneratedColumn<int> computedAt = GeneratedColumn<int>(
+    'computed_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    year,
+    income,
+    expense,
+    adjustNet,
+    startAssets,
+    endAssets,
+    billCount,
+    adjustCount,
+    hasAssetBaseline,
+    sourceSig,
+    computedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'year_reports';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<YearReport> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('year')) {
+      context.handle(
+        _yearMeta,
+        year.isAcceptableOrUnknown(data['year']!, _yearMeta),
+      );
+    }
+    if (data.containsKey('income')) {
+      context.handle(
+        _incomeMeta,
+        income.isAcceptableOrUnknown(data['income']!, _incomeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_incomeMeta);
+    }
+    if (data.containsKey('expense')) {
+      context.handle(
+        _expenseMeta,
+        expense.isAcceptableOrUnknown(data['expense']!, _expenseMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_expenseMeta);
+    }
+    if (data.containsKey('adjust_net')) {
+      context.handle(
+        _adjustNetMeta,
+        adjustNet.isAcceptableOrUnknown(data['adjust_net']!, _adjustNetMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_adjustNetMeta);
+    }
+    if (data.containsKey('start_assets')) {
+      context.handle(
+        _startAssetsMeta,
+        startAssets.isAcceptableOrUnknown(
+          data['start_assets']!,
+          _startAssetsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_startAssetsMeta);
+    }
+    if (data.containsKey('end_assets')) {
+      context.handle(
+        _endAssetsMeta,
+        endAssets.isAcceptableOrUnknown(data['end_assets']!, _endAssetsMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_endAssetsMeta);
+    }
+    if (data.containsKey('bill_count')) {
+      context.handle(
+        _billCountMeta,
+        billCount.isAcceptableOrUnknown(data['bill_count']!, _billCountMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_billCountMeta);
+    }
+    if (data.containsKey('adjust_count')) {
+      context.handle(
+        _adjustCountMeta,
+        adjustCount.isAcceptableOrUnknown(
+          data['adjust_count']!,
+          _adjustCountMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_adjustCountMeta);
+    }
+    if (data.containsKey('has_asset_baseline')) {
+      context.handle(
+        _hasAssetBaselineMeta,
+        hasAssetBaseline.isAcceptableOrUnknown(
+          data['has_asset_baseline']!,
+          _hasAssetBaselineMeta,
+        ),
+      );
+    }
+    if (data.containsKey('source_sig')) {
+      context.handle(
+        _sourceSigMeta,
+        sourceSig.isAcceptableOrUnknown(data['source_sig']!, _sourceSigMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceSigMeta);
+    }
+    if (data.containsKey('computed_at')) {
+      context.handle(
+        _computedAtMeta,
+        computedAt.isAcceptableOrUnknown(data['computed_at']!, _computedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_computedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {year};
+  @override
+  YearReport map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return YearReport(
+      year: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}year'],
+      )!,
+      income: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}income'],
+      )!,
+      expense: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}expense'],
+      )!,
+      adjustNet: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}adjust_net'],
+      )!,
+      startAssets: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}start_assets'],
+      )!,
+      endAssets: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}end_assets'],
+      )!,
+      billCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}bill_count'],
+      )!,
+      adjustCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}adjust_count'],
+      )!,
+      hasAssetBaseline: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}has_asset_baseline'],
+      )!,
+      sourceSig: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_sig'],
+      )!,
+      computedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}computed_at'],
+      )!,
+    );
+  }
+
+  @override
+  $YearReportsTable createAlias(String alias) {
+    return $YearReportsTable(attachedDatabase, alias);
+  }
+}
+
+class YearReport extends DataClass implements Insertable<YearReport> {
+  /// 公历年（本地时区）
+  final int year;
+
+  /// 记录收入（不含调账、不含「不计入收支」账单）
+  final int income;
+
+  /// 记录支出（同上口径）
+  final int expense;
+
+  /// 调账净额（收入调账 − 支出调账；负值表示手动调低）
+  final int adjustNet;
+
+  /// 年初资产（上年 12/31 24:00 = 本年 1/1 00:00 时点；无基准时为 0）
+  final int startAssets;
+
+  /// 年末资产
+  final int endAssets;
+
+  /// 该年常规记账条数
+  final int billCount;
+
+  /// 该年调账次数
+  final int adjustCount;
+
+  /// 期初/期末是否都有可用快照基准；false 时资产变动分区降级展示
+  final bool hasAssetBaseline;
+
+  /// 重算时的全库账单指纹 `"count:maxUpdatedAt"`，与当前不一致则整年重算
+  final String sourceSig;
+  final int computedAt;
+  const YearReport({
+    required this.year,
+    required this.income,
+    required this.expense,
+    required this.adjustNet,
+    required this.startAssets,
+    required this.endAssets,
+    required this.billCount,
+    required this.adjustCount,
+    required this.hasAssetBaseline,
+    required this.sourceSig,
+    required this.computedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['year'] = Variable<int>(year);
+    map['income'] = Variable<int>(income);
+    map['expense'] = Variable<int>(expense);
+    map['adjust_net'] = Variable<int>(adjustNet);
+    map['start_assets'] = Variable<int>(startAssets);
+    map['end_assets'] = Variable<int>(endAssets);
+    map['bill_count'] = Variable<int>(billCount);
+    map['adjust_count'] = Variable<int>(adjustCount);
+    map['has_asset_baseline'] = Variable<bool>(hasAssetBaseline);
+    map['source_sig'] = Variable<String>(sourceSig);
+    map['computed_at'] = Variable<int>(computedAt);
+    return map;
+  }
+
+  YearReportsCompanion toCompanion(bool nullToAbsent) {
+    return YearReportsCompanion(
+      year: Value(year),
+      income: Value(income),
+      expense: Value(expense),
+      adjustNet: Value(adjustNet),
+      startAssets: Value(startAssets),
+      endAssets: Value(endAssets),
+      billCount: Value(billCount),
+      adjustCount: Value(adjustCount),
+      hasAssetBaseline: Value(hasAssetBaseline),
+      sourceSig: Value(sourceSig),
+      computedAt: Value(computedAt),
+    );
+  }
+
+  factory YearReport.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return YearReport(
+      year: serializer.fromJson<int>(json['year']),
+      income: serializer.fromJson<int>(json['income']),
+      expense: serializer.fromJson<int>(json['expense']),
+      adjustNet: serializer.fromJson<int>(json['adjustNet']),
+      startAssets: serializer.fromJson<int>(json['startAssets']),
+      endAssets: serializer.fromJson<int>(json['endAssets']),
+      billCount: serializer.fromJson<int>(json['billCount']),
+      adjustCount: serializer.fromJson<int>(json['adjustCount']),
+      hasAssetBaseline: serializer.fromJson<bool>(json['hasAssetBaseline']),
+      sourceSig: serializer.fromJson<String>(json['sourceSig']),
+      computedAt: serializer.fromJson<int>(json['computedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'year': serializer.toJson<int>(year),
+      'income': serializer.toJson<int>(income),
+      'expense': serializer.toJson<int>(expense),
+      'adjustNet': serializer.toJson<int>(adjustNet),
+      'startAssets': serializer.toJson<int>(startAssets),
+      'endAssets': serializer.toJson<int>(endAssets),
+      'billCount': serializer.toJson<int>(billCount),
+      'adjustCount': serializer.toJson<int>(adjustCount),
+      'hasAssetBaseline': serializer.toJson<bool>(hasAssetBaseline),
+      'sourceSig': serializer.toJson<String>(sourceSig),
+      'computedAt': serializer.toJson<int>(computedAt),
+    };
+  }
+
+  YearReport copyWith({
+    int? year,
+    int? income,
+    int? expense,
+    int? adjustNet,
+    int? startAssets,
+    int? endAssets,
+    int? billCount,
+    int? adjustCount,
+    bool? hasAssetBaseline,
+    String? sourceSig,
+    int? computedAt,
+  }) => YearReport(
+    year: year ?? this.year,
+    income: income ?? this.income,
+    expense: expense ?? this.expense,
+    adjustNet: adjustNet ?? this.adjustNet,
+    startAssets: startAssets ?? this.startAssets,
+    endAssets: endAssets ?? this.endAssets,
+    billCount: billCount ?? this.billCount,
+    adjustCount: adjustCount ?? this.adjustCount,
+    hasAssetBaseline: hasAssetBaseline ?? this.hasAssetBaseline,
+    sourceSig: sourceSig ?? this.sourceSig,
+    computedAt: computedAt ?? this.computedAt,
+  );
+  YearReport copyWithCompanion(YearReportsCompanion data) {
+    return YearReport(
+      year: data.year.present ? data.year.value : this.year,
+      income: data.income.present ? data.income.value : this.income,
+      expense: data.expense.present ? data.expense.value : this.expense,
+      adjustNet: data.adjustNet.present ? data.adjustNet.value : this.adjustNet,
+      startAssets: data.startAssets.present
+          ? data.startAssets.value
+          : this.startAssets,
+      endAssets: data.endAssets.present ? data.endAssets.value : this.endAssets,
+      billCount: data.billCount.present ? data.billCount.value : this.billCount,
+      adjustCount: data.adjustCount.present
+          ? data.adjustCount.value
+          : this.adjustCount,
+      hasAssetBaseline: data.hasAssetBaseline.present
+          ? data.hasAssetBaseline.value
+          : this.hasAssetBaseline,
+      sourceSig: data.sourceSig.present ? data.sourceSig.value : this.sourceSig,
+      computedAt: data.computedAt.present
+          ? data.computedAt.value
+          : this.computedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('YearReport(')
+          ..write('year: $year, ')
+          ..write('income: $income, ')
+          ..write('expense: $expense, ')
+          ..write('adjustNet: $adjustNet, ')
+          ..write('startAssets: $startAssets, ')
+          ..write('endAssets: $endAssets, ')
+          ..write('billCount: $billCount, ')
+          ..write('adjustCount: $adjustCount, ')
+          ..write('hasAssetBaseline: $hasAssetBaseline, ')
+          ..write('sourceSig: $sourceSig, ')
+          ..write('computedAt: $computedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    year,
+    income,
+    expense,
+    adjustNet,
+    startAssets,
+    endAssets,
+    billCount,
+    adjustCount,
+    hasAssetBaseline,
+    sourceSig,
+    computedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is YearReport &&
+          other.year == this.year &&
+          other.income == this.income &&
+          other.expense == this.expense &&
+          other.adjustNet == this.adjustNet &&
+          other.startAssets == this.startAssets &&
+          other.endAssets == this.endAssets &&
+          other.billCount == this.billCount &&
+          other.adjustCount == this.adjustCount &&
+          other.hasAssetBaseline == this.hasAssetBaseline &&
+          other.sourceSig == this.sourceSig &&
+          other.computedAt == this.computedAt);
+}
+
+class YearReportsCompanion extends UpdateCompanion<YearReport> {
+  final Value<int> year;
+  final Value<int> income;
+  final Value<int> expense;
+  final Value<int> adjustNet;
+  final Value<int> startAssets;
+  final Value<int> endAssets;
+  final Value<int> billCount;
+  final Value<int> adjustCount;
+  final Value<bool> hasAssetBaseline;
+  final Value<String> sourceSig;
+  final Value<int> computedAt;
+  const YearReportsCompanion({
+    this.year = const Value.absent(),
+    this.income = const Value.absent(),
+    this.expense = const Value.absent(),
+    this.adjustNet = const Value.absent(),
+    this.startAssets = const Value.absent(),
+    this.endAssets = const Value.absent(),
+    this.billCount = const Value.absent(),
+    this.adjustCount = const Value.absent(),
+    this.hasAssetBaseline = const Value.absent(),
+    this.sourceSig = const Value.absent(),
+    this.computedAt = const Value.absent(),
+  });
+  YearReportsCompanion.insert({
+    this.year = const Value.absent(),
+    required int income,
+    required int expense,
+    required int adjustNet,
+    required int startAssets,
+    required int endAssets,
+    required int billCount,
+    required int adjustCount,
+    this.hasAssetBaseline = const Value.absent(),
+    required String sourceSig,
+    required int computedAt,
+  }) : income = Value(income),
+       expense = Value(expense),
+       adjustNet = Value(adjustNet),
+       startAssets = Value(startAssets),
+       endAssets = Value(endAssets),
+       billCount = Value(billCount),
+       adjustCount = Value(adjustCount),
+       sourceSig = Value(sourceSig),
+       computedAt = Value(computedAt);
+  static Insertable<YearReport> custom({
+    Expression<int>? year,
+    Expression<int>? income,
+    Expression<int>? expense,
+    Expression<int>? adjustNet,
+    Expression<int>? startAssets,
+    Expression<int>? endAssets,
+    Expression<int>? billCount,
+    Expression<int>? adjustCount,
+    Expression<bool>? hasAssetBaseline,
+    Expression<String>? sourceSig,
+    Expression<int>? computedAt,
+  }) {
+    return RawValuesInsertable({
+      if (year != null) 'year': year,
+      if (income != null) 'income': income,
+      if (expense != null) 'expense': expense,
+      if (adjustNet != null) 'adjust_net': adjustNet,
+      if (startAssets != null) 'start_assets': startAssets,
+      if (endAssets != null) 'end_assets': endAssets,
+      if (billCount != null) 'bill_count': billCount,
+      if (adjustCount != null) 'adjust_count': adjustCount,
+      if (hasAssetBaseline != null) 'has_asset_baseline': hasAssetBaseline,
+      if (sourceSig != null) 'source_sig': sourceSig,
+      if (computedAt != null) 'computed_at': computedAt,
+    });
+  }
+
+  YearReportsCompanion copyWith({
+    Value<int>? year,
+    Value<int>? income,
+    Value<int>? expense,
+    Value<int>? adjustNet,
+    Value<int>? startAssets,
+    Value<int>? endAssets,
+    Value<int>? billCount,
+    Value<int>? adjustCount,
+    Value<bool>? hasAssetBaseline,
+    Value<String>? sourceSig,
+    Value<int>? computedAt,
+  }) {
+    return YearReportsCompanion(
+      year: year ?? this.year,
+      income: income ?? this.income,
+      expense: expense ?? this.expense,
+      adjustNet: adjustNet ?? this.adjustNet,
+      startAssets: startAssets ?? this.startAssets,
+      endAssets: endAssets ?? this.endAssets,
+      billCount: billCount ?? this.billCount,
+      adjustCount: adjustCount ?? this.adjustCount,
+      hasAssetBaseline: hasAssetBaseline ?? this.hasAssetBaseline,
+      sourceSig: sourceSig ?? this.sourceSig,
+      computedAt: computedAt ?? this.computedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (year.present) {
+      map['year'] = Variable<int>(year.value);
+    }
+    if (income.present) {
+      map['income'] = Variable<int>(income.value);
+    }
+    if (expense.present) {
+      map['expense'] = Variable<int>(expense.value);
+    }
+    if (adjustNet.present) {
+      map['adjust_net'] = Variable<int>(adjustNet.value);
+    }
+    if (startAssets.present) {
+      map['start_assets'] = Variable<int>(startAssets.value);
+    }
+    if (endAssets.present) {
+      map['end_assets'] = Variable<int>(endAssets.value);
+    }
+    if (billCount.present) {
+      map['bill_count'] = Variable<int>(billCount.value);
+    }
+    if (adjustCount.present) {
+      map['adjust_count'] = Variable<int>(adjustCount.value);
+    }
+    if (hasAssetBaseline.present) {
+      map['has_asset_baseline'] = Variable<bool>(hasAssetBaseline.value);
+    }
+    if (sourceSig.present) {
+      map['source_sig'] = Variable<String>(sourceSig.value);
+    }
+    if (computedAt.present) {
+      map['computed_at'] = Variable<int>(computedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('YearReportsCompanion(')
+          ..write('year: $year, ')
+          ..write('income: $income, ')
+          ..write('expense: $expense, ')
+          ..write('adjustNet: $adjustNet, ')
+          ..write('startAssets: $startAssets, ')
+          ..write('endAssets: $endAssets, ')
+          ..write('billCount: $billCount, ')
+          ..write('adjustCount: $adjustCount, ')
+          ..write('hasAssetBaseline: $hasAssetBaseline, ')
+          ..write('sourceSig: $sourceSig, ')
+          ..write('computedAt: $computedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -9043,6 +9723,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $InstalmentsTable instalments = $InstalmentsTable(this);
   late final $BudgetsTable budgets = $BudgetsTable(this);
   late final $ImportMappingsTable importMappings = $ImportMappingsTable(this);
+  late final $YearReportsTable yearReports = $YearReportsTable(this);
   late final Index idxAccountsCategory = Index(
     'idx_accounts_category',
     'CREATE INDEX idx_accounts_category ON accounts (category, enabled)',
@@ -9098,6 +9779,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     instalments,
     budgets,
     importMappings,
+    yearReports,
     idxAccountsCategory,
     idxCategoriesParent,
     idxBillsTime,
@@ -13409,6 +14091,322 @@ typedef $$ImportMappingsTableProcessedTableManager =
       ImportMapping,
       PrefetchHooks Function()
     >;
+typedef $$YearReportsTableCreateCompanionBuilder =
+    YearReportsCompanion Function({
+      Value<int> year,
+      required int income,
+      required int expense,
+      required int adjustNet,
+      required int startAssets,
+      required int endAssets,
+      required int billCount,
+      required int adjustCount,
+      Value<bool> hasAssetBaseline,
+      required String sourceSig,
+      required int computedAt,
+    });
+typedef $$YearReportsTableUpdateCompanionBuilder =
+    YearReportsCompanion Function({
+      Value<int> year,
+      Value<int> income,
+      Value<int> expense,
+      Value<int> adjustNet,
+      Value<int> startAssets,
+      Value<int> endAssets,
+      Value<int> billCount,
+      Value<int> adjustCount,
+      Value<bool> hasAssetBaseline,
+      Value<String> sourceSig,
+      Value<int> computedAt,
+    });
+
+class $$YearReportsTableFilterComposer
+    extends Composer<_$AppDatabase, $YearReportsTable> {
+  $$YearReportsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get year => $composableBuilder(
+    column: $table.year,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get income => $composableBuilder(
+    column: $table.income,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get expense => $composableBuilder(
+    column: $table.expense,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get adjustNet => $composableBuilder(
+    column: $table.adjustNet,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get startAssets => $composableBuilder(
+    column: $table.startAssets,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get endAssets => $composableBuilder(
+    column: $table.endAssets,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get billCount => $composableBuilder(
+    column: $table.billCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get adjustCount => $composableBuilder(
+    column: $table.adjustCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get hasAssetBaseline => $composableBuilder(
+    column: $table.hasAssetBaseline,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceSig => $composableBuilder(
+    column: $table.sourceSig,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get computedAt => $composableBuilder(
+    column: $table.computedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$YearReportsTableOrderingComposer
+    extends Composer<_$AppDatabase, $YearReportsTable> {
+  $$YearReportsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get year => $composableBuilder(
+    column: $table.year,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get income => $composableBuilder(
+    column: $table.income,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get expense => $composableBuilder(
+    column: $table.expense,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get adjustNet => $composableBuilder(
+    column: $table.adjustNet,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get startAssets => $composableBuilder(
+    column: $table.startAssets,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get endAssets => $composableBuilder(
+    column: $table.endAssets,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get billCount => $composableBuilder(
+    column: $table.billCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get adjustCount => $composableBuilder(
+    column: $table.adjustCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get hasAssetBaseline => $composableBuilder(
+    column: $table.hasAssetBaseline,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceSig => $composableBuilder(
+    column: $table.sourceSig,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get computedAt => $composableBuilder(
+    column: $table.computedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$YearReportsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $YearReportsTable> {
+  $$YearReportsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get year =>
+      $composableBuilder(column: $table.year, builder: (column) => column);
+
+  GeneratedColumn<int> get income =>
+      $composableBuilder(column: $table.income, builder: (column) => column);
+
+  GeneratedColumn<int> get expense =>
+      $composableBuilder(column: $table.expense, builder: (column) => column);
+
+  GeneratedColumn<int> get adjustNet =>
+      $composableBuilder(column: $table.adjustNet, builder: (column) => column);
+
+  GeneratedColumn<int> get startAssets => $composableBuilder(
+    column: $table.startAssets,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get endAssets =>
+      $composableBuilder(column: $table.endAssets, builder: (column) => column);
+
+  GeneratedColumn<int> get billCount =>
+      $composableBuilder(column: $table.billCount, builder: (column) => column);
+
+  GeneratedColumn<int> get adjustCount => $composableBuilder(
+    column: $table.adjustCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get hasAssetBaseline => $composableBuilder(
+    column: $table.hasAssetBaseline,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sourceSig =>
+      $composableBuilder(column: $table.sourceSig, builder: (column) => column);
+
+  GeneratedColumn<int> get computedAt => $composableBuilder(
+    column: $table.computedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$YearReportsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $YearReportsTable,
+          YearReport,
+          $$YearReportsTableFilterComposer,
+          $$YearReportsTableOrderingComposer,
+          $$YearReportsTableAnnotationComposer,
+          $$YearReportsTableCreateCompanionBuilder,
+          $$YearReportsTableUpdateCompanionBuilder,
+          (
+            YearReport,
+            BaseReferences<_$AppDatabase, $YearReportsTable, YearReport>,
+          ),
+          YearReport,
+          PrefetchHooks Function()
+        > {
+  $$YearReportsTableTableManager(_$AppDatabase db, $YearReportsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$YearReportsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$YearReportsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$YearReportsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> year = const Value.absent(),
+                Value<int> income = const Value.absent(),
+                Value<int> expense = const Value.absent(),
+                Value<int> adjustNet = const Value.absent(),
+                Value<int> startAssets = const Value.absent(),
+                Value<int> endAssets = const Value.absent(),
+                Value<int> billCount = const Value.absent(),
+                Value<int> adjustCount = const Value.absent(),
+                Value<bool> hasAssetBaseline = const Value.absent(),
+                Value<String> sourceSig = const Value.absent(),
+                Value<int> computedAt = const Value.absent(),
+              }) => YearReportsCompanion(
+                year: year,
+                income: income,
+                expense: expense,
+                adjustNet: adjustNet,
+                startAssets: startAssets,
+                endAssets: endAssets,
+                billCount: billCount,
+                adjustCount: adjustCount,
+                hasAssetBaseline: hasAssetBaseline,
+                sourceSig: sourceSig,
+                computedAt: computedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> year = const Value.absent(),
+                required int income,
+                required int expense,
+                required int adjustNet,
+                required int startAssets,
+                required int endAssets,
+                required int billCount,
+                required int adjustCount,
+                Value<bool> hasAssetBaseline = const Value.absent(),
+                required String sourceSig,
+                required int computedAt,
+              }) => YearReportsCompanion.insert(
+                year: year,
+                income: income,
+                expense: expense,
+                adjustNet: adjustNet,
+                startAssets: startAssets,
+                endAssets: endAssets,
+                billCount: billCount,
+                adjustCount: adjustCount,
+                hasAssetBaseline: hasAssetBaseline,
+                sourceSig: sourceSig,
+                computedAt: computedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$YearReportsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $YearReportsTable,
+      YearReport,
+      $$YearReportsTableFilterComposer,
+      $$YearReportsTableOrderingComposer,
+      $$YearReportsTableAnnotationComposer,
+      $$YearReportsTableCreateCompanionBuilder,
+      $$YearReportsTableUpdateCompanionBuilder,
+      (
+        YearReport,
+        BaseReferences<_$AppDatabase, $YearReportsTable, YearReport>,
+      ),
+      YearReport,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -13440,4 +14438,6 @@ class $AppDatabaseManager {
       $$BudgetsTableTableManager(_db, _db.budgets);
   $$ImportMappingsTableTableManager get importMappings =>
       $$ImportMappingsTableTableManager(_db, _db.importMappings);
+  $$YearReportsTableTableManager get yearReports =>
+      $$YearReportsTableTableManager(_db, _db.yearReports);
 }

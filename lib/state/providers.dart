@@ -10,6 +10,7 @@ import '../data/repositories/bill_repository.dart';
 import '../data/repositories/ledger_repository.dart';
 import '../data/repositories/budget_repository.dart';
 import '../data/repositories/category_repository.dart';
+import '../data/repositories/report_repository.dart';
 import '../data/repositories/snapshot_repository.dart';
 import '../data/repositories/tag_repository.dart';
 import '../domain/services/account_service.dart';
@@ -47,6 +48,9 @@ final ledgerRepoProvider = Provider(
 );
 final budgetRepoProvider = Provider(
   (ref) => BudgetRepository(ref.watch(dbProvider)),
+);
+final reportRepoProvider = Provider(
+  (ref) => ReportRepository(ref.watch(dbProvider)),
 );
 
 // ---------- Service ----------

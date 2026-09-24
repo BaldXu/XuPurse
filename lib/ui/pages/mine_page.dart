@@ -13,6 +13,8 @@ import 'about_page.dart';
 import 'ai_settings_page.dart';
 import 'book_manage_page.dart';
 import 'data_manage_page.dart';
+import 'report/report_list_page.dart';
+import 'report/report_providers.dart';
 import 'settings_page.dart';
 import 'theme_settings_page.dart';
 
@@ -44,6 +46,8 @@ class _MinePageState extends ConsumerState<MinePage>
     final baseCurrency = ref.watch(baseCurrencyProvider).value ?? 'CNY';
     // 当前账本名（账本可新建/切换/删除，不能硬编码 'XuPurse'）
     final bookName = ref.watch(currentBookProvider).value?.name ?? 'XuPurse';
+    // 报告汇总入口门槛：未达门槛（记账不足 10 条或跨度不足一周）不渲染入口。
+    final showReport = ref.watch(reportGateProvider).value?.unlocked ?? false;
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
     final appBar = AppBar(title: const Text('我的'));
@@ -89,6 +93,16 @@ class _MinePageState extends ConsumerState<MinePage>
                   subtitle: '第三方数据导入、备份导出',
                   onTap: () => _push(context, const DataManagePage()),
                 ),
+                // 报告汇总：达到展示门槛（≥10 条记账 且 跨度 > 1 周）才出现
+                if (showReport) ...[
+                  _EntryDivider(),
+                  _Entry(
+                    icon: Icons.insights_outlined,
+                    title: '报告汇总',
+                    subtitle: '年度收支、资产变动与趋势',
+                    onTap: () => _push(context, const ReportListPage()),
+                  ),
+                ],
               ],
             ),
           ),

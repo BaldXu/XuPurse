@@ -281,3 +281,46 @@ class ImportMappings extends Table {
     {provider, entityType, sourceId},
   ];
 }
+
+/// 年度报告汇总缓存（账本库内，一年一行）。
+///
+/// 纯派生数据：全部字段都可由 bills + balance_snapshots 重算，因此不做增量
+/// 维护，只在读路径按 [sourceSig] 指纹判断陈旧后**整年覆盖重算**（幂等）。
+/// 金额一律万分之元。
+class YearReports extends Table {
+  /// 公历年（本地时区）
+  IntColumn get year => integer()();
+
+  /// 记录收入（不含调账、不含「不计入收支」账单）
+  IntColumn get income => integer()();
+
+  /// 记录支出（同上口径）
+  IntColumn get expense => integer()();
+
+  /// 调账净额（收入调账 − 支出调账；负值表示手动调低）
+  IntColumn get adjustNet => integer()();
+
+  /// 年初资产（上年 12/31 24:00 = 本年 1/1 00:00 时点；无基准时为 0）
+  IntColumn get startAssets => integer()();
+
+  /// 年末资产
+  IntColumn get endAssets => integer()();
+
+  /// 该年常规记账条数
+  IntColumn get billCount => integer()();
+
+  /// 该年调账次数
+  IntColumn get adjustCount => integer()();
+
+  /// 期初/期末是否都有可用快照基准；false 时资产变动分区降级展示
+  BoolColumn get hasAssetBaseline =>
+      boolean().withDefault(const Constant(false))();
+
+  /// 重算时的全库账单指纹 `"count:maxUpdatedAt"`，与当前不一致则整年重算
+  TextColumn get sourceSig => text()();
+
+  IntColumn get computedAt => integer()();
+
+  @override
+  Set<Column> get primaryKey => {year};
+}
