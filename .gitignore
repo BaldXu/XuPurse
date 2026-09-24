@@ -60,3 +60,5 @@ android/key.properties
 *.sqlite
 *.sqlite3
 docs/bug.md
+
+.trae/
