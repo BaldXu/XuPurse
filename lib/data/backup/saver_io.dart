@@ -1,26 +1,23 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 
-/// 选择备份保存目录（IO 平台：系统目录选择器 / SAF）。
-/// 返回目录路径；用户取消返回 null。
-Future<String?> pickBackupDirectory() async {
-  return FilePicker.platform.getDirectoryPath(dialogTitle: '选择备份保存位置');
-}
-
-/// 写入备份文件到指定目录，返回完整保存路径。
-Future<String> saveBackupTo(
-  String directory,
-  String fileName,
-  String content,
-) async {
-  final dir = Directory(directory);
-  if (!await dir.exists()) {
-    await dir.create(recursive: true);
-  }
-  final file = File('${dir.path}${Platform.pathSeparator}$fileName');
-  await file.writeAsString(content);
-  return file.path;
+/// 备份保存：弹出系统「保存文件」窗口写盘。
+///
+/// - Android：`ACTION_CREATE_DOCUMENT`（SAF），由系统 ContentResolver 写入，
+///   无需任何存储权限，天然兼容 Android 11+ scoped storage（直接用 dart:io
+///   写共享目录会被系统拒绝，报 `Operation not permitted / errno=1`）。
+/// - iOS：`UIDocumentPicker` 导出，同样无需权限。
+///
+/// 返回保存路径（展示用）；用户取消返回 null。
+Future<String?> saveBackupTo(String fileName, String content) async {
+  return FilePicker.platform.saveFile(
+    dialogTitle: '保存备份文件',
+    fileName: fileName,
+    type: FileType.any,
+    bytes: utf8.encode(content),
+  );
 }
 
 /// 选择备份文件并读取内容（IO 平台）。返回文件名与内容；取消返回 null。

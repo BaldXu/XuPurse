@@ -19,8 +19,10 @@ import 'icon_settings_page.dart';
 /// - 顶部主题画廊：每张卡用主题真实配色渲染迷你预览，点按应用整套外观；
 ///   长按用户自建主题出现右上角减号可删除（内置与当前使用中的不可删）。
 /// - 下方编辑器始终跟随「当前主题」实时同步（不再有独立本地色值副本）：
-///   内置预设只读展示真实配色，点「复制为自定义主题」后即可编辑；
-///   自定义主题的所有修改即时生效并持久化到该主题。
+///   内置预设只读展示真实配色，点「复制为自定义主题」后即可编辑。
+/// - 保存模型：预览 + 手动保存 —— 所有修改（颜色/样式/图标/磨砂/转场/
+///   切换主题/新建/删除）只实时预览、不落盘；右上角「保存」才持久化；
+///   离开时仅当存在未保存修改才弹确认（保存并离开 / 放弃修改并离开）。
 class ThemeSettingsPage extends ConsumerStatefulWidget {
   const ThemeSettingsPage({super.key});
 
@@ -51,7 +53,8 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
   /// 是否有未保留的修改：当前状态与进入时快照不一致。
   /// 覆盖：切换主题 / 新建或删除主题 / 任意主题的颜色、样式、圆角、
   /// 图标、磨砂、转场、名称等全部可序列化字段。
-  /// 注意 Map 的 == 是引用比较，须用 mapEquals 按内容比较。
+  /// 注意：Map 的 == 是引用比较，且 toJson 含嵌套结构（frosted 子对象），
+  /// mapEquals 只做一层比较、嵌套值走 == 会恒不等，须用 [_deepEq] 递归比较。
   bool _isDirty(ThemeState state) {
     if (state.currentId != _enteredId) return true;
     final currentById = {for (final t in state.userThemes) t.id: t};
@@ -63,12 +66,34 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
     for (final e in _enteredThemes.entries) {
       final cur = currentById[e.key];
       if (cur == null) return true;
-      if (!mapEquals(cur.toJson(), e.value.toJson())) return true;
+      if (!_deepEq(cur.toJson(), e.value.toJson())) return true;
     }
     return false;
   }
 
-  /// 恢复为进入本页时的主题状态（放弃本次会话的全部修改）。
+  /// 递归深比较：toJson 结果含嵌套结构（如 frosted 子对象），
+  /// 每次调用都新建嵌套 Map，引用比较恒不等，需逐层按结构比较。
+  static bool _deepEq(Object? a, Object? b) {
+    if (a is Map && b is Map) {
+      if (a.length != b.length) return false;
+      for (final k in a.keys) {
+        if (!b.containsKey(k) || !_deepEq(a[k], b[k])) return false;
+      }
+      return true;
+    }
+    if (a is List && b is List) {
+      if (a.length != b.length) return false;
+      for (var i = 0; i < a.length; i++) {
+        if (!_deepEq(a[i], b[i])) return false;
+      }
+      return true;
+    }
+    return a == b;
+  }
+
+  /// 恢复为进入本页时的主题状态（放弃本次会话的全部未保存修改）。
+  /// 全部走内存态操作，最后一次性落盘，保证持久化与会话内状态一致
+  /// （尤其「已保存过又继续修改再放弃」的场景）。
   Future<void> _revertAndLeave() async {
     final notifier = ref.read(themeProvider.notifier);
     // 0. 先还原本会话被删除的既有主题（保证 _enteredId 可被选中）
@@ -78,15 +103,15 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
           .userThemes
           .any((t) => t.id == e.key);
       if (!exists) {
-        await notifier.addUserTheme(e.value);
+        notifier.addUserThemeSilent(e.value);
       }
     }
     // 1. 切回进入时的主题（先切走，新建主题不再「当前」才能删除）
-    await notifier.select(_enteredId);
+    notifier.selectSilent(_enteredId);
     // 2. 删除本会话新建的主题（不在进入时快照里的）
     for (final t in ref.read(themeProvider).userThemes.toList()) {
       if (!_enteredThemes.containsKey(t.id)) {
-        await notifier.deleteUserTheme(t.id);
+        notifier.deleteUserThemeSilent(t.id);
       }
     }
     // 3. 还原被修改的既有主题配置
@@ -98,10 +123,12 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
           break;
         }
       }
-      if (cur != null && !mapEquals(cur.toJson(), e.value.toJson())) {
-        await notifier.updateCurrentTheme(e.value);
+      if (cur != null && !_deepEq(cur.toJson(), e.value.toJson())) {
+        notifier.updateCurrentThemeSilent(e.value);
       }
     }
+    // 内存已恢复为进入时快照，落盘同步，避免持久化残留本会话修改。
+    await notifier.flushPersist();
   }
 
   /// 离开拦截：有未保留修改时弹确认，让用户选择保留 / 恢复原状 / 留下。
@@ -140,6 +167,32 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
     }
   }
 
+  /// 右上角「保存」：确认后把当前内存态（本页会话全部修改）落盘。
+  /// 保存后同步快照并强制重建，此后仅「新的未保存修改」才算脏、
+  /// 离开才需确认（保存按钮也随之消失）。
+  Future<void> _onSavePressed() async {
+    final ok = await confirmXpDialog(
+      context,
+      title: '保存主题修改？',
+      content: '将当前所有修改保存到「${ref.read(themeProvider).current.name}」。',
+      confirmLabel: '保存',
+    );
+    if (!ok || !mounted) return;
+    await ref.read(themeProvider.notifier).flushPersist();
+    if (!mounted) return;
+    // setState 触发重建：让脏状态复位、保存按钮消失、PopScope 用新值
+    // （否则 canPop 仍是保存前的 false，返回时依旧弹确认）。
+    setState(_syncSnapshot);
+    showXpSnack(context, '已保存');
+  }
+
+  /// 把「进入时快照」同步为当前状态（保存成功后调用）。
+  void _syncSnapshot() {
+    final state = ref.read(themeProvider);
+    _enteredId = state.currentId;
+    _enteredThemes = {for (final t in state.userThemes) t.id: t};
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(themeProvider);
@@ -152,7 +205,22 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
         if (!didPop) _confirmLeave();
       },
       child: buildXpScaffold(
-        appBar: AppBar(title: const Text('主题外观')),
+        appBar: AppBar(
+          title: const Text('主题外观'),
+          actions: [
+            // 只有存在未保存的修改才显示「保存」按钮，点击弹确认后落盘
+            if (dirty)
+              Padding(
+                padding: const EdgeInsets.only(right: XpSpacing.l),
+                child: Center(
+                  child: TextButton(
+                    onPressed: _onSavePressed,
+                    child: const Text('保存'),
+                  ),
+                ),
+              ),
+          ],
+        ),
         buildBody: (_) => ListView(
           padding: const EdgeInsets.all(XpSpacing.l),
           children: [
@@ -434,7 +502,8 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
       return;
     }
     setState(() => _armedDelete = null);
-    await ref.read(themeProvider.notifier).select(theme.id);
+    // 预览模式：只切内存态，保存才落盘
+    ref.read(themeProvider.notifier).selectSilent(theme.id);
   }
 
   // ── 主题生命周期：新建 / 复制 / 重命名 / 删除 ─────────────────
@@ -471,21 +540,21 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
     if (name == null || name.isEmpty || !mounted) return;
     final cur = ref.read(themeProvider).current;
     final id = 'user_${DateTime.now().millisecondsSinceEpoch}';
-    await ref
+    ref
         .read(themeProvider.notifier)
-        .addUserTheme(_cloneTheme(cur, id: id, name: name));
+        .addUserThemeSilent(_cloneTheme(cur, id: id, name: name));
     if (!mounted) return;
-    showXpSnack(context, '已新建并应用「$name」，可自由编辑');
+    showXpSnack(context, '已新建并应用「$name」，点右上角「保存」后生效');
   }
 
   Future<void> _forkCurrent() async {
     final cur = ref.read(themeProvider).current;
     final id = 'user_${DateTime.now().millisecondsSinceEpoch}';
-    await ref
+    ref
         .read(themeProvider.notifier)
-        .addUserTheme(_cloneTheme(cur, id: id, name: '${cur.name} 副本'));
+        .addUserThemeSilent(_cloneTheme(cur, id: id, name: '${cur.name} 副本'));
     if (!mounted) return;
-    showXpSnack(context, '已复制并应用「${cur.name} 副本」，可自由编辑');
+    showXpSnack(context, '已复制并应用「${cur.name} 副本」，点右上角「保存」后生效');
   }
 
   Future<void> _rename() async {
@@ -497,11 +566,11 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
     );
     if (name == null || name.isEmpty || !mounted) return;
     if (name == cur.name) return;
-    await ref
+    ref
         .read(themeProvider.notifier)
-        .updateCurrentTheme(cur.copyWith(name: name));
+        .updateCurrentThemeSilent(cur.copyWith(name: name));
     if (!mounted) return;
-    showXpSnack(context, '已重命名为「$name」');
+    showXpSnack(context, '已重命名为「$name」，点右上角「保存」后生效');
   }
 
   /// 删除当前主题：先切回内置预设（当前主题不可直接删），再删除。
@@ -516,10 +585,10 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
     );
     if (!ok || !mounted) return;
     final notifier = ref.read(themeProvider.notifier);
-    await notifier.select(presetThemes.first.id);
-    await notifier.deleteUserTheme(cur.id);
+    notifier.selectSilent(presetThemes.first.id);
+    notifier.deleteUserThemeSilent(cur.id);
     if (!mounted) return;
-    showXpSnack(context, '已删除「${cur.name}」');
+    showXpSnack(context, '已删除「${cur.name}」，点右上角「保存」后生效');
   }
 
   Future<void> _confirmDelete(AppTheme theme) async {
@@ -531,7 +600,7 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
       danger: true,
     );
     if (!ok || !mounted) return;
-    await ref.read(themeProvider.notifier).deleteUserTheme(theme.id);
+    ref.read(themeProvider.notifier).deleteUserThemeSilent(theme.id);
     if (mounted) setState(() => _armedDelete = null);
   }
 
@@ -765,7 +834,8 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
       'card' => cur.copyWith(cardColor: picked),
       _ => cur.copyWith(sheetColor: picked),
     };
-    await ref.read(themeProvider.notifier).updateCurrentTheme(updated);
+    // 预览模式：只改内存态，保存才落盘
+    ref.read(themeProvider.notifier).updateCurrentThemeSilent(updated);
   }
 
   Future<void> _resetColor(String field) async {
@@ -776,7 +846,7 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
       'card' => cur.copyWith(clearCardColor: true),
       _ => cur.copyWith(clearSheetColor: true),
     };
-    await ref.read(themeProvider.notifier).updateCurrentTheme(updated);
+    ref.read(themeProvider.notifier).updateCurrentThemeSilent(updated);
   }
 
   // ── 外观（卡片样式滑块 / 圆角滑动条） ─────────────────────────
@@ -812,8 +882,9 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
                   ],
                   selected: theme.cardStyle,
                   enabled: !preset,
-                  onChanged: (v) =>
-                      notifier.updateCurrentTheme(theme.copyWith(cardStyle: v)),
+                  onChanged: (v) => notifier.updateCurrentThemeSilent(
+                    theme.copyWith(cardStyle: v),
+                  ),
                 ),
                 const SizedBox(height: XpSpacing.m),
                 Row(
@@ -834,7 +905,7 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
                         icon: const Icon(Icons.restart_alt, size: 20),
                         onPressed: preset
                             ? null
-                            : () => notifier.updateCurrentTheme(
+                            : () => notifier.updateCurrentThemeSilent(
                                 theme.copyWith(clearCardRadius: true),
                               ),
                       ),
@@ -846,14 +917,13 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
                   max: 32,
                   divisions: 27,
                   label: '${effectiveRadius.round()}',
-                  // 拖动过程只改内存驱动实时预览，松手后一次性落盘，
-                  // 避免每 tick 全量序列化 + SharedPreferences 写入。
+                  // 预览模式：拖动只改内存态驱动实时预览，不落盘；
+                  // 统一由右上角「保存」或离开时「保留修改并离开」落盘。
                   onChanged: preset
                       ? null
                       : (v) => notifier.updateCurrentThemeSilent(
                           theme.copyWith(cardRadius: v.roundToDouble()),
                         ),
-                  onChangeEnd: preset ? null : (_) => notifier.flushPersist(),
                 ),
               ],
             ),
@@ -906,12 +976,15 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
 
     void set({bool? enabled, bool? appBar, bool? card, bool? sheet}) {
       if (preset) return;
-      notifier.setFrosted(
-        FrostedState(
-          enabled: enabled ?? frosted.enabled,
-          appBar: appBar ?? frosted.appBar,
-          card: card ?? frosted.card,
-          sheet: sheet ?? frosted.sheet,
+      // 预览模式：只改内存态，保存才落盘
+      notifier.updateCurrentThemeSilent(
+        theme.copyWith(
+          frosted: FrostedState(
+            enabled: enabled ?? frosted.enabled,
+            appBar: appBar ?? frosted.appBar,
+            card: card ?? frosted.card,
+            sheet: sheet ?? frosted.sheet,
+          ),
         ),
       );
     }
@@ -926,7 +999,19 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
-          _sectionTitle('磨砂玻璃'),
+          _sectionTitle(
+            '磨砂玻璃',
+            // 主题显式配置过磨砂才可「恢复默认」：置回 null 跟随全局配置，
+            // 否则开关来回拨动后（显式值 == 全局默认）仍会被判为未保存修改。
+            trailing: theme.frosted == null || preset
+                ? null
+                : TextButton(
+                    onPressed: () => notifier.updateCurrentThemeSilent(
+                      theme.copyWith(clearFrosted: true),
+                    ),
+                    child: const Text('恢复默认'),
+                  ),
+          ),
           ListTile(
             enabled: !preset,
             contentPadding: const EdgeInsets.symmetric(horizontal: XpSpacing.l),
@@ -996,7 +1081,18 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
-          _sectionTitle('转场动效'),
+          _sectionTitle(
+            '转场动效',
+            // 主题显式配置过转场才可「恢复默认」：置回 null 跟随全局配置
+            trailing: theme.transitionBlur == null || preset
+                ? null
+                : TextButton(
+                    onPressed: () => notifier.updateCurrentThemeSilent(
+                      theme.copyWith(clearTransitionBlur: true),
+                    ),
+                    child: const Text('恢复默认'),
+                  ),
+          ),
           ListTile(
             enabled: !preset,
             contentPadding: const EdgeInsets.symmetric(horizontal: XpSpacing.l),
@@ -1008,7 +1104,12 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
             subtitle: const Text('页面切换时旧页后退的实时高斯模糊；关闭后更省 GPU'),
             trailing: Switch(
               value: blurOn,
-              onChanged: preset ? null : (v) => notifier.setTransitionBlur(v),
+              // 预览模式：只改内存态，保存才落盘
+              onChanged: preset
+                  ? null
+                  : (v) => notifier.updateCurrentThemeSilent(
+                      theme.copyWith(transitionBlur: v),
+                    ),
             ),
           ),
         ],
@@ -1018,7 +1119,7 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
 
   // ── 公共 ──────────────────────────────────────────────────────
 
-  Widget _sectionTitle(String text) {
+  Widget _sectionTitle(String text, {Widget? trailing}) {
     return Align(
       alignment: Alignment.centerLeft,
       child: Padding(
@@ -1028,7 +1129,14 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
           XpSpacing.l,
           XpSpacing.xs,
         ),
-        child: Text(text, style: Theme.of(context).textTheme.titleSmall),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(text, style: Theme.of(context).textTheme.titleSmall),
+            ),
+            if (trailing != null) trailing,
+          ],
+        ),
       ),
     );
   }

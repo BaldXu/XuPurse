@@ -12,7 +12,8 @@ import '../tokens/design_tokens.dart';
 ///
 /// - 简约：Material Icons 单色线性图标（App 默认）。
 /// - Twitter 表情：twemoji 彩色 SVG 表情，色彩更丰富。
-/// 选择仅在点「确认」后生效并持久化，返回后所有图标即时切换。
+/// 选择点「确认」后即时预览（整个 App 图标立即切换），但不落盘；
+/// 返回主题页点右上角「保存」才长期生效。
 class IconSettingsPage extends ConsumerStatefulWidget {
   const IconSettingsPage({super.key});
 
@@ -35,7 +36,7 @@ class _IconSettingsPageState extends ConsumerState<IconSettingsPage>
       Navigator.pop(context);
       return;
     }
-    final ok = await ref.read(themeProvider.notifier).setIconPack(_selected);
+    final ok = ref.read(themeProvider.notifier).setIconPackSilent(_selected);
     if (!mounted) return;
     if (!ok) {
       // 预设只读：需先在主题页复制为自定义主题。
@@ -43,7 +44,11 @@ class _IconSettingsPageState extends ConsumerState<IconSettingsPage>
       return;
     }
     // 先提示再返回：pop 后 context 失效，不能再用它弹 snack。
-    showXpSnack(context, '已应用到「${ref.read(themeProvider).current.name}」');
+    // 预览模式：只改内存态，返回主题页点「保存」才落盘。
+    showXpSnack(
+      context,
+      '已应用到「${ref.read(themeProvider).current.name}」，主题页点「保存」后长期生效',
+    );
     Navigator.pop(context);
   }
 
@@ -73,7 +78,7 @@ class _IconSettingsPageState extends ConsumerState<IconSettingsPage>
           Text('图标风格', style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: XpSpacing.xs),
           Text(
-            '选择图标包，点右上角「确认」后整 App 图标即时刷新。',
+            '选择图标包，点右上角「确认」后整 App 图标即时预览；返回主题页点「保存」后长期生效。',
             style: Theme.of(
               context,
             ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),

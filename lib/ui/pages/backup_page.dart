@@ -15,7 +15,8 @@ import '../widgets/xp_snack.dart';
 import 'encryption_help_page.dart';
 
 /// 备份页：选择备份内容（数据库必选 + 应用设置可选）→ 可选加密 →
-/// 选择保存位置 → 右上角「备份」执行。
+/// 右上角「备份」→ 系统「保存文件」窗口选择位置（Android/iOS 走 SAF，
+/// 无需存储权限，兼容 Android 11+ scoped storage）。
 class BackupPage extends ConsumerStatefulWidget {
   const BackupPage({super.key});
 
@@ -34,24 +35,10 @@ class _BackupPageState extends ConsumerState<BackupPage>
   /// 是否加密备份。
   bool _encrypted = false;
 
-  /// 保存位置（null = 未选择，备份按钮禁用）。
-  String? _saveLocation;
-
   /// 备份执行中（按钮转加载态）。
   bool _backingUp = false;
 
-  /// Web 端无目录选择能力，进入页面即视为「保存到剪贴板」。
-  bool get _isWeb => kIsWeb;
-
-  String? get _displayLocation => _isWeb ? '保存到剪贴板（Web 端）' : _saveLocation;
-
-  bool get _canBackup => _saveLocation != null && !_backingUp;
-
-  @override
-  void initState() {
-    super.initState();
-    if (_isWeb) _saveLocation = 'web://clipboard';
-  }
+  bool get _canBackup => !_backingUp;
 
   @override
   Widget build(BuildContext context) {
@@ -160,9 +147,12 @@ class _BackupPageState extends ConsumerState<BackupPage>
             clipBehavior: Clip.antiAlias,
             child: XpParamRow(
               leadingIcon: Icons.folder_outlined,
-              label: '保存位置',
-              subtitle: _displayLocation ?? '选择一个文件夹存放备份文件',
-              onTap: _pickLocation,
+              label: '保存方式',
+              subtitle: kIsWeb
+                  ? '点击「备份」后备份内容复制到剪贴板，请自行粘贴保存'
+                  : '点击「备份」后由系统弹出保存窗口，选择位置保存',
+              showChevron: false,
+              onTap: null,
             ),
           ),
         ],
@@ -193,13 +183,6 @@ class _BackupPageState extends ConsumerState<BackupPage>
     if (ok && mounted) setState(() => _encrypted = true);
   }
 
-  /// 选择保存目录；取消选择保持原值。
-  Future<void> _pickLocation() async {
-    final dir = await pickBackupDirectory();
-    if (dir == null || !mounted) return;
-    setState(() => _saveLocation = dir);
-  }
-
   /// 右上角「备份」：先确认，再（若加密）输入密码两次，然后执行。
   Future<void> _onBackupPressed() async {
     final scope = _includeDatabase
@@ -208,9 +191,11 @@ class _BackupPageState extends ConsumerState<BackupPage>
     final ok = await confirmXpDialog(
       context,
       title: '开始备份？',
-      content:
-          '将备份「$scope」${_encrypted ? '（已加密）' : ''}'
-          '到：\n${_displayLocation ?? _saveLocation}',
+      content: kIsWeb
+          ? '将备份「$scope」${_encrypted ? '（已加密）' : ''}。'
+                '确认后将复制到剪贴板，请自行粘贴保存。'
+          : '将备份「$scope」${_encrypted ? '（已加密）' : ''}。'
+                '确认后系统会弹出保存窗口，由你选择保存位置。',
       confirmLabel: '开始备份',
     );
     if (!ok || !mounted) return;
@@ -227,8 +212,9 @@ class _BackupPageState extends ConsumerState<BackupPage>
       final json = await BackupService(mgr).exportAll(password: password);
       final name =
           'xupurse_backup_${DateTime.now().millisecondsSinceEpoch}.json';
-      final saved = await saveBackupTo(_saveLocation!, name, json);
+      final saved = await saveBackupTo(name, json);
       if (!mounted) return;
+      if (saved == null) return; // IO 平台：用户在系统保存窗口点了取消
       showXpSnack(context, '备份完成：$saved');
     } catch (e) {
       if (!mounted) return;

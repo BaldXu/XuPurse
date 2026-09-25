@@ -345,8 +345,14 @@ class ThemeNotifier extends Notifier<ThemeState> {
         jsonEncode([for (final t in next.userThemes) t.toJson()]),
       );
     });
-    _pendingPersist = run.catchError((_) {});
-    return run;
+    // 返回值同样吞掉异常：内存态始终是权威状态，落盘失败由下一次
+    // 落盘自动带上当前内存态重试，调用方（保存/离开）不应被中断。
+    // 至少记录日志，避免「已保存」与实际未落盘完全静默。
+    final safe = run.catchError((Object e) {
+      debugPrint('主题持久化失败（内存态保留，下次落盘自动重试）: $e');
+    });
+    _pendingPersist = safe;
+    return safe;
   }
 
   Future<void> _pendingPersist = Future<void>.value();
@@ -361,6 +367,12 @@ class ThemeNotifier extends Notifier<ThemeState> {
     await _persist(next);
   }
 
+  /// 仅更新内存态、不落盘（主题页「预览」模式用，保存时统一 flushPersist）。
+  void selectSilent(String id) {
+    if (state.currentId == id) return;
+    state = ThemeState(currentId: id, userThemes: state.userThemes);
+  }
+
   /// 新增用户自建主题并应用（成为当前主题）。
   Future<void> addUserTheme(AppTheme theme) async {
     final next = ThemeState(
@@ -369,6 +381,14 @@ class ThemeNotifier extends Notifier<ThemeState> {
     );
     state = next;
     await _persist(next);
+  }
+
+  /// 仅更新内存态、不落盘（主题页「预览」模式用）。
+  void addUserThemeSilent(AppTheme theme) {
+    state = ThemeState(
+      currentId: theme.id,
+      userThemes: [...state.userThemes, theme],
+    );
   }
 
   /// 删除用户自建主题；内置预设或当前使用中的主题不可删，返回是否删除成功。
@@ -381,6 +401,17 @@ class ThemeNotifier extends Notifier<ThemeState> {
     );
     state = next;
     await _persist(next);
+    return true;
+  }
+
+  /// 仅更新内存态、不落盘（主题页「预览」模式用）。
+  bool deleteUserThemeSilent(String id) {
+    if (!state.userThemes.any((t) => t.id == id)) return false; // 内置预设
+    if (state.currentId == id) return false; // 当前使用中
+    state = ThemeState(
+      currentId: state.currentId,
+      userThemes: state.userThemes.where((t) => t.id != id).toList(),
+    );
     return true;
   }
 
@@ -426,6 +457,15 @@ class ThemeNotifier extends Notifier<ThemeState> {
     final cur = state.current;
     if (cur.isPreset) return false;
     return updateCurrentTheme(cur.copyWith(iconPack: pack));
+  }
+
+  /// 仅更新内存态、不落盘（主题页「预览」模式用，图标子页「确认」返回后
+  /// 由主题页「保存」统一落盘）。
+  bool setIconPackSilent(IconPack pack) {
+    final cur = state.current;
+    if (cur.isPreset) return false;
+    updateCurrentThemeSilent(cur.copyWith(iconPack: pack));
+    return true;
   }
 
   /// 设置当前主题的磨砂玻璃配置（仅用户自建主题可改）。

@@ -29,10 +29,15 @@ void main() {
   }
 
   /// 把主题页 push 到宿主路由下（首页 + 进入主题页），用于测返回拦截。
-  Future<ProviderContainer> pumpPushedPage(WidgetTester tester) async {
+  /// [beforePush] 可在进入页面前预置容器状态（如先选中某个自定义主题）。
+  Future<ProviderContainer> pumpPushedPage(
+    WidgetTester tester, {
+    Future<void> Function(ProviderContainer container)? beforePush,
+  }) async {
     await ThemeNotifier.init();
     final container = ProviderContainer();
     addTearDown(container.dispose);
+    if (beforePush != null) await beforePush(container);
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
@@ -335,6 +340,205 @@ void main() {
 
     expect(find.text('保留主题修改？'), findsNothing);
     expect(container.read(themeProvider).current.id, presetThemes.first.id);
+  });
+
+  testWidgets('自定义主题为当前且未修改，直接返回不弹确认', (tester) async {
+    final container = await pumpPushedPage(
+      tester,
+      beforePush: (c) async {
+        await c
+            .read(themeProvider.notifier)
+            .addUserTheme(
+              const AppTheme(
+                id: 'user_a',
+                name: '主题A',
+                seedColor: Color(0xFF123456),
+              ),
+            );
+        await c.read(themeProvider.notifier).select('user_a');
+      },
+    );
+    expect(container.read(themeProvider).current.id, 'user_a');
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    expect(find.text('保留主题修改？'), findsNothing);
+    expect(container.read(themeProvider).current.id, 'user_a');
+  });
+
+  testWidgets('带磨砂配置的主题未修改直接返回不弹确认（回归：嵌套 Map 比较）', (tester) async {
+    final container = await pumpPushedPage(
+      tester,
+      beforePush: (c) async {
+        await c
+            .read(themeProvider.notifier)
+            .addUserTheme(
+              const AppTheme(
+                id: 'user_frost',
+                name: '磨砂主题',
+                seedColor: Color(0xFF123456),
+                frosted: FrostedState(
+                  enabled: true,
+                  appBar: true,
+                  card: false,
+                  sheet: false,
+                ),
+              ),
+            );
+        await c.read(themeProvider.notifier).select('user_frost');
+      },
+    );
+    expect(container.read(themeProvider).current.id, 'user_frost');
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    expect(find.text('保留主题修改？'), findsNothing);
+    expect(container.read(themeProvider).current.id, 'user_frost');
+  });
+
+  testWidgets('带磨砂主题修改后保存，再返回不弹确认', (tester) async {
+    final container = await pumpPushedPage(
+      tester,
+      beforePush: (c) async {
+        await c
+            .read(themeProvider.notifier)
+            .addUserTheme(
+              const AppTheme(
+                id: 'user_frost',
+                name: '磨砂主题',
+                seedColor: Color(0xFF123456),
+                frosted: FrostedState(
+                  enabled: true,
+                  appBar: true,
+                  card: false,
+                  sheet: false,
+                ),
+              ),
+            );
+        await c.read(themeProvider.notifier).select('user_frost');
+      },
+    );
+
+    // 修改磨砂总开关（关闭 → 产生未保存修改，保存按钮出现）
+    final cur = container.read(themeProvider).current;
+    container
+        .read(themeProvider.notifier)
+        .updateCurrentThemeSilent(
+          cur.copyWith(
+            frosted: const FrostedState(
+              enabled: false,
+              appBar: true,
+              card: false,
+              sheet: false,
+            ),
+          ),
+        );
+    await tester.pumpAndSettle();
+    expect(find.text('保存'), findsOneWidget);
+
+    // 保存 → 弹确认 → 确认
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    expect(find.text('保存主题修改？'), findsOneWidget);
+    await tester.tap(find.text('保存').last);
+    await tester.pumpAndSettle();
+    expect(find.text('已保存'), findsOneWidget);
+    expect(find.text('保存'), findsNothing, reason: '保存后脏状态复位');
+
+    // 保存后返回：不应再弹
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('保留主题修改？'), findsNothing);
+  });
+
+  testWidgets('磨砂「恢复默认」置回 null，与进入时一致则不再判脏', (tester) async {
+    final container = await pumpPushedPage(
+      tester,
+      beforePush: (c) async {
+        // 主题磨砂跟随全局（frosted 为 null），是「开关开→关再恢复」的典型场景
+        await c
+            .read(themeProvider.notifier)
+            .addUserTheme(
+              const AppTheme(
+                id: 'user_frost',
+                name: '磨砂主题',
+                seedColor: Color(0xFF123456),
+              ),
+            );
+        await c.read(themeProvider.notifier).select('user_frost');
+      },
+    );
+
+    // 用户把磨砂开关开→关（写入显式值，与进入时的 null 不同）→ 产生未保存修改
+    final cur = container.read(themeProvider).current;
+    container
+        .read(themeProvider.notifier)
+        .updateCurrentThemeSilent(
+          cur.copyWith(
+            frosted: const FrostedState(
+              enabled: false,
+              appBar: true,
+              card: false,
+              sheet: false,
+            ),
+          ),
+        );
+    await tester.pumpAndSettle();
+    expect(find.text('保存'), findsOneWidget, reason: '有修改时显示保存');
+
+    // 滚动到磨砂区，点「恢复默认」把 frosted 置回 null（与进入时一致）
+    for (var i = 0; i < 8 && find.text('恢复默认').evaluate().isEmpty; i++) {
+      await tester.drag(find.byType(ListView).first, const Offset(0, -400));
+      await tester.pumpAndSettle();
+    }
+    final restore = find.text('恢复默认');
+    expect(restore, findsOneWidget);
+    await tester.ensureVisible(restore);
+    await tester.tap(restore);
+    await tester.pumpAndSettle();
+
+    expect(
+      container.read(themeProvider).current.frosted,
+      isNull,
+      reason: '恢复默认把 frosted 置回 null（跟随全局）',
+    );
+    expect(find.text('保存'), findsNothing, reason: '与进入时快照一致，不再判脏');
+
+    // 返回不弹确认
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('保留主题修改？'), findsNothing);
+  });
+
+  testWidgets('右上角保存后直接返回不弹确认（保存会同步脏状态）', (tester) async {
+    final container = await pumpPushedPage(tester);
+
+    // 新建自定义主题（产生未保留的修改，保存按钮出现）
+    await ensureVisible(tester, find.byKey(const ValueKey('theme_new')));
+    await tester.tap(find.byKey(const ValueKey('theme_new')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, '我的主题');
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+    final id = container.read(themeProvider).current.id;
+    expect(find.text('保存'), findsOneWidget, reason: '有修改时右上角显示保存');
+
+    // 点右上角保存 → 弹确认 → 点弹窗「保存」
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    expect(find.text('保存主题修改？'), findsOneWidget);
+    await tester.tap(find.text('保存').last);
+    await tester.pumpAndSettle();
+    expect(find.text('已保存'), findsOneWidget);
+    expect(find.text('保存'), findsNothing, reason: '保存后脏状态复位，保存按钮消失');
+
+    // 保存后返回：不应再弹「保留主题修改？」
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('保留主题修改？'), findsNothing);
+    expect(container.read(themeProvider).current.id, id, reason: '已保存的主题保持');
   });
 
   testWidgets('有修改时返回弹确认，选「恢复原状并离开」回到进入时主题', (tester) async {
