@@ -10,6 +10,7 @@ import '../layout/xp_page_scaffold_mixin.dart';
 import '../pages/ai_scope_page.dart';
 import '../tokens/design_tokens.dart';
 import 'app_icon.dart';
+import 'xp_button.dart';
 import 'xp_empty_state.dart';
 import 'xp_sheet.dart';
 
@@ -424,13 +425,14 @@ class _AiChatSheetState extends ConsumerState<_AiChatSheet> {
                 children: [
                   Text('历史对话', style: Theme.of(sheetCtx).textTheme.titleMedium),
                   const Spacer(),
-                  TextButton.icon(
+                  XpButton(
                     onPressed: () {
                       Navigator.pop(sheetCtx);
                       _newConversation();
                     },
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('新建'),
+                    icon: Icons.add,
+                    height: 36,
+                    child: const Text('新建'),
                   ),
                 ],
               ),

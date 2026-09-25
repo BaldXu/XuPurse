@@ -13,6 +13,7 @@ import '../tokens/design_tokens.dart';
 import '../widgets/app_icon.dart';
 import '../widgets/bill_tile.dart';
 import '../widgets/xp_card.dart';
+import '../widgets/xp_button.dart';
 import '../widgets/xp_empty_state.dart';
 import '../widgets/xp_param_row.dart';
 import '../widgets/xp_picker_sheet.dart';
@@ -139,10 +140,8 @@ class _SearchPageState extends ConsumerState<SearchPage>
   }
 
   Future<void> _openFilterSheet() async {
-    final accounts =
-        ref.read(accountsProvider).value ?? const <Account>[];
-    final categories =
-        ref.read(categoriesProvider).value ?? const <Category>[];
+    final accounts = ref.read(accountsProvider).value ?? const <Account>[];
+    final categories = ref.read(categoriesProvider).value ?? const <Category>[];
     final result = await showXpSheet<_SearchFilters>(
       context: context,
       heightFactor: 0.8,
@@ -296,15 +295,21 @@ class _SearchPageState extends ConsumerState<SearchPage>
     }
     if (f.accountId != null) {
       chips.add((
-        label: _nameById(accounts.map((a) => (a.id, a.name)), f.accountId,
-            '账户'),
+        label: _nameById(
+          accounts.map((a) => (a.id, a.name)),
+          f.accountId,
+          '账户',
+        ),
         onDelete: () => _applyFilters(f.copyWith(clearAccountId: true)),
       ));
     }
     if (f.categoryId != null) {
       chips.add((
         label: _nameById(
-            categories.map((c) => (c.id, c.name)), f.categoryId, '分类'),
+          categories.map((c) => (c.id, c.name)),
+          f.categoryId,
+          '分类',
+        ),
         onDelete: () => _applyFilters(f.copyWith(clearCategoryId: true)),
       ));
     }
@@ -501,8 +506,7 @@ class _SearchPageState extends ConsumerState<SearchPage>
           b.incomeAccountId != _filters.accountId) {
         return false;
       }
-      if (_filters.categoryId != null &&
-          b.categoryId != _filters.categoryId) {
+      if (_filters.categoryId != null && b.categoryId != _filters.categoryId) {
         return false;
       }
       if (minAmount != null && b.amount < minAmount) return false;
@@ -576,7 +580,11 @@ class _SearchPageState extends ConsumerState<SearchPage>
 }
 
 /// 按 id 取名称（账户/分类 chips 展示用），找不到返回兜底名。
-String _nameById(Iterable<(String, String)> pairs, String? id, String fallback) {
+String _nameById(
+  Iterable<(String, String)> pairs,
+  String? id,
+  String fallback,
+) {
   if (id == null) return fallback;
   for (final (pid, name) in pairs) {
     if (pid == id) return name;
@@ -756,7 +764,10 @@ class _FilterSheetState extends State<_FilterSheet> {
             style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
           ),
         ),
-        Divider(height: 1, color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+        Divider(
+          height: 1,
+          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
         Expanded(
           child: ListView(
             padding: const EdgeInsets.only(bottom: XpSpacing.l),
@@ -767,9 +778,18 @@ class _FilterSheetState extends State<_FilterSheet> {
                 child: XpSlidingSegmented<BillType?>(
                   items: const [
                     XpSegmentedItem<BillType?>(value: null, label: '全部'),
-                    XpSegmentedItem<BillType?>(value: BillType.expense, label: '支出'),
-                    XpSegmentedItem<BillType?>(value: BillType.income, label: '收入'),
-                    XpSegmentedItem<BillType?>(value: BillType.transfer, label: '转账'),
+                    XpSegmentedItem<BillType?>(
+                      value: BillType.expense,
+                      label: '支出',
+                    ),
+                    XpSegmentedItem<BillType?>(
+                      value: BillType.income,
+                      label: '收入',
+                    ),
+                    XpSegmentedItem<BillType?>(
+                      value: BillType.transfer,
+                      label: '转账',
+                    ),
                   ],
                   selected: _type,
                   onChanged: (v) => setState(() => _type = v),
@@ -804,14 +824,18 @@ class _FilterSheetState extends State<_FilterSheet> {
               _SectionLabel('账户与分类'),
               XpParamRow(
                 label: '账户',
-                value: _accountId == null ? '全部账户' : (accById[_accountId] ?? '账户'),
+                value: _accountId == null
+                    ? '全部账户'
+                    : (accById[_accountId] ?? '账户'),
                 leadingIcon: Icons.account_balance_wallet_outlined,
                 onTap: _pickAccount,
               ),
               XpParamDivider(indent: kXpParamDividerIndentWithLeading),
               XpParamRow(
                 label: '分类',
-                value: _categoryId == null ? '全部分类' : (catById[_categoryId] ?? '分类'),
+                value: _categoryId == null
+                    ? '全部分类'
+                    : (catById[_categoryId] ?? '分类'),
                 leadingIcon: Icons.category_outlined,
                 onTap: _pickCategory,
               ),
@@ -823,13 +847,17 @@ class _FilterSheetState extends State<_FilterSheet> {
                     Expanded(
                       child: TextField(
                         controller: _minCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
                         decoration: const InputDecoration(
                           labelText: '最小金额',
                           isDense: true,
                           filled: true,
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.all(Radius.circular(XpRadius.s)),
+                            borderRadius: BorderRadius.all(
+                              Radius.circular(XpRadius.s),
+                            ),
                             borderSide: BorderSide.none,
                           ),
                         ),
@@ -842,13 +870,17 @@ class _FilterSheetState extends State<_FilterSheet> {
                     Expanded(
                       child: TextField(
                         controller: _maxCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
                         decoration: const InputDecoration(
                           labelText: '最大金额',
                           isDense: true,
                           filled: true,
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.all(Radius.circular(XpRadius.s)),
+                            borderRadius: BorderRadius.all(
+                              Radius.circular(XpRadius.s),
+                            ),
                             borderSide: BorderSide.none,
                           ),
                         ),
@@ -869,12 +901,14 @@ class _FilterSheetState extends State<_FilterSheet> {
           ),
           child: Row(
             children: [
-              TextButton(onPressed: _reset, child: const Text('重置')),
+              XpButton(onPressed: _reset, height: 48, child: const Text('重置')),
               const SizedBox(width: XpSpacing.s),
               Expanded(
                 child: FilledButton(
                   onPressed: () => Navigator.pop(context, _draft),
-                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                  ),
                   child: const Text('完成'),
                 ),
               ),
@@ -921,10 +955,10 @@ Future<PickerChoice?> _showCategoryPickerSheet({
   final cats = categories
       .where((c) => c.type != BillType.transfer.name)
       .toList();
-  final expenseCats =
-      cats.where((c) => c.type == BillType.expense.name).toList();
-  final incomeCats =
-      cats.where((c) => c.type == BillType.income.name).toList();
+  final expenseCats = cats
+      .where((c) => c.type == BillType.expense.name)
+      .toList();
+  final incomeCats = cats.where((c) => c.type == BillType.income.name).toList();
   final rows =
       1 +
       (expenseCats.isEmpty ? 0 : 1 + expenseCats.length) +
@@ -1116,18 +1150,22 @@ class _ResultSummary extends StatelessWidget {
                 const TextSpan(text: '支出 '),
                 TextSpan(
                   text: _grouped(formatYuan(expense)),
-                  style: base?.copyWith(
-                    color: XpSemanticColors.expense,
-                    fontWeight: FontWeight.w600,
-                  ).tabular,
+                  style: base
+                      ?.copyWith(
+                        color: XpSemanticColors.expense,
+                        fontWeight: FontWeight.w600,
+                      )
+                      .tabular,
                 ),
                 const TextSpan(text: ' · 收入 '),
                 TextSpan(
                   text: _grouped(formatYuan(income)),
-                  style: base?.copyWith(
-                    color: XpSemanticColors.income,
-                    fontWeight: FontWeight.w600,
-                  ).tabular,
+                  style: base
+                      ?.copyWith(
+                        color: XpSemanticColors.income,
+                        fontWeight: FontWeight.w600,
+                      )
+                      .tabular,
                 ),
               ],
             ),
@@ -1445,10 +1483,8 @@ class _TrendLine extends StatelessWidget {
             sideTitles: SideTitles(
               showTitles: true,
               reservedSize: 44,
-              getTitlesWidget: (v, _) => Text(
-                _compact(v),
-                style: textTheme.labelSmall,
-              ),
+              getTitlesWidget: (v, _) =>
+                  Text(_compact(v), style: textTheme.labelSmall),
             ),
           ),
           bottomTitles: AxisTitles(
@@ -1532,9 +1568,9 @@ class _FocusPie extends StatelessWidget {
       return Center(
         child: Text(
           '暂无数据',
-          style: Theme.of(
-            context,
-          ).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       );
     }

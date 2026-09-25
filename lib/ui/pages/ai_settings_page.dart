@@ -6,6 +6,7 @@ import '../../domain/ai/ai_service.dart';
 import '../layout/breakpoints.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
+import '../widgets/xp_button.dart';
 import '../widgets/xp_card.dart';
 import '../widgets/xp_empty_state.dart';
 import '../widgets/xp_sheet.dart';
@@ -81,10 +82,10 @@ class _AiSettingsPageState extends ConsumerState<AiSettingsPage>
                     onToggleEnabled: (v) => notifier.setEnabled(config.id, v),
                   ),
                 const SizedBox(height: XpSpacing.s),
-                OutlinedButton.icon(
+                XpButton(
                   onPressed: () => _edit(context, ref, null),
-                  icon: const Icon(Icons.add),
-                  label: const Text('新增配置'),
+                  icon: Icons.add,
+                  child: const Text('新增配置'),
                 ),
                 const SizedBox(height: XpSpacing.l),
                 Text('隐私说明', style: Theme.of(context).textTheme.titleSmall),
@@ -460,16 +461,16 @@ class _AiConfigEditPageState extends ConsumerState<_AiConfigEditPage>
               ),
             Row(
               children: [
-                OutlinedButton.icon(
+                XpButton(
                   onPressed: _testing ? null : _test,
-                  icon: _testing
+                  leading: _testing
                       ? const SizedBox(
                           width: XpSpacing.l,
                           height: XpSpacing.l,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.network_check),
-                  label: const Text('测试连接'),
+                  child: const Text('测试连接'),
                 ),
                 const Spacer(),
                 FilledButton(

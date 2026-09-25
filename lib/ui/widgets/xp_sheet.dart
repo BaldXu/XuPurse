@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../state/theme_provider.dart';
 import '../tokens/design_tokens.dart';
+import 'xp_button.dart';
 
 /// 统一底部配置弹窗入口。
 ///
@@ -409,7 +410,6 @@ Future<bool> confirmXpDialog(
   String cancelLabel = '取消',
   bool danger = false,
 }) async {
-  final scheme = Theme.of(context).colorScheme;
   final ok = await showXpDialog<bool>(
     context: context,
     title: title,
@@ -419,13 +419,16 @@ Future<bool> confirmXpDialog(
         onPressed: () => Navigator.pop(context, false),
         child: Text(cancelLabel),
       ),
-      FilledButton(
-        style: danger
-            ? FilledButton.styleFrom(backgroundColor: scheme.error)
-            : null,
-        onPressed: () => Navigator.pop(context, true),
-        child: Text(confirmLabel),
-      ),
+      danger
+          ? XpButton(
+              variant: XpButtonVariant.danger,
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(confirmLabel),
+            )
+          : FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(confirmLabel),
+            ),
     ],
   );
   return ok == true;

@@ -16,6 +16,7 @@ import '../../state/theme_provider.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/app_icon.dart';
+import '../widgets/xp_button.dart';
 import '../widgets/xp_card.dart';
 import '../widgets/xp_param_row.dart';
 import '../widgets/xp_sheet.dart';
@@ -429,16 +430,22 @@ class _RestoreOptionsDialogState extends State<_RestoreOptionsDialog> {
           onPressed: () => Navigator.pop(context),
           child: const Text('取消'),
         ),
-        FilledButton(
-          style: _mode == RestoreMode.overwrite
-              ? FilledButton.styleFrom(backgroundColor: scheme.error)
-              : null,
-          onPressed: () => Navigator.pop(context, (
-            mode: _mode,
-            overwriteSettings: _overwriteSettings,
-          )),
-          child: const Text('开始恢复'),
-        ),
+        _mode == RestoreMode.overwrite
+            ? XpButton(
+                variant: XpButtonVariant.danger,
+                onPressed: () => Navigator.pop(context, (
+                  mode: _mode,
+                  overwriteSettings: _overwriteSettings,
+                )),
+                child: const Text('开始恢复'),
+              )
+            : FilledButton(
+                onPressed: () => Navigator.pop(context, (
+                  mode: _mode,
+                  overwriteSettings: _overwriteSettings,
+                )),
+                child: const Text('开始恢复'),
+              ),
       ],
     );
   }

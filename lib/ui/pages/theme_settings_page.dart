@@ -7,6 +7,7 @@ import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/app_icon.dart';
 import '../widgets/color_picker_dialog.dart';
+import '../widgets/xp_button.dart';
 import '../widgets/xp_card.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_sliding_segmented.dart';
@@ -677,25 +678,19 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
           Row(
             children: [
               Expanded(
-                child: OutlinedButton.icon(
+                child: XpButton(
                   onPressed: _rename,
-                  icon: const Icon(Icons.edit_outlined, size: 18),
-                  label: const Text('重命名'),
+                  icon: Icons.edit_outlined,
+                  child: const Text('重命名'),
                 ),
               ),
               const SizedBox(width: XpSpacing.m),
               Expanded(
-                child: OutlinedButton.icon(
+                child: XpButton(
                   onPressed: _deleteCurrent,
-                  icon: Icon(
-                    Icons.delete_outline,
-                    size: 18,
-                    color: XpSemanticColors.danger,
-                  ),
-                  label: Text(
-                    '删除主题',
-                    style: TextStyle(color: XpSemanticColors.danger),
-                  ),
+                  variant: XpButtonVariant.danger,
+                  icon: Icons.delete_outline,
+                  child: const Text('删除主题'),
                 ),
               ),
             ],

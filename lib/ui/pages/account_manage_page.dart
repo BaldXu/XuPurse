@@ -10,6 +10,7 @@ import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/app_icon.dart';
+import '../widgets/xp_button.dart';
 import '../widgets/xp_card.dart';
 import '../widgets/xp_empty_state.dart';
 import '../widgets/xp_sheet.dart';
@@ -173,10 +174,10 @@ class _AccountManagePageState extends ConsumerState<AccountManagePage>
                     ),
                     const SizedBox(width: XpSpacing.s),
                     Expanded(
-                      child: OutlinedButton.icon(
+                      child: XpButton(
                         onPressed: _busy ? null : _changeCurrency,
-                        icon: const AppIcon(icon: Icons.currency_exchange),
-                        label: const Text('改币种'),
+                        leading: const AppIcon(icon: Icons.currency_exchange),
+                        child: const Text('改币种'),
                       ),
                     ),
                   ],

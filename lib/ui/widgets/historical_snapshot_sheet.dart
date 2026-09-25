@@ -7,6 +7,7 @@ import '../../data/database/app_database.dart';
 import '../../state/providers.dart';
 import '../tokens/design_tokens.dart';
 import 'app_icon.dart';
+import 'xp_button.dart';
 import 'xp_sheet.dart';
 import 'xp_snack.dart';
 
@@ -122,10 +123,10 @@ class _HistoricalSnapshotSheetState
             ),
           ),
           const SizedBox(height: XpSpacing.m),
-          OutlinedButton.icon(
+          XpButton(
             onPressed: _pickTime,
-            icon: const AppIcon(icon: Icons.event, size: 18),
-            label: Text('$_time.year-$m-$d $hh:$mm'),
+            leading: const AppIcon(icon: Icons.event, size: 18),
+            child: Text('$_time.year-$m-$d $hh:$mm'),
           ),
           const SizedBox(height: XpSpacing.m),
           TextField(

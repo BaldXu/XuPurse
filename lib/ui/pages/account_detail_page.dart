@@ -12,6 +12,7 @@ import '../widgets/adjust_sheet.dart';
 import '../widgets/app_icon.dart';
 import '../widgets/bill_tile.dart';
 import '../widgets/historical_snapshot_sheet.dart';
+import '../widgets/xp_button.dart';
 import '../widgets/xp_card.dart';
 import '../widgets/xp_empty_state.dart';
 import '../widgets/xp_sheet.dart';
@@ -152,11 +153,10 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage>
             ),
             const SizedBox(width: XpSpacing.s),
             Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () =>
-                    HistoricalSnapshotSheet.show(context, current),
-                icon: const AppIcon(icon: Icons.history, size: 18),
-                label: const Text('添加历史快照'),
+              child: XpButton(
+                onPressed: () => HistoricalSnapshotSheet.show(context, current),
+                leading: const AppIcon(icon: Icons.history, size: 18),
+                child: const Text('添加历史快照'),
               ),
             ),
           ],
@@ -251,9 +251,7 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage>
                     Divider(
                       height: 1,
                       indent: 52,
-                      color: colorScheme.outlineVariant.withValues(
-                        alpha: 0.5,
-                      ),
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.5),
                     ),
                   _SnapTile(snap: accountSnaps[i]),
                 ],
