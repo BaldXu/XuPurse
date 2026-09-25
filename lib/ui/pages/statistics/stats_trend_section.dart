@@ -12,7 +12,7 @@ import '../../widgets/xp_skeleton.dart';
 import '../../widgets/xp_sliding_segmented.dart';
 import 'stats_shared.dart';
 
-/// 趋势分区：支出柱状趋势（粒度自适应/手动切换）+ 一级分类环比。
+/// 趋势分区：支出/收入柱状趋势（粒度自适应/手动切换）+ 一级分类环比（支出/收入切换）。
 class StatsTrendSection extends ConsumerStatefulWidget {
   const StatsTrendSection({
     super.key,
@@ -33,13 +33,15 @@ class StatsTrendSection extends ConsumerStatefulWidget {
 
 class _TrendSectionState extends ConsumerState<StatsTrendSection>
     with StatsSectionRefresh {
-  late Future<_TrendData> _future;
-  StatsGranularity _granularity = StatsGranularity.week;
+  late Future<({_TrendData expense, _TrendData income})> _future;
+  StatsGranularity _expenseGranularity = StatsGranularity.week;
+  StatsGranularity _incomeGranularity = StatsGranularity.week;
 
   @override
   void initState() {
     super.initState();
-    _granularity = granularityFor(widget.start, widget.end);
+    _expenseGranularity = granularityFor(widget.start, widget.end);
+    _incomeGranularity = granularityFor(widget.start, widget.end);
     _reload();
   }
 
@@ -48,7 +50,8 @@ class _TrendSectionState extends ConsumerState<StatsTrendSection>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.start != widget.start || oldWidget.end != widget.end) {
       // 范围变化：重置为自适应默认粒度，并重新加载
-      _granularity = granularityFor(widget.start, widget.end);
+      _expenseGranularity = granularityFor(widget.start, widget.end);
+      _incomeGranularity = granularityFor(widget.start, widget.end);
       _reload();
     }
   }
@@ -67,19 +70,27 @@ class _TrendSectionState extends ConsumerState<StatsTrendSection>
     );
   }
 
-  Future<_TrendData> _load() async {
+  Future<({_TrendData expense, _TrendData income})> _load() async {
+    final r = await Future.wait([
+      _loadDirection(BillType.expense, _expenseGranularity),
+      _loadDirection(BillType.income, _incomeGranularity),
+    ]);
+    return (expense: r[0], income: r[1]);
+  }
+
+  Future<_TrendData> _loadDirection(
+    BillType type,
+    StatsGranularity granularity,
+  ) async {
     final bills = await ref
         .read(billRepoProvider)
-        .listByRange(widget.start, widget.end, type: BillType.expense);
-    return _TrendData(
-      granularity: _granularity,
-      points: aggregateTrend(bills, granularity: _granularity),
-    );
+        .listByRange(widget.start, widget.end, type: type);
+    return _TrendData(points: aggregateTrend(bills, granularity: granularity));
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<_TrendData>(
+    return FutureBuilder<({_TrendData expense, _TrendData income})>(
       future: _future,
       builder: (context, snap) => xpFadeGate(snap, () {
         if (snap.connectionState != ConnectionState.done) {
@@ -89,7 +100,7 @@ class _TrendSectionState extends ConsumerState<StatsTrendSection>
           return XpErrorState(
             message: '${snap.error}',
             actionLabel: '重试',
-            onAction: () => setState(() => _future = _load()),
+            onAction: () => setState(_reload),
           );
         }
         final d = snap.data!;
@@ -103,13 +114,29 @@ class _TrendSectionState extends ConsumerState<StatsTrendSection>
           ),
           children: [
             _TrendCard(
-              title: granularityLabel(d.granularity),
-              points: d.points,
-              granularity: _granularity,
+              title: granularityLabel(_expenseGranularity, BillType.expense),
+              points: d.expense.points,
+              granularity: _expenseGranularity,
+              emptyHint: '本时段暂无支出',
+              barColor: Theme.of(context).colorScheme.primary,
               onGranularityChanged: (g) {
                 setState(() {
-                  _granularity = g;
-                  _future = _load();
+                  _expenseGranularity = g;
+                  _reload();
+                });
+              },
+            ),
+            const SizedBox(height: XpSpacing.l),
+            _TrendCard(
+              title: granularityLabel(_incomeGranularity, BillType.income),
+              points: d.income.points,
+              granularity: _incomeGranularity,
+              emptyHint: '本时段暂无收入',
+              barColor: XpSemanticColors.income,
+              onGranularityChanged: (g) {
+                setState(() {
+                  _incomeGranularity = g;
+                  _reload();
                 });
               },
             ),
@@ -123,19 +150,20 @@ class _TrendSectionState extends ConsumerState<StatsTrendSection>
 }
 
 class _TrendData {
-  const _TrendData({required this.granularity, required this.points});
+  const _TrendData({required this.points});
 
-  final StatsGranularity granularity;
   final List<({String label, int amount})> points;
 }
 
-/// 支出趋势卡片（柱状图，按日/周/月粒度聚合；支持手动切换粒度）。
+/// 收支趋势卡片（柱状图，按日/周/月粒度聚合；支持手动切换粒度）。
 class _TrendCard extends StatelessWidget {
   const _TrendCard({
     required this.title,
     required this.points,
     required this.granularity,
     required this.onGranularityChanged,
+    required this.emptyHint,
+    required this.barColor,
   });
 
   final String title;
@@ -143,12 +171,18 @@ class _TrendCard extends StatelessWidget {
   final StatsGranularity granularity;
   final ValueChanged<StatsGranularity> onGranularityChanged;
 
+  /// 无数据时的空态文案（区分支出/收入）。
+  final String emptyHint;
+
+  /// 柱状颜色（支出走主题主色、收入走收入语义色）。
+  final Color barColor;
+
   @override
   Widget build(BuildContext context) {
     if (points.isEmpty) {
-      return const XpCard(
+      return XpCard(
         padding: EdgeInsets.zero,
-        child: XpEmptyState(icon: Icons.bar_chart, title: '本时段暂无支出'),
+        child: XpEmptyState(icon: Icons.bar_chart, title: emptyHint),
       );
     }
     final n = points.length;
@@ -165,7 +199,7 @@ class _TrendCard extends StatelessWidget {
             BarChartRodData(
               // 直接用真实金额（万分之元），悬浮框/坐标才是真实数值
               toY: points[i].amount.toDouble(),
-              color: theme.colorScheme.primary,
+              color: barColor,
               width: 6,
             ),
           ],
@@ -277,7 +311,8 @@ class _TrendCard extends StatelessWidget {
   }
 }
 
-/// 一级分类环比卡：当前区间 vs 上一区间，各一级分类支出金额浮动。
+/// 一级分类环比卡：当前区间 vs 上一区间，各一级分类支出/收入金额浮动，
+/// 右上角滑块切换统计方向。
 class _TrendCompareCard extends ConsumerStatefulWidget {
   const _TrendCompareCard({required this.start, required this.end});
 
@@ -291,6 +326,7 @@ class _TrendCompareCard extends ConsumerStatefulWidget {
 class _TrendCompareCardState extends ConsumerState<_TrendCompareCard>
     with StatsSectionRefresh {
   late Future<_TrendCompareData> _future;
+  BillType _type = BillType.expense;
 
   @override
   void initState() {
@@ -320,13 +356,9 @@ class _TrendCompareCardState extends ConsumerState<_TrendCompareCard>
     final curBills = await repo.listByRange(
       widget.start,
       widget.end,
-      type: BillType.expense,
+      type: _type,
     );
-    final prevBills = await repo.listByRange(
-      prevStart,
-      prevEnd,
-      type: BillType.expense,
-    );
+    final prevBills = await repo.listByRange(prevStart, prevEnd, type: _type);
     final categories = await ref.read(categoryRepoProvider).getAll();
     final byId = {for (final c in categories) c.id: c};
 
@@ -394,10 +426,14 @@ class _TrendCompareCardState extends ConsumerState<_TrendCompareCard>
           );
         }
         final d = snap.data!;
+        final isExpense = _type == BillType.expense;
         if (d.rows.isEmpty) {
-          return const XpCard(
+          return XpCard(
             padding: EdgeInsets.zero,
-            child: XpEmptyState(icon: Icons.compare_arrows, title: '本时段暂无支出'),
+            child: XpEmptyState(
+              icon: Icons.compare_arrows,
+              title: isExpense ? '本时段暂无支出' : '本时段暂无收入',
+            ),
           );
         }
         final totalChange = d.rows.fold<int>(
@@ -414,21 +450,43 @@ class _TrendCompareCardState extends ConsumerState<_TrendCompareCard>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                '分类环比',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '分类环比',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 150,
+                    child: XpSlidingSegmented<BillType>(
+                      items: const [
+                        XpSegmentedItem(value: BillType.expense, label: '支出'),
+                        XpSegmentedItem(value: BillType.income, label: '收入'),
+                      ],
+                      selected: _type,
+                      onChanged: (t) => setState(() {
+                        _type = t;
+                        _future = _load();
+                      }),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: XpSpacing.xs),
               Text(
-                '与上一周期（${spanLabel(d.spanMs)}）对比，各一级分类支出浮动',
+                '与上一周期（${spanLabel(d.spanMs)}）对比，各一级分类'
+                '${isExpense ? '支出' : '收入'}浮动',
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: XpSpacing.s),
-              for (final row in d.rows) _CompareRowTile(row: row),
+              for (final row in d.rows)
+                _CompareRowTile(row: row, isExpense: isExpense),
               const SizedBox(height: XpSpacing.s),
               const Divider(height: 1),
               Padding(
@@ -449,7 +507,7 @@ class _TrendCompareCardState extends ConsumerState<_TrendCompareCard>
                           : '-${formatYuan(totalChange.abs())}',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w700,
-                        color: totalChange >= 0
+                        color: (totalChange >= 0) == isExpense
                             ? XpSemanticColors.expense
                             : XpSemanticColors.income,
                       ),
@@ -489,9 +547,12 @@ class _CompareRow {
 }
 
 class _CompareRowTile extends StatelessWidget {
-  const _CompareRowTile({required this.row});
+  const _CompareRowTile({required this.row, required this.isExpense});
 
   final _CompareRow row;
+
+  /// 是否为支出口径；收入口径时涨跌语义色对调。
+  final bool isExpense;
 
   @override
   Widget build(BuildContext context) {
@@ -524,7 +585,7 @@ class _CompareRowTile extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                     color: diff == 0
                         ? theme.colorScheme.onSurfaceVariant
-                        : up
+                        : up == isExpense
                         ? XpSemanticColors.expense
                         : XpSemanticColors.income,
                   )

@@ -2,7 +2,7 @@ name: xupurse
 description: "XuPurse - 个人记账软件"
 publish_to: 'none'
 
-version: 0.1.4+7
+version: 0.1.4+8
 
 environment:
   sdk: ^3.9.2

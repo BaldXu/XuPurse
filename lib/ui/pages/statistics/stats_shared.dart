@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/enums.dart';
 import '../../../data/database/app_database.dart';
 import '../../../state/providers.dart';
 import '../../tokens/design_tokens.dart';
@@ -90,11 +91,14 @@ StatsGranularity granularityFor(int start, int end) {
   return StatsGranularity.month;
 }
 
-String granularityLabel(StatsGranularity g) => switch (g) {
-  StatsGranularity.day => '每日支出趋势',
-  StatsGranularity.week => '每周支出趋势',
-  StatsGranularity.month => '每月支出趋势',
-};
+String granularityLabel(StatsGranularity g, BillType type) {
+  final dir = type == BillType.expense ? '支出' : '收入';
+  return switch (g) {
+    StatsGranularity.day => '每日$dir趋势',
+    StatsGranularity.week => '每周$dir趋势',
+    StatsGranularity.month => '每月$dir趋势',
+  };
+}
 
 /// 把区间内支出账单按日/周/月聚合为趋势序列。
 List<({String label, int amount})> aggregateTrend(
