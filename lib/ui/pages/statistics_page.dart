@@ -235,7 +235,13 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage>
           return Stack(
             fit: StackFit.expand,
             children: [
-              content,
+              // 顶部 10dp 空白：内容整体下移，与 AppBar 拉开一点距离。
+              Column(
+                children: [
+                  const SizedBox(height: 10),
+                  Expanded(child: content),
+                ],
+              ),
               // AI 悬浮按钮：默认右侧 30% 高度、可上下拖动，
               // 每次进入统计页重置位置（见 MainShell 切 tab 处理）。
               const AiDraggableFab(),

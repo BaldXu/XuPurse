@@ -62,9 +62,10 @@ class _MinePageState extends ConsumerState<MinePage>
       body: ListView(
         // 顶部穿透留白随内容滚出（可从磨砂栏后穿过）；底部留穿透
         // 导航栏的高度(extendBody 注入的 MediaQuery bottom)。
+        // 顶部另加 10dp 空白：内容整体下移，与 AppBar 拉开一点距离。
         padding: EdgeInsets.fromLTRB(
           XpSpacing.l,
-          bleedTop,
+          bleedTop + 10,
           XpSpacing.l,
           32 + MediaQuery.paddingOf(context).bottom,
         ),

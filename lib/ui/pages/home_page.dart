@@ -97,7 +97,8 @@ class _HomePageState extends ConsumerState<HomePage>
         child: CustomScrollView(
           slivers: [
             // 顶部穿透留白：随内容滚出，可从磨砂栏后穿过。
-            SliverPadding(padding: EdgeInsets.only(top: bleedTop)),
+            // 另加 10dp 空白：内容整体下移，与 AppBar 拉开一点距离。
+            SliverPadding(padding: EdgeInsets.only(top: bleedTop + 10)),
             // ── Hero：本月汇总（Display 32 大金额，强调靠字重） ──
             SliverToBoxAdapter(
               child: Padding(
