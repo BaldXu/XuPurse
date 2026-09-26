@@ -505,7 +505,11 @@ class _CumulativeNetCardState extends ConsumerState<_CumulativeNetCard> {
           if (!mounted) return;
           final range = widget.range;
           _lastRange = range;
-          setState(() => _future = _loadFor(range));
+          // 注意：setState 回调不能返回 Future（箭头闭包会返回赋值表达式
+          // 的值 → debug 下抛 DartError: setState() callback returned a Future）。
+          setState(() {
+            _future = _loadFor(range);
+          });
         },
       );
     });
@@ -575,8 +579,9 @@ class _CumulativeNetCardState extends ConsumerState<_CumulativeNetCard> {
                 return XpErrorState(
                   message: '${snap.error}',
                   actionLabel: '重试',
-                  onAction: () =>
-                      setState(() => _future = _loadFor(widget.range)),
+                  onAction: () => setState(() {
+                    _future = _loadFor(widget.range);
+                  }),
                 );
               }
               final points = aggregateTrendPoints(

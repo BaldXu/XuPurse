@@ -10,7 +10,7 @@ import 'xp_button.dart';
 
 /// 统一底部配置弹窗入口。
 ///
-/// - 高度：默认占屏幕垂直 85%（[heightFactor]）。
+/// - 高度：默认占屏幕垂直 85%（[heightFactor]）；可再叠加固定像素 [extraHeight]。
 /// - 遮罩：弹窗外区域仅「变暗」（黑色渐变，无模糊——全屏实时模糊是
 ///   转场掉帧元凶，iOS 原生 sheet 同样只做变暗）。
 /// - 表面：弹窗背景色（主题「弹窗背景色」）或「配置弹窗磨砂」（σ10 · α0.7），
@@ -24,6 +24,7 @@ Future<T?> showXpSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
   double heightFactor = 0.85,
+  double extraHeight = 0,
   bool isDismissible = true,
   bool showDragHandle = true,
   Duration transitionDuration = XpMotion.component,
@@ -46,6 +47,7 @@ Future<T?> showXpSheet<T>({
       builder: builder,
       animation: animation,
       heightFactor: heightFactor,
+      extraHeight: extraHeight,
       showDragHandle: showDragHandle,
       sheetOn: sheetOn,
       sheetColor: sheetColor,
@@ -60,6 +62,7 @@ class _XpSheet extends StatefulWidget {
     required this.builder,
     required this.animation,
     required this.heightFactor,
+    required this.extraHeight,
     required this.showDragHandle,
     required this.sheetOn,
     required this.sheetColor,
@@ -69,6 +72,7 @@ class _XpSheet extends StatefulWidget {
   final WidgetBuilder builder;
   final Animation<double> animation;
   final double heightFactor;
+  final double extraHeight;
   final bool showDragHandle;
   final bool sheetOn;
   final Color? sheetColor;
@@ -154,7 +158,9 @@ class _XpSheetState extends State<_XpSheet> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final sheetH = MediaQuery.sizeOf(context).height * widget.heightFactor;
+    final sheetH =
+        MediaQuery.sizeOf(context).height * widget.heightFactor +
+        widget.extraHeight;
 
     return Stack(
       children: [

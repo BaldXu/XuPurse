@@ -49,7 +49,7 @@ income   → +amount
 
 ## 算法二：手动调账
 
-**入口**：`setAccountBalance(accountId, newBalance, note?)`。
+**入口**：`setAccountBalance(accountId, newBalance, note?, generateBill = true)`。
 
 **步骤**：
 
@@ -57,13 +57,15 @@ income   → +amount
 2. 计算 `diff = newBalance - currentBalance`。
 3. 若 `diff == 0`：直接返回，不产生任何记录。
 4. 若 `diff != 0`：
-   - 生成调账账单：
+   - `generateBill == true`（勾选「生成调账账单」）时，生成调账账单：
      - `type = diff > 0 ? income : expense`
      - `categoryId = diff > 0 ? balance_adjustment_income : balance_adjustment_expense`
      - `amount = abs(diff)`
      - `extra.isAdjustment = true`
    - 更新 `currentBalance = newBalance`。
-   - 生成 MANUAL(5) 快照。
+   - 生成 MANUAL(5) 快照（快照 `billId` 仅在有调账账单时关联，否则为空）。
+
+**默认行为（UI 2026-09-26 起）**：调账弹窗的「生成调账账单」默认**不勾选**——只改余额 + 快照，不落账单流水，统计/报表口径自然不含该次调整；需要留痕时再勾选。
 
 **设计意图**：保留调整历史，让流水完整可追溯；调账账单在余额重算中被排除。
 

@@ -289,13 +289,16 @@ class AccountService {
 
   /// 手动调账：把账户余额直接设为 [newBalance]（算法二）。
   ///
-  /// 产生一笔调账账单（extra.isAdjustment=true）+ MANUAL 快照，流水完整可追溯。
+  /// [generateBill] 为 true 时产生一笔调账账单（extra.isAdjustment=true）+
+  /// MANUAL 快照，流水完整可追溯；为 false 时只更新余额 + MANUAL 快照
+  /// （快照 billId 为空，账单列表无记录，统计/报表口径不变）。
   /// diff == 0 时不产生任何记录。
   Future<void> setBalance(
     String accountId,
     int newBalance, {
     String? note,
     int? time,
+    bool generateBill = true,
   }) async {
     final account = await _accounts.getById(accountId);
     if (account == null) {
@@ -305,10 +308,14 @@ class AccountService {
     if (diff == 0) return;
 
     final isIncome = diff > 0;
-    final category = await _categories.findBySeedKey(
-      isIncome ? AdjustmentCategoryKeys.income : AdjustmentCategoryKeys.expense,
-    );
-    if (category == null) {
+    final category = generateBill
+        ? await _categories.findBySeedKey(
+            isIncome
+                ? AdjustmentCategoryKeys.income
+                : AdjustmentCategoryKeys.expense,
+          )
+        : null;
+    if (generateBill && category == null) {
       throw const NotFoundException('缺少调账分类种子（balance_adjustment_*）');
     }
 
@@ -316,20 +323,22 @@ class AccountService {
     final ts = time ?? nowMs();
 
     await _db.transaction(() async {
-      await _bills.insert(
-        BillsCompanion.insert(
-          id: billId,
-          type: isIncome ? BillType.income.name : BillType.expense.name,
-          categoryId: category.id,
-          amount: diff.abs(),
-          accountId: Value(accountId),
-          time: ts,
-          comment: Value(note ?? '余额调整'),
-          extra: const Value('{"isAdjustment":true}'),
-          createdAt: nowMs(),
-          updatedAt: nowMs(),
-        ),
-      );
+      if (generateBill) {
+        await _bills.insert(
+          BillsCompanion.insert(
+            id: billId,
+            type: isIncome ? BillType.income.name : BillType.expense.name,
+            categoryId: category!.id,
+            amount: diff.abs(),
+            accountId: Value(accountId),
+            time: ts,
+            comment: Value(note ?? '余额调整'),
+            extra: const Value('{"isAdjustment":true}'),
+            createdAt: nowMs(),
+            updatedAt: nowMs(),
+          ),
+        );
+      }
       await _accounts.setBalance(accountId, newBalance);
       await _snapshots.insert(
         BalanceSnapshotsCompanion.insert(
@@ -338,7 +347,7 @@ class AccountService {
           balance: newBalance,
           timestamp: ts,
           type: SnapshotType.manual,
-          billId: Value(billId),
+          billId: generateBill ? Value(billId) : const Value(null),
           note: Value(note),
         ),
       );

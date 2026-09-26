@@ -242,6 +242,48 @@ void main() {
       expect(adjust.amount, yuanToAmount(50));
     });
 
+    test('generateBill=false：不生成调账账单，快照 billId 为空', () async {
+      final accId = await newAcc('测试现金', initial: yuanToAmount(100));
+      final target = yuanToAmount(150);
+
+      await accountService.setBalance(
+        accId,
+        target,
+        note: '盘点',
+        generateBill: false,
+      );
+
+      expect((await acc(accId)).currentBalance, target);
+      // 不产生任何账单
+      expect(await billRepo.getAll(), isEmpty);
+      final snaps = await snapshots.listByAccount(accId, validOnly: false);
+      final snap = snaps.single;
+      expect(snap.type, SnapshotType.manual);
+      expect(snap.balance, target);
+      expect(snap.billId, isNull);
+    });
+
+    test('generateBill=true：生成调账账单，快照关联 billId', () async {
+      final accId = await newAcc('测试现金', initial: yuanToAmount(100));
+      final target = yuanToAmount(150);
+
+      await accountService.setBalance(
+        accId,
+        target,
+        note: '盘点',
+        generateBill: true,
+      );
+
+      final all = await billRepo.getAll();
+      final adjust = all.singleWhere(
+        (b) => b.extra?.contains('isAdjustment') == true,
+      );
+      expect(adjust.type, 'income');
+      expect(adjust.amount, yuanToAmount(50));
+      final snaps = await snapshots.listByBill(adjust.id);
+      expect(snaps.single.billId, adjust.id);
+    });
+
     test('diff == 0：不产生任何记录', () async {
       final accId = await newAcc('测试现金', initial: yuanToAmount(100));
       await accountService.setBalance(accId, yuanToAmount(100));

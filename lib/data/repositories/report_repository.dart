@@ -98,15 +98,22 @@ class ReportRepository {
   // ---------- 读 ----------
 
   /// 有收支记录的年份（本地时区，倒序）。
+  /// 年份在 Dart 侧换算（DateTime 本地时区）：SQLite strftime 'localtime'
+  /// 在部分原生 SQLite 构建（Windows 桌面/测试 VM）返回 NULL，SQL 里
+  /// CAST 成 INT 会崩（type 'Null' is not a subtype of type 'int'）。
   Future<List<int>> yearsWithBills() async {
     final rows = await _db
         .customSelect(
-          "SELECT DISTINCT "
-          "CAST(strftime('%Y', time / 1000, 'unixepoch', 'localtime') AS INTEGER) AS y "
-          "FROM bills WHERE type IN ('expense', 'income') ORDER BY y DESC",
+          "SELECT DISTINCT time FROM bills WHERE type IN ('expense', 'income')",
         )
         .get();
-    return [for (final r in rows) r.data['y'] as int];
+    final years = <int>{};
+    for (final r in rows) {
+      years.add(
+        DateTime.fromMillisecondsSinceEpoch(r.data['time'] as int).year,
+      );
+    }
+    return years.toList()..sort((a, b) => b.compareTo(a));
   }
 
   /// 全部年度报告（年份倒序）。
@@ -118,6 +125,7 @@ class ReportRepository {
   ///
   /// 口径与年度报告一致（排除调账与「不计入收支」），因此 12 个月合计等于
   /// 该年报告的记录收入 / 记录支出，不会出现图表与头部数字对不上的情况。
+  /// 月份在 Dart 侧换算（DateTime 本地时区），理由同 [yearsWithBills]。
   Future<List<({int month, int income, int expense})>> monthlyOfYear(
     int year,
   ) async {
@@ -125,22 +133,23 @@ class ReportRepository {
     final end = DateTime(year + 1).millisecondsSinceEpoch;
     final rows = await _db
         .customSelect(
-          "SELECT CAST(strftime('%m', time / 1000, 'unixepoch', 'localtime') "
-          "AS INTEGER) AS m, "
-          "SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) AS income, "
-          "SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) AS expense "
+          "SELECT time, "
+          "CASE WHEN type = 'income' THEN amount ELSE 0 END AS income, "
+          "CASE WHEN type = 'expense' THEN amount ELSE 0 END AS expense "
           "FROM bills WHERE type IN ('expense', 'income') AND $_isRegular "
-          'AND time >= ? AND time < ? GROUP BY m',
+          'AND time >= ? AND time < ?',
           variables: [Variable(start), Variable(end)],
         )
         .get();
-    final byMonth = {
-      for (final r in rows)
-        r.data['m'] as int: (
-          income: r.data['income'] as int? ?? 0,
-          expense: r.data['expense'] as int? ?? 0,
-        ),
-    };
+    final byMonth = <int, ({int income, int expense})>{};
+    for (final r in rows) {
+      final dt = DateTime.fromMillisecondsSinceEpoch(r.data['time'] as int);
+      final rec = byMonth.putIfAbsent(dt.month, () => (income: 0, expense: 0));
+      byMonth[dt.month] = (
+        income: rec.income + (r.data['income'] as int),
+        expense: rec.expense + (r.data['expense'] as int),
+      );
+    }
     return [
       for (var m = 1; m <= 12; m++)
         (

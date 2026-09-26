@@ -9,7 +9,7 @@ import '../tokens/design_tokens.dart';
 import 'xp_sheet.dart';
 import 'xp_snack.dart';
 
-/// 手动调账弹窗（算法二）：输入目标余额 → 产生调账账单 + MANUAL 快照。
+/// 手动调账弹窗（算法二）：输入目标余额 → 可选生成调账账单 + MANUAL 快照。
 class AdjustSheet extends ConsumerStatefulWidget {
   const AdjustSheet({super.key, required this.account});
 
@@ -19,6 +19,7 @@ class AdjustSheet extends ConsumerStatefulWidget {
     return showXpSheet(
       context: context,
       heightFactor: 0.6,
+      extraHeight: 40,
       builder: (_) => AdjustSheet(account: account),
     );
   }
@@ -31,6 +32,9 @@ class _AdjustSheetState extends ConsumerState<AdjustSheet> {
   final _balanceCtrl = TextEditingController();
   final _noteCtrl = TextEditingController();
   bool _saving = false;
+
+  /// 是否生成调账账单（默认不勾选：只调余额，不落账单流水）。
+  bool _generateBill = false;
 
   @override
   void dispose() {
@@ -90,7 +94,8 @@ class _AdjustSheetState extends ConsumerState<AdjustSheet> {
           if (diff != null && diff != 0) ...[
             const SizedBox(height: XpSpacing.s),
             Text(
-              '调整差额：${diff > 0 ? '+' : '-'}${formatYuan(diff.abs())}（将生成一笔调账账单）',
+              '调整差额：${diff > 0 ? '+' : '-'}${formatYuan(diff.abs())}'
+              '（${_generateBill ? '将生成一笔调账账单' : '不生成调账账单'}）',
               style: Theme.of(context).textTheme.bodySmall
                   ?.copyWith(
                     color: diff > 0
@@ -109,7 +114,16 @@ class _AdjustSheetState extends ConsumerState<AdjustSheet> {
               border: OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: XpSpacing.l),
+          CheckboxListTile(
+            value: _generateBill,
+            onChanged: (v) => setState(() => _generateBill = v ?? false),
+            controlAffinity: ListTileControlAffinity.leading,
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            title: const Text('生成调账账单'),
+            subtitle: const Text('在账单列表记录这笔余额调整（不计入收支统计）'),
+          ),
+          const SizedBox(height: XpSpacing.xs),
           FilledButton(
             onPressed: _saving ? null : _save,
             child: Text(_saving ? '保存中…' : '确认调账'),
@@ -129,7 +143,12 @@ class _AdjustSheetState extends ConsumerState<AdjustSheet> {
     try {
       await ref
           .read(accountServiceProvider)
-          .setBalance(widget.account.id, target, note: _noteCtrl.text.trim());
+          .setBalance(
+            widget.account.id,
+            target,
+            note: _noteCtrl.text.trim(),
+            generateBill: _generateBill,
+          );
       if (mounted) Navigator.pop(context);
     } catch (e) {
       if (mounted) {

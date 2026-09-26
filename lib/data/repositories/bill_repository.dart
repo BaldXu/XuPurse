@@ -178,32 +178,50 @@ class BillRepository {
   /// 时间段内按「年-月」分组收支柱流（首页分组卡储蓄率条；不含转账）。
   /// 刻意不排除「不计入收支」账单：与明细列表/日卡口径一致——条反映
   /// 用户在该月实际看到的所有收支。时间倒序（新年份在前）。
+  /// 年/月分桶在 Dart 侧完成（DateTime 本地时区）：SQLite 的 strftime
+  /// 'localtime' 修饰符在部分原生 SQLite 构建（Windows 桌面/测试 VM）会
+  /// 返回 NULL，直接在 SQL 里 CAST 成 INT 会崩，故时区换算不放 SQL。
   Stream<List<({int year, int month, int expense, int income})>>
   watchMonthlySummaryInRange(int start, int end) {
     return _db
         .customSelect(
-          "SELECT CAST(strftime('%Y', time / 1000, 'unixepoch', 'localtime') AS INTEGER) AS y, "
-          "CAST(strftime('%m', time / 1000, 'unixepoch', 'localtime') AS INTEGER) AS m, "
-          "SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) AS expense, "
-          "SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) AS income "
+          "SELECT time, "
+          "CASE WHEN type = 'expense' THEN amount ELSE 0 END AS expense, "
+          "CASE WHEN type = 'income' THEN amount ELSE 0 END AS income "
           "FROM bills WHERE time >= ? AND time < ? "
-          "AND type IN ('expense', 'income') "
-          "GROUP BY y, m ORDER BY y DESC, m DESC",
+          "AND type IN ('expense', 'income')",
           variables: [Variable(start), Variable(end)],
           readsFrom: {_db.bills},
         )
         .watch()
-        .map(
-          (rows) => [
-            for (final r in rows)
-              (
-                year: r.data['y'] as int,
-                month: r.data['m'] as int,
-                expense: r.data['expense'] as int? ?? 0,
-                income: r.data['income'] as int? ?? 0,
-              ),
-          ],
-        );
+        .map((rows) {
+          final buckets = <(int, int), ({int expense, int income})>{};
+          for (final r in rows) {
+            final dt = DateTime.fromMillisecondsSinceEpoch(
+              r.data['time'] as int,
+            );
+            final key = (dt.year, dt.month);
+            final rec = buckets.putIfAbsent(key, () => (expense: 0, income: 0));
+            buckets[key] = (
+              expense: rec.expense + (r.data['expense'] as int),
+              income: rec.income + (r.data['income'] as int),
+            );
+          }
+          final list =
+              [
+                for (final e in buckets.entries)
+                  (
+                    year: e.key.$1,
+                    month: e.key.$2,
+                    expense: e.value.expense,
+                    income: e.value.income,
+                  ),
+              ]..sort((a, b) {
+                final byYear = b.year.compareTo(a.year);
+                return byYear != 0 ? byYear : b.month.compareTo(a.month);
+              });
+          return list;
+        });
   }
 
   /// 时间段内按分类汇总金额（统计页分类占比；不含转账；不含「不计入收支」）。
