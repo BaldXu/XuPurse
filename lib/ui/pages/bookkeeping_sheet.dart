@@ -30,11 +30,11 @@ const double _keyHeight = 50;
 
 /// 金额显示行高度（独立于按键高度：键盘加高后金额区不再同步放大，
 /// 把更多空间让给数字键）。
-const double _amountRowHeight = 44;
+const double _amountRowHeight = 35;
 
 /// 键盘底部额外空白：内容不变，仅把键盘整体上顶约 20dp，
 /// 避免数字键贴近全面屏手势区 / 底部导航。
-const double _keyboardBottomSpace = 20;
+const double _keyboardBottomSpace = 40;
 
 /// 分类网格列数与单元格宽高比。
 const int _categoryColumns = 5;
