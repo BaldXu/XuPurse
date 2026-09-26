@@ -25,8 +25,16 @@ import '../widgets/xp_snack.dart';
 /// 弹窗最大高度占屏比（95%，接近全屏的记账面板）。
 const double _maxHeightFactor = 0.95;
 
-/// 数字键盘按键高度（同时作为金额显示行的基准高度）。
-const double _keyHeight = 44;
+/// 数字键盘按键高度。
+const double _keyHeight = 50;
+
+/// 金额显示行高度（独立于按键高度：键盘加高后金额区不再同步放大，
+/// 把更多空间让给数字键）。
+const double _amountRowHeight = 44;
+
+/// 键盘底部额外空白：内容不变，仅把键盘整体上顶约 20dp，
+/// 避免数字键贴近全面屏手势区 / 底部导航。
+const double _keyboardBottomSpace = 20;
 
 /// 分类网格列数与单元格宽高比。
 const int _categoryColumns = 5;
@@ -883,7 +891,14 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
     final billCur = _effectiveCurrency;
     // 金额显示区局部刷新：按键只重建这里（P7）
     return Padding(
-      padding: const EdgeInsets.all(XpSpacing.m),
+      // 左右保持 12；底部留白 = 8 + [_keyboardBottomSpace]，键盘整体
+      // 上顶约 20dp（内容不变）。
+      padding: const EdgeInsets.fromLTRB(
+        XpSpacing.m,
+        XpSpacing.s,
+        XpSpacing.m,
+        XpSpacing.s + _keyboardBottomSpace,
+      ),
       child: Column(
         children: [
           ValueListenableBuilder<String>(
@@ -901,7 +916,7 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
               return Column(
                 children: [
                   SizedBox(
-                    height: _keyHeight,
+                    height: _amountRowHeight,
                     child: Row(
                       children: [
                         Text(
@@ -926,7 +941,8 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
                     ),
                   ),
                   SizedBox(
-                    height: XpSpacing.l,
+                    // 换算行收窄（16→8），把空间让给数字键。
+                    height: XpSpacing.s,
                     child: Align(
                       alignment: Alignment.centerRight,
                       child: Text(
@@ -953,9 +969,9 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
                 child: Column(
                   children: [
                     for (final row in [
-                      ['7', '8', '9'],
-                      ['4', '5', '6'],
                       ['1', '2', '3'],
+                      ['4', '5', '6'],
+                      ['7', '8', '9'],
                       ['.', '0', '00'],
                     ])
                       Row(
@@ -1011,7 +1027,11 @@ class _KeyButton extends StatelessWidget {
     return SizedBox(
       height: _keyHeight,
       child: Padding(
-        padding: const EdgeInsets.all(XpSpacing.xs),
+        // 竖向内边距收窄（4→2），把高度让给键面本身，数字键更好点按。
+        padding: const EdgeInsets.symmetric(
+          horizontal: XpSpacing.xs,
+          vertical: 2,
+        ),
         child: OutlinedButton(
           onPressed: onTap,
           style: OutlinedButton.styleFrom(
