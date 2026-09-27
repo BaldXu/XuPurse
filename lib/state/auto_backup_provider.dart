@@ -3,13 +3,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/backup/auto_backup_service.dart';
 
-/// 定时备份 UI 状态（开关 / 上次时间 / 是否已设加密密码 / 保存目录）。
+/// 定时备份 UI 状态（任务开关 / 上次时间 / 加密密码 / 保存目录 / 备份内容）。
 class AutoBackupState {
   const AutoBackupState({
     required this.enabled,
     this.lastAt,
     this.hasPassword = false,
     this.dir,
+    this.includeSettings = true,
   });
 
   final bool enabled;
@@ -23,17 +24,22 @@ class AutoBackupState {
   /// 已配置的保存目录（IO：路径；Web：目录名）；null = 默认位置。
   final String? dir;
 
+  /// 备份内容是否包含应用设置。
+  final bool includeSettings;
+
   AutoBackupState copyWith({
     bool? enabled,
     int? lastAt,
     bool? hasPassword,
     String? dir,
+    bool? includeSettings,
   }) {
     return AutoBackupState(
       enabled: enabled ?? this.enabled,
       lastAt: lastAt ?? this.lastAt,
       hasPassword: hasPassword ?? this.hasPassword,
       dir: dir ?? this.dir,
+      includeSettings: includeSettings ?? this.includeSettings,
     );
   }
 }
@@ -60,6 +66,7 @@ class AutoBackupNotifier extends Notifier<AutoBackupState> {
       lastAt: p?.getInt(AutoBackupService.kLastAt),
       hasPassword: (p?.getString(AutoBackupService.kPassword) ?? '').isNotEmpty,
       dir: p?.getString(AutoBackupService.kDir),
+      includeSettings: p?.getBool(AutoBackupService.kIncludeSettings) ?? true,
     );
   }
 
@@ -73,6 +80,15 @@ class AutoBackupNotifier extends Notifier<AutoBackupState> {
     } else {
       await prefs.setString(AutoBackupService.kDir, dir);
     }
+  }
+
+  /// 保存定时备份任务：启用（enabled=true）并持久化备份内容选择。
+  Future<void> saveTask({required bool includeSettings}) async {
+    state = state.copyWith(enabled: true, includeSettings: includeSettings);
+    final prefs = await SharedPreferences.getInstance();
+    _prefsCache = prefs;
+    await prefs.setBool(AutoBackupService.kEnabled, true);
+    await prefs.setBool(AutoBackupService.kIncludeSettings, includeSettings);
   }
 
   Future<void> setEnabled(bool value) async {

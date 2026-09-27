@@ -20,6 +20,7 @@ import '../../state/providers.dart';
 import '../../state/theme_provider.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
+import '../widgets/long_press_delete_button.dart';
 import '../widgets/restore_dialogs.dart';
 import '../widgets/xp_card.dart';
 import '../widgets/xp_param_row.dart';
@@ -115,8 +116,8 @@ class _BackupPageState extends ConsumerState<BackupPage>
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : TextButton(
-                      onPressed: _onAutoBackupNow,
-                      child: const Text('立即备份'),
+                      onPressed: _onAutoSaveTask,
+                      child: const Text('保存定时备份任务'),
                     ),
             ),
           ),
@@ -201,12 +202,73 @@ class _BackupPageState extends ConsumerState<BackupPage>
   List<Widget> _buildAutoBody(ColorScheme scheme, AutoBackupState auto) {
     return [
       Text(
-        '定时备份开启后，每次打开 App 会自动检查：距上次自动备份超过 '
-        '24 小时，就自动备份一份。',
+        '保存定时备份任务后生效：每次打开 App 会自动检查，距上次自动备份 '
+        '超过 24 小时就自动备份一份。',
         style: Theme.of(
           context,
         ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
       ),
+      if (auto.enabled) ...[
+        const SizedBox(height: XpSpacing.xl),
+        const _SectionLabel('当前定时任务'),
+        XpCard(
+          padding: EdgeInsets.zero,
+          clipBehavior: Clip.antiAlias,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              XpSpacing.l,
+              XpSpacing.s,
+              XpSpacing.l,
+              XpSpacing.s,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _InfoRow(
+                  label: '下次自动备份',
+                  value: auto.lastAt == null
+                      ? '首次启动后自动检查'
+                      : _fmtTime(
+                          auto.lastAt! +
+                              AutoBackupService.interval.inMilliseconds,
+                        ),
+                ),
+                _InfoRow(
+                  label: '上次自动备份',
+                  value: auto.lastAt == null ? '尚未备份' : _fmtTime(auto.lastAt!),
+                ),
+                _InfoRow(
+                  label: '加密',
+                  value: auto.hasPassword ? '已加密（密码保存在本机）' : '明文（未加密）',
+                ),
+                _InfoRow(
+                  label: '保存位置',
+                  value: auto.dir ?? (kIsWeb ? '浏览器私有文件系统（OPFS）' : '应用文档目录'),
+                ),
+                _InfoRow(
+                  label: '备份内容',
+                  value: auto.includeSettings ? '数据库 + 应用设置' : '仅数据库',
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: _onDeleteAutoTask,
+                    icon: Icon(
+                      Icons.delete_outline,
+                      size: 18,
+                      color: scheme.error,
+                    ),
+                    label: Text(
+                      '删除定时任务',
+                      style: TextStyle(color: scheme.error),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
       const SizedBox(height: XpSpacing.xl),
       const _SectionLabel('备份内容'),
       _buildContentCard(),
@@ -380,46 +442,11 @@ class _BackupPageState extends ConsumerState<BackupPage>
 
   // ---------- 模式切换 ----------
 
-  /// 切换手动 / 定时：二选一。切到定时 = 启用（首次弹解释确认）；
-  /// 切回手动 = 停用（已启用时确认）。
-  Future<void> _onModeChanged(_BackupMode mode) async {
+  /// 切换手动 / 定时视图。定时任务的创建 / 删除由
+  /// 「保存定时备份任务」和「删除定时任务」按钮控制，切 tab 不影响任务。
+  void _onModeChanged(_BackupMode mode) {
     if (mode == _mode) return;
-    if (mode == _BackupMode.auto) {
-      final auto = ref.read(autoBackupProvider);
-      if (!auto.enabled) {
-        final ok = await confirmXpDialog(
-          context,
-          title: '启用定时备份？',
-          content:
-              '开启后，每次打开 App 会自动检查一次：距上次自动备份超过 '
-              '24 小时，就自动备份一份。\n\n'
-              '文件固定保存在应用文档目录（网页版保存在浏览器本地），'
-              '自动覆盖上一次定时备份文件，不影响手动备份文件。\n\n'
-              '备份内容默认明文保存，可返回本页开启「加密备份」。',
-          confirmLabel: '启用',
-        );
-        if (!ok || !mounted) return;
-        await ref.read(autoBackupProvider.notifier).setEnabled(true);
-      }
-      if (!mounted) return;
-      setState(() => _mode = _BackupMode.auto);
-    } else {
-      final auto = ref.read(autoBackupProvider);
-      if (auto.enabled) {
-        final ok = await confirmXpDialog(
-          context,
-          title: '切换到手动备份？',
-          content:
-              '切换后将关闭定时备份（不再自动备份）。'
-              '已产生的定时备份文件仍保留，可随时恢复。',
-          confirmLabel: '切换',
-        );
-        if (!ok || !mounted) return;
-        await ref.read(autoBackupProvider.notifier).setEnabled(false);
-      }
-      if (!mounted) return;
-      setState(() => _mode = _BackupMode.manual);
-    }
+    setState(() => _mode = mode);
   }
 
   // ---------- 定时备份动作 ----------
@@ -509,24 +536,81 @@ class _BackupPageState extends ConsumerState<BackupPage>
     }
   }
 
-  /// 立即执行一次定时备份（右上角按钮：方便验证，不必等 24 小时）。
-  Future<void> _onAutoBackupNow() async {
-    setState(() => _autoBacking = true);
-    try {
-      final mgr = ref.read(databaseManagerProvider);
-      final info = await AutoBackupService(
-        mgr,
-      ).run(includeSettings: _includeSettings);
-      ref.invalidate(autoBackupProvider);
-      if (!mounted) return;
-      showXpSnack(context, '定时备份完成：$info');
-    } catch (e) {
-      if (!mounted) return;
-      showXpSnack(context, '定时备份失败：$e', error: true);
-    } finally {
-      if (mounted) setState(() => _autoBacking = false);
+  /// 保存定时备份任务（右上角按钮）：无任务 → 创建（首次解释）；
+  /// 已有任务 → 提示覆盖，确认后覆盖（任务保持唯一）。
+  Future<void> _onAutoSaveTask() async {
+    final auto = ref.read(autoBackupProvider);
+    if (auto.enabled) {
+      final ok = await confirmXpDialog(
+        context,
+        title: '覆盖定时备份任务？',
+        content:
+            '已有一个正在执行的定时备份任务，保存新设置将覆盖它'
+            '（定时备份任务始终只有一个）。\n\n'
+            '任务生效后，每次打开 App 会自动检查：距上次自动备份超过 '
+            '24 小时就自动备份一份。',
+        confirmLabel: '覆盖保存',
+      );
+      if (!ok || !mounted) return;
+    } else {
+      final ok = await confirmXpDialog(
+        context,
+        title: '保存定时备份任务？',
+        content:
+            '保存后定时备份任务即生效：每次打开 App 会自动检查，'
+            '距上次自动备份超过 24 小时就自动备份一份。\n\n'
+            '文件自动保存到固定位置（可配置），只覆盖上一次定时备份文件，'
+            '不影响手动备份。${auto.hasPassword ? '' : '\n\n当前未加密，建议开启「加密备份」防止文件泄露。'}',
+        confirmLabel: '保存任务',
+      );
+      if (!ok || !mounted) return;
     }
+    await ref
+        .read(autoBackupProvider.notifier)
+        .saveTask(includeSettings: _includeSettings);
+    if (!mounted) return;
+    showXpSnack(context, auto.enabled ? '定时备份任务已覆盖保存' : '定时备份任务已创建');
   }
+
+  /// 删除定时备份任务：确认弹窗内长按 3 秒才真正删除。
+  Future<void> _onDeleteAutoTask() async {
+    final confirmed = await showXpDialog<bool>(
+      context: context,
+      title: '删除定时备份任务？',
+      contentWidget: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '删除后定时备份将停止，不再自动备份。'
+            '已产生的定时备份文件仍保留，可随时恢复。',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: XpSpacing.m),
+          LongPressDeleteButton(
+            seconds: 3,
+            onConfirmed: () => Navigator.pop(context, true),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+      ],
+    );
+    if (confirmed != true || !mounted) return;
+    await ref.read(autoBackupProvider.notifier).setEnabled(false);
+    if (!mounted) return;
+    showXpSnack(context, '已删除定时备份任务');
+  }
+
+  String _fmtTime(int ms) => DateFormat(
+    'yyyy-MM-dd HH:mm',
+  ).format(DateTime.fromMillisecondsSinceEpoch(ms));
 
   /// 从定时备份恢复：读固定文件 →（加密则输密码，可无限重试）→
   /// 选覆盖/追加 → 执行 → 刷新数据源。
@@ -816,6 +900,38 @@ class _SectionLabel extends StatelessWidget {
             context,
           ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
         ),
+      ),
+    );
+  }
+}
+
+/// 任务信息行：标签 + 值（当前定时任务卡用）。
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 96,
+            child: Text(
+              label,
+              style: textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Expanded(child: Text(value, style: textTheme.bodySmall)),
+        ],
       ),
     );
   }

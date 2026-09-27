@@ -28,6 +28,9 @@ class AutoBackupService {
   /// 定时备份保存目录（IO：路径；Web：目录名；空 = 默认位置）。
   static const String kDir = 'auto_backup_dir';
 
+  /// 定时备份备份内容（是否包含应用设置）。
+  static const String kIncludeSettings = 'auto_backup_include_settings';
+
   /// 自动备份间隔：超过 24 小时才触发下一次。
   static const Duration interval = Duration(hours: 24);
 
@@ -46,11 +49,12 @@ class AutoBackupService {
   }
 
   /// 立即执行一次定时备份（加密按记忆密码）。成功更新时间戳并返回展示文案。
-  /// [includeSettings] 透传备份内容选择（应用设置是否包含）。
-  Future<String> run({bool includeSettings = true}) async {
+  /// 备份内容/加密/保存位置均取任务保存时的配置。
+  Future<String> run() async {
     final prefs = await SharedPreferences.getInstance();
     final password = prefs.getString(kPassword);
     final dir = prefs.getString(kDir);
+    final includeSettings = prefs.getBool(kIncludeSettings) ?? true;
     final json = await BackupService(_mgr).exportAll(
       password: (password == null || password.isEmpty) ? null : password,
       includeSettings: includeSettings,
