@@ -49,7 +49,8 @@ class BackupEncryption {
         );
 
   /// 密码最小长度（KDF 已足够慢，弱口令靠长度兜底一部分字典风险）。
-  static const int minPasswordLength = 8;
+  /// 2026-09-26 起按用户要求放宽到 4 位（仍建议更长）。
+  static const int minPasswordLength = 4;
 
   /// 校验密码是否可用（长度下限），返回错误文案；通过返回 null。
   static String? validatePassword(String password) {

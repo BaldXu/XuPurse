@@ -88,7 +88,7 @@ class _EncryptionHelpPageState extends State<EncryptionHelpPage>
             icon: Icons.tips_and_updates_outlined,
             title: '使用建议',
             points: [
-              '密码至少 8 位，建议 12 位以上并混合大小写字母、数字和符号',
+              '密码至少 4 位，建议 8 位以上并混合大小写字母、数字和符号',
               '建议用密码管理器保存密码；不要与银行卡、支付密码等混用',
             ],
           ),

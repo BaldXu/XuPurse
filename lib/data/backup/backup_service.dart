@@ -26,13 +26,17 @@ class BackupService {
 
   /// 导出全量备份。返回待写入文件的 JSON 字符串；
   /// [password] 非空时加密为信封格式。
-  Future<String> exportAll({String? password}) async {
+  /// [includeSettings] 为 false 时省略应用设置段（备份内容选择场景）。
+  Future<String> exportAll({
+    String? password,
+    bool includeSettings = true,
+  }) async {
     final books = await _mgr.listBooks();
     final payload = <String, Object?>{
       'format': BackupEncryption.formatName,
       'version': BackupEncryption.formatVersion,
       'exportedAt': DateTime.now().toIso8601String(),
-      'settings': await _exportSettings(),
+      if (includeSettings) 'settings': await _exportSettings(),
       'books': [
         for (final book in books)
           {...book.toJson(), 'data': await _exportBookTables(book.id)},
@@ -47,10 +51,18 @@ class BackupService {
 
   /// 应用设置快照：SharedPreferences 全量键值（主题/磨砂/图标包/默认账户/
   /// 汇率覆盖/AI 配置等全部偏好；值均为 JSON 可编码类型）。
+  ///
+  /// 排除定时备份相关键（`auto_backup_` 前缀）：其中含加密密码明文，
+  /// 绝不能随备份文件外泄；还有旧版本遗留的大体积定时备份 JSON、目录
+  /// 配置等，一并保持本地隔离，避免随备份导出或恢复后状态错乱。
+  static bool _isExcludedSettingKey(String key) =>
+      key.startsWith('auto_backup_');
+
   static Future<Map<String, Object?>> _exportSettings() async {
     final prefs = await SharedPreferences.getInstance();
     return {
-      for (final key in prefs.getKeys()) key: prefs.get(key),
+      for (final key in prefs.getKeys())
+        if (!_isExcludedSettingKey(key)) key: prefs.get(key),
     };
   }
 

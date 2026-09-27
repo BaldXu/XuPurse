@@ -1,11 +1,15 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'data/backup/auto_backup_service.dart';
 import 'data/database/database_manager.dart';
 import 'domain/ai/ai_config.dart';
 import 'domain/ai/ai_scope.dart';
 import 'domain/ai/ai_service.dart';
 import 'domain/services/currency_service.dart';
+import 'state/auto_backup_provider.dart';
 import 'state/default_account_provider.dart';
 import 'state/providers.dart';
 import 'state/icon_pack_provider.dart';
@@ -29,6 +33,7 @@ Future<void> main() async {
   await AiConfigNotifier.init();
   await AiScopeNotifier.init();
   await AiChatNotifier.init();
+  await AutoBackupNotifier.init();
 
   // 初始化数据库管理器：打开全局库 → 无账本则创建默认账本 → 打开第一个账本
   final manager = DatabaseManager();
@@ -45,6 +50,9 @@ Future<void> main() async {
       child: const XuPurseApp(),
     ),
   );
+
+  // 定时备份检查：不阻塞首帧；失败静默（下次启动重试）。
+  unawaited(AutoBackupService(manager).maybeRun());
 }
 
 class XuPurseApp extends ConsumerWidget {
