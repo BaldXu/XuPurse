@@ -413,7 +413,7 @@ class _RoundAction extends StatelessWidget {
             padding: EdgeInsets.zero,
             iconSize: 20,
             tooltip: tooltip,
-            icon: Icon(icon, color: scheme.primary),
+            icon: AppIcon(icon: icon, size: 20, color: scheme.primary),
             onPressed: onPressed,
           ),
         ),

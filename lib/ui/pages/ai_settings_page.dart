@@ -6,6 +6,7 @@ import '../../domain/ai/ai_service.dart';
 import '../layout/breakpoints.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
+import '../widgets/app_icon.dart';
 import '../widgets/xp_button.dart';
 import '../widgets/xp_card.dart';
 import '../widgets/xp_empty_state.dart';
@@ -158,7 +159,7 @@ class _HelpEntry extends StatelessWidget {
       padding: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       child: ListTile(
-        leading: Icon(Icons.help_outline, color: scheme.primary),
+        leading: AppIcon(icon: Icons.help_outline, color: scheme.primary),
         title: const Text('配置AI有什么用？'),
         trailing: const Icon(Icons.chevron_right),
         onTap: onTap,
@@ -469,7 +470,7 @@ class _AiConfigEditPageState extends ConsumerState<_AiConfigEditPage>
                           height: XpSpacing.l,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.network_check),
+                      : const AppIcon(icon: Icons.network_check),
                   child: const Text('测试连接'),
                 ),
                 const Spacer(),

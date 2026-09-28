@@ -142,8 +142,8 @@ class _DataManagePageState extends ConsumerState<DataManagePage>
               context,
             ).colorScheme.errorContainer.withValues(alpha: 0.4),
             child: ListTile(
-              leading: Icon(
-                Icons.delete_forever_outlined,
+              leading: AppIcon(
+                icon: Icons.delete_forever_outlined,
                 color: Theme.of(context).colorScheme.error,
               ),
               title: Text(

@@ -168,7 +168,7 @@ class _AccountManagePageState extends ConsumerState<AccountManagePage>
                         onPressed: _busy || _selected.length < 2
                             ? null
                             : _merge,
-                        icon: const Icon(Icons.merge_type),
+                        icon: const AppIcon(icon: Icons.merge_type),
                         label: Text('合并（${_selected.length}）'),
                       ),
                     ),

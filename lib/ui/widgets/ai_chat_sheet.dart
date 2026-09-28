@@ -320,7 +320,7 @@ class _AiChatSheetState extends ConsumerState<_AiChatSheet> {
               // 数据范围设置入口：跳转「AI 数据范围设置」页（控制给 AI 的摘要范围）
               IconButton(
                 tooltip: '数据范围设置',
-                icon: const Icon(Icons.tune, size: 22),
+                icon: const AppIcon(icon: Icons.tune, size: 22),
                 onPressed: () {
                   Navigator.of(
                     context,

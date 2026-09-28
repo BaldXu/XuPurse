@@ -147,7 +147,7 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage>
             Expanded(
               child: FilledButton.tonalIcon(
                 onPressed: () => AdjustSheet.show(context, current),
-                icon: const Icon(Icons.tune),
+                icon: const AppIcon(icon: Icons.tune),
                 label: const Text('调账'),
               ),
             ),

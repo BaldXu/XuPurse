@@ -376,7 +376,7 @@ class _ImportPreviewSheetState extends ConsumerState<_ImportPreviewSheet> {
                   ButtonSegment(
                     value: ImportMode.overwrite,
                     label: Text('覆盖已有'),
-                    icon: Icon(Icons.sync, size: 18),
+                    icon: AppIcon(icon: Icons.sync, size: 18),
                   ),
                   ButtonSegment(
                     value: ImportMode.incremental,
@@ -437,7 +437,7 @@ class _ImportPreviewSheetState extends ConsumerState<_ImportPreviewSheet> {
                         c.sourceId: c.targetId,
                   },
                 )),
-                icon: const Icon(Icons.download_done),
+                icon: const AppIcon(icon: Icons.download_done),
                 label: Text(_mode == ImportMode.overwrite ? '确认导入' : '增量导入'),
                 style: FilledButton.styleFrom(
                   minimumSize: const Size.fromHeight(48),

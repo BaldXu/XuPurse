@@ -20,6 +20,7 @@ import '../../state/providers.dart';
 import '../../state/theme_provider.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
+import '../widgets/app_icon.dart';
 import '../widgets/long_press_delete_button.dart';
 import '../widgets/restore_dialogs.dart';
 import '../widgets/xp_card.dart';
@@ -166,8 +167,8 @@ class _BackupPageState extends ConsumerState<BackupPage>
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                icon: Icon(
-                  Icons.info_outline,
+                icon: AppIcon(
+                  icon: Icons.info_outline,
                   size: 20,
                   color: scheme.onSurfaceVariant,
                 ),
@@ -289,8 +290,8 @@ class _BackupPageState extends ConsumerState<BackupPage>
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                icon: Icon(
-                  Icons.info_outline,
+                icon: AppIcon(
+                  icon: Icons.info_outline,
                   size: 20,
                   color: scheme.onSurfaceVariant,
                 ),
@@ -366,7 +367,11 @@ class _BackupPageState extends ConsumerState<BackupPage>
             children: [
               Row(
                 children: [
-                  Icon(Icons.info_outline, size: 20, color: scheme.primary),
+                  AppIcon(
+                    icon: Icons.info_outline,
+                    size: 20,
+                    color: scheme.primary,
+                  ),
                   const SizedBox(width: XpSpacing.s),
                   Text(
                     '定时备份是怎么运作的？',

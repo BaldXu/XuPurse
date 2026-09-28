@@ -767,7 +767,11 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
             border: Border.all(color: scheme.outlineVariant),
           ),
           child: isDefault
-              ? Icon(Icons.auto_awesome, size: 13, color: scheme.outline)
+              ? AppIcon(
+                  icon: Icons.auto_awesome,
+                  size: 13,
+                  color: scheme.outline,
+                )
               : null,
         ),
       ),
@@ -780,13 +784,13 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
           if (enabled && onReset != null && color != null)
             IconButton(
               tooltip: '恢复默认',
-              icon: const Icon(Icons.restart_alt, size: 20),
+              icon: const AppIcon(icon: Icons.restart_alt, size: 20),
               onPressed: onReset,
             ),
           if (enabled)
             const Icon(Icons.chevron_right, size: 20)
           else
-            Icon(Icons.lock_outline, size: 16, color: scheme.outline),
+            AppIcon(icon: Icons.lock_outline, size: 16, color: scheme.outline),
         ],
       ),
       onTap: onPick,
@@ -897,7 +901,7 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
                     if (theme.cardRadius != null)
                       IconButton(
                         tooltip: '恢复默认',
-                        icon: const Icon(Icons.restart_alt, size: 20),
+                        icon: const AppIcon(icon: Icons.restart_alt, size: 20),
                         onPressed: preset
                             ? null
                             : () => notifier.updateCurrentThemeSilent(
@@ -1010,7 +1014,7 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
           ListTile(
             enabled: !preset,
             contentPadding: const EdgeInsets.symmetric(horizontal: XpSpacing.l),
-            leading: Icon(Icons.blur_on, color: scheme.primary),
+            leading: AppIcon(icon: Icons.blur_on, color: scheme.primary),
             title: const Text('磨砂玻璃'),
             subtitle: const Text('总开关，关闭后以下三项均不生效'),
             trailing: Switch(
@@ -1022,7 +1026,7 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
           ListTile(
             enabled: !preset,
             contentPadding: const EdgeInsets.symmetric(horizontal: XpSpacing.l),
-            leading: Icon(Icons.vertical_split, color: scheme.primary),
+            leading: AppIcon(icon: Icons.vertical_split, color: scheme.primary),
             title: const Text('标题栏/导航栏磨砂'),
             trailing: Switch(
               value: frosted.appBar,
@@ -1038,7 +1042,10 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: XpSpacing.l,
               ),
-              leading: Icon(Icons.style_outlined, color: scheme.primary),
+              leading: AppIcon(
+                icon: Icons.style_outlined,
+                color: scheme.primary,
+              ),
               title: const Text('卡片磨砂'),
               subtitle: const Text('卡片表面白色磨砂（σ10 · 透明度 0.55）'),
               trailing: Switch(
@@ -1051,7 +1058,10 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
           ListTile(
             enabled: !preset,
             contentPadding: const EdgeInsets.symmetric(horizontal: XpSpacing.l),
-            leading: Icon(Icons.article_outlined, color: scheme.primary),
+            leading: AppIcon(
+              icon: Icons.article_outlined,
+              color: scheme.primary,
+            ),
             title: const Text('弹窗磨砂'),
             subtitle: const Text('弹窗表面白色磨砂（σ10 · 透明度 0.7）'),
             trailing: Switch(
@@ -1091,8 +1101,8 @@ class _ThemeSettingsPageState extends ConsumerState<ThemeSettingsPage>
           ListTile(
             enabled: !preset,
             contentPadding: const EdgeInsets.symmetric(horizontal: XpSpacing.l),
-            leading: Icon(
-              Icons.motion_photos_on_outlined,
+            leading: AppIcon(
+              icon: Icons.motion_photos_on_outlined,
               color: scheme.primary,
             ),
             title: const Text('实时模糊动效'),

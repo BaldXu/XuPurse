@@ -220,7 +220,7 @@ class _RefundList extends ConsumerWidget {
           itemBuilder: (context, i) {
             final r = items[i];
             return ListTile(
-              leading: const Icon(Icons.replay),
+              leading: const AppIcon(icon: Icons.replay),
               title: Text('退款 ${formatYuan(r.amount)}'),
               subtitle: Text(
                 '关联账单 '

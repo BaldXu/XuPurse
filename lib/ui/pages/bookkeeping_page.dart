@@ -611,8 +611,8 @@ class _BookkeepingPageState extends ConsumerState<BookkeepingPage>
               children: [
                 Row(
                   children: [
-                    Icon(
-                      Icons.keyboard_alt_outlined,
+                    AppIcon(
+                      icon: Icons.keyboard_alt_outlined,
                       size: 16,
                       color: scheme.onSurfaceVariant,
                     ),
@@ -1212,7 +1212,7 @@ class _AmountFabState extends State<_AmountFab> {
                   tooltip: '输入金额',
                   heroTag: 'bookkeeping_amount_fab',
                   onPressed: widget.onPressed,
-                  child: const Icon(Icons.keyboard_alt_outlined),
+                  child: const AppIcon(icon: Icons.keyboard_alt_outlined),
                 ),
               ),
             ),
