@@ -13,7 +13,6 @@ import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/currency_meta.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/app_icon.dart';
-import '../widgets/bill_tile.dart' show kExpenseColor, kIncomeColor;
 import '../widgets/xp_card.dart';
 import '../widgets/xp_param_row.dart';
 import '../widgets/xp_picker_sheet.dart';
@@ -599,7 +598,6 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
       if (c.type != type.name || c.parentId == null) continue;
       childrenOf.putIfAbsent(c.parentId!, () => []).add(c);
     }
-    final accent = _type == BillType.expense ? kExpenseColor : kIncomeColor;
     // 逐行构建分类网格：点击带子分类的一级分类后，展开区紧贴该行下方
     // 「裂开」插入（AnimatedSize 平滑撑开），子分类以同列数网格呈现。
     final rows = <Widget>[];
@@ -619,7 +617,6 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
                   child: _CategoryCell(
                     category: c,
                     selected: _parentId == c.id,
-                    accent: accent,
                     onTap: () => setState(() {
                       _parentId = c.id;
                       final subs = childrenOf[c.id] ?? const [];
@@ -636,7 +633,7 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
       );
       final subs = childrenOf[_parentId] ?? const [];
       if (subs.isNotEmpty && rowParents.any((c) => c.id == _parentId)) {
-        rows.add(_buildSubCategoryPanel(subs, accent));
+        rows.add(_buildSubCategoryPanel(subs));
       }
     }
     return Padding(
@@ -649,7 +646,7 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
   }
 
   /// 二级分类展开区：紧贴选中行下方插入，5 列网格 + 首项「全部」。
-  Widget _buildSubCategoryPanel(List<Category> subs, Color accent) {
+  Widget _buildSubCategoryPanel(List<Category> subs) {
     return AnimatedSize(
       duration: XpMotion.component,
       curve: XpMotion.easeOut,
@@ -659,7 +656,8 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
         child: Container(
           padding: const EdgeInsets.all(XpSpacing.m),
           decoration: BoxDecoration(
-            color: accent.withValues(alpha: 0.06),
+            // 底色跟随页面背景，避免用收支语义色渲出一块固定的红/绿色底。
+            color: Theme.of(context).scaffoldBackgroundColor,
             borderRadius: BorderRadius.circular(XpRadius.s),
           ),
           child: GridView.builder(
@@ -678,7 +676,6 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
                   icon: Icons.all_inclusive,
                   label: '全部',
                   selected: _subId == null || _subId == _parentId,
-                  accent: accent,
                   onTap: () => setState(() => _subId = _parentId),
                 );
               }
@@ -687,7 +684,6 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
                 iconName: sub.icon,
                 label: sub.name,
                 selected: _subId == sub.id,
-                accent: accent,
                 onTap: () => setState(() => _subId = sub.id),
               );
             },
@@ -1050,13 +1046,11 @@ class _CategoryCell extends StatelessWidget {
   const _CategoryCell({
     required this.category,
     required this.selected,
-    required this.accent,
     required this.onTap,
   });
 
   final Category category;
   final bool selected;
-  final Color accent;
   final VoidCallback onTap;
 
   @override
@@ -1065,7 +1059,6 @@ class _CategoryCell extends StatelessWidget {
       iconName: category.icon,
       label: category.name,
       selected: selected,
-      accent: accent,
       onTap: onTap,
     );
   }
@@ -1076,7 +1069,6 @@ class _SubCategoryCell extends StatelessWidget {
   const _SubCategoryCell({
     required this.label,
     required this.selected,
-    required this.accent,
     required this.onTap,
     this.iconName,
     this.icon,
@@ -1086,7 +1078,6 @@ class _SubCategoryCell extends StatelessWidget {
   final IconData? icon;
   final String label;
   final bool selected;
-  final Color accent;
   final VoidCallback onTap;
 
   @override
@@ -1096,18 +1087,16 @@ class _SubCategoryCell extends StatelessWidget {
       iconData: icon,
       label: label,
       selected: selected,
-      accent: accent,
       onTap: onTap,
     );
   }
 }
 
-/// 分类单元格公共视图：圆形图标 + 名称，选中态主题色描边。
+/// 分类单元格公共视图：圆形图标 + 名称，选中态用主题色描边。
 class _CategoryCellView extends StatelessWidget {
   const _CategoryCellView({
     required this.label,
     required this.selected,
-    required this.accent,
     required this.onTap,
     this.iconName,
     this.iconData,
@@ -1117,14 +1106,14 @@ class _CategoryCellView extends StatelessWidget {
   final IconData? iconData;
   final String label;
   final bool selected;
-  final Color accent;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final color = selected
-        ? accent
-        : Theme.of(context).colorScheme.onSurfaceVariant;
+    final scheme = Theme.of(context).colorScheme;
+    // 选中态统一跟随主题色（不再用收支语义色，否则看起来像固定红/绿）。
+    final selectedColor = scheme.primary;
+    final color = selected ? selectedColor : scheme.onSurfaceVariant;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(XpRadius.c),
@@ -1134,11 +1123,11 @@ class _CategoryCellView extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(XpSpacing.s),
             decoration: BoxDecoration(
-              color: selected ? accent.withValues(alpha: 0.18) : null,
+              color: selected ? selectedColor.withValues(alpha: 0.18) : null,
               shape: BoxShape.circle,
               // 选中态:主题色描边强化,与主题色图标呼应
               border: selected
-                  ? Border.all(color: accent, width: _cellBorderWidth)
+                  ? Border.all(color: selectedColor, width: _cellBorderWidth)
                   : null,
             ),
             // name 为空（分类未配置图标）或 icon 为空（无）时由 AppIcon
@@ -1156,7 +1145,7 @@ class _CategoryCellView extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: XpTextStyles.caption.copyWith(
-              color: selected ? accent : null,
+              color: selected ? selectedColor : null,
               fontWeight: selected ? FontWeight.w600 : null,
             ),
           ),
