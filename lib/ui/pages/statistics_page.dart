@@ -9,7 +9,6 @@ import '../widgets/ai_chat_sheet.dart';
 import '../widgets/app_icon.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_skeleton.dart';
-import '../widgets/xp_sliding_segmented.dart';
 import 'statistics/stats_budget_section.dart';
 import 'statistics/stats_category_section.dart';
 import 'statistics/stats_overview_section.dart';
@@ -19,7 +18,7 @@ import 'statistics/stats_trend_section.dart';
 
 export 'statistics/stats_shared.dart' show statsDataVersionProvider;
 
-/// 统计页：侧边栏分区（宽屏 NavigationRail / 窄屏横向 Tab）+ 日期范围下拉。
+/// 统计页：顶部 TabBar 分区（点击 Tab 或左右滑动切换）+ 日期范围下拉。
 ///
 /// 分区：
 /// - 总览：收支汇总 KPI + 环比 + 日均
@@ -36,30 +35,29 @@ class StatisticsPage extends ConsumerStatefulWidget {
   ConsumerState<StatisticsPage> createState() => _StatisticsPageState();
 }
 
-/// 侧边栏分区。
+/// 分区（顺序即 TabBar 顺序）。
 enum _Section {
-  overview('总览', Icons.grid_view_outlined, Icons.grid_view_rounded),
-  category('分类', Icons.pie_chart_outline, Icons.pie_chart),
-  trend('趋势', Icons.bar_chart_outlined, Icons.bar_chart),
-  budget('预算', Icons.savings_outlined, Icons.savings),
-  tag('标签', Icons.label_outline, Icons.label_rounded);
+  overview('总览'),
+  category('分类'),
+  trend('趋势'),
+  budget('预算'),
+  tag('标签');
 
-  const _Section(this.label, this.icon, this.selectedIcon);
+  const _Section(this.label);
 
   final String label;
-  final IconData icon;
-  final IconData selectedIcon;
 }
 
 class _StatisticsPageState extends ConsumerState<StatisticsPage>
-    with XpPageScaffold {
-  // 二级分区 rail 须贴一级导航栏：壳层默认 720 限宽居中会把整块 body
-  // （含 rail）推到屏幕中间，rail 与一级导航栏之间空出大段灰底。
-  // 覆写为不限宽；分区内容自身已有 ContentWidthBox(960) 兜底居中。
+    with XpPageScaffold, SingleTickerProviderStateMixin {
+  // 分区内容自身已有 ContentWidthBox(960) 兜底居中；壳层不再限宽，
+  // 避免顶部 TabBar 被 720 限宽推到屏幕中间。
   @override
   double get xpMaxWidth => double.infinity;
 
-  _Section _section = _Section.overview;
+  /// 分区 Tab 控制器（点击 Tab 与左右滑动切换共用同一实例）。
+  late final TabController _tabController;
+
   StatsRangePreset _preset = StatsRangePreset.thisMonth;
   DateTimeRange? _customRange;
 
@@ -69,7 +67,14 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage>
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: _Section.values.length, vsync: this);
     _loadEarliest();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadEarliest() async {
@@ -142,11 +147,6 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage>
     setState(() => _readySections.add(k));
   }
 
-  void _select(_Section s) {
-    if (s == _section) return;
-    setState(() => _section = s);
-  }
-
   /// 下拉按钮上显示的范围名。
   String get _rangeLabel {
     if (_preset != StatsRangePreset.custom) return _preset.label;
@@ -200,7 +200,7 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage>
       appBar: AppBar(
         title: const Text('统计'),
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(72),
+          preferredSize: const Size.fromHeight(120),
           child: Column(
             children: [
               _RangeDropdown(
@@ -224,97 +224,53 @@ class _StatisticsPageState extends ConsumerState<StatisticsPage>
                 ),
               ),
               const SizedBox(height: XpSpacing.s),
+              // 分区 TabBar：点击切页；与下方 TabBarView 共用 controller，
+              // 左右滑动 TabBarView 时指示器也会同步。
+              TabBar(
+                controller: _tabController,
+                tabs: [for (final s in _Section.values) Tab(text: s.label)],
+              ),
             ],
           ),
         ),
       ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final wide = constraints.maxWidth >= kSectionBreakpoint;
-          final content = wide ? _buildWide(range) : _buildNarrow(range);
-          return Stack(
-            fit: StackFit.expand,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // 顶部 10dp 空白：内容整体下移，与 AppBar 拉开一点距离。
+          Column(
             children: [
-              // 顶部 10dp 空白：内容整体下移，与 AppBar 拉开一点距离。
-              Column(
-                children: [
-                  const SizedBox(height: 10),
-                  Expanded(child: content),
-                ],
+              const SizedBox(height: 10),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    for (final s in _Section.values) _buildPage(s, range),
+                  ],
+                ),
               ),
-              // AI 悬浮按钮：默认右侧 30% 高度、可上下拖动，
-              // 每次进入统计页重置位置（见 MainShell 切 tab 处理）。
-              const AiDraggableFab(),
             ],
-          );
-        },
+          ),
+          // AI 悬浮按钮：默认右侧 30% 高度、可上下拖动，
+          // 每次进入统计页重置位置（见 MainShell 切 tab 处理）。
+          const AiDraggableFab(),
+        ],
       ),
     );
   }
 
-  /// 宽屏：左侧 NavigationRail 常驻。
-  Widget _buildWide(({int start, int end}) range) {
-    return Row(
-      children: [
-        NavigationRail(
-          selectedIndex: _section.index,
-          labelType: NavigationRailLabelType.all,
-          onDestinationSelected: (i) => _select(_Section.values[i]),
-          destinations: [
-            for (final s in _Section.values)
-              NavigationRailDestination(
-                icon: AppIcon(icon: s.icon),
-                selectedIcon: AppIcon(icon: s.selectedIcon),
-                label: Text(s.label),
-              ),
-          ],
-        ),
-        const VerticalDivider(width: 1, thickness: 1),
-        Expanded(child: _buildSection(range)),
-      ],
-    );
-  }
-
-  /// 窄屏：顶部横向滑块分区切换（宽屏保留 NavigationRail，桌面习惯更佳）。
-  Widget _buildNarrow(({int start, int end}) range) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            XpSpacing.l,
-            XpSpacing.s,
-            XpSpacing.l,
-            XpSpacing.xs,
-          ),
-          child: XpSlidingSegmented<_Section>(
-            items: [
-              for (final s in _Section.values)
-                XpSegmentedItem(value: s, label: s.label),
-            ],
-            selected: _section,
-            onChanged: _select,
-          ),
-        ),
-        Expanded(child: _buildSection(range)),
-      ],
-    );
-  }
-
-  /// 当前分区内容；用 ValueKey 保证切换范围后重新加载。
+  /// 单个分区页；用 ValueKey 保证切换范围后重新加载。
   /// 未就绪的分区：可见层只显示骨架，分区以不可见(Offstage)方式挂载并触发
   /// 数据查询，onReady 数据就绪后翻转 offstage 让分区可见（同 key 保活，
   /// 直接渲染完整内容，避免首帧构建/数据加载暴露在可见帧上的闪屏）。
-  Widget _buildSection(({int start, int end}) range) {
-    // 捕获本次构建的分区快照：onReady 回调读取它而非 State 字段，
-    // 避免快速连续切 tab 时旧分区的加载完成误标记当前选中的新分区。
-    final target = _section;
-    final key = ValueKey('${target.name}-${range.start}-${range.end}');
-    final ready = _readySections.contains(_sectionKey(target, range));
+  Widget _buildPage(_Section s, ({int start, int end}) range) {
+    final key = ValueKey('${s.name}-${range.start}-${range.end}');
+    final ready = _readySections.contains(_sectionKey(s, range));
     final section = _sectionWidget(
-      target,
+      s,
       range,
       key: key,
-      onReady: () => _markSectionReady(target, range),
+      onReady: () => _markSectionReady(s, range),
     );
     return Stack(
       fit: StackFit.expand,
