@@ -1141,9 +1141,14 @@ class _CategoryCellView extends StatelessWidget {
                   ? Border.all(color: accent, width: _cellBorderWidth)
                   : null,
             ),
-            child: iconName != null
-                ? AppIcon(name: iconName!, size: 24, color: color)
-                : AppIcon(icon: iconData!, size: 24, color: color),
+            // name 为空（分类未配置图标）或 icon 为空（无）时由 AppIcon
+            // 内部兜底，不能对二者做非空断言，否则整格渲染失败。
+            child: AppIcon(
+              name: iconName,
+              icon: iconData,
+              size: 24,
+              color: color,
+            ),
           ),
           const SizedBox(height: XpSpacing.xs),
           Text(

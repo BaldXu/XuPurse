@@ -114,3 +114,7 @@ const Map<String, IconData> iconRegistry = {
 /// 解析语义名为图标；未知名称回退书签图标。
 IconData resolveIcon(String? name) =>
     iconRegistry[name] ?? Icons.bookmark_outline;
+
+/// 分类默认图标：分类未配置图标（icon 为空）时的保底值，
+/// 避免渲染层拿到 null 图标（记账面板分类格会整块变灰且不可点）。
+const String kDefaultCategoryIcon = 'bookmark';

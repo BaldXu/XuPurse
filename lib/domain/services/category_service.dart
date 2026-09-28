@@ -127,6 +127,98 @@ class CategoryService {
     });
   }
 
+  /// 新建分类（删除含明细分类时「当场新建目标分类」复用）。返回新分类 id。
+  ///
+  /// [parentId] 非空时校验父分类存在且与 [type] 同类型。
+  Future<String> createCategory({
+    required BillType type,
+    required String name,
+    required String icon,
+    String? color,
+    String? parentId,
+    int sort = 0,
+  }) async {
+    final nameTrim = name.trim();
+    if (nameTrim.isEmpty) {
+      throw const ValidationException('分类名称不能为空');
+    }
+    if (parentId != null) {
+      final parent = await _categories.getById(parentId);
+      if (parent == null || parent.type != type.name) {
+        throw const ValidationException('父分类不存在或类型不一致');
+      }
+    }
+    final now = nowMs();
+    final id = genId();
+    await _categories.insert(
+      CategoriesCompanion.insert(
+        id: id,
+        type: type.name,
+        name: nameTrim,
+        icon: Value(icon),
+        color: Value(color),
+        parentId: Value(parentId),
+        customName: const Value(true),
+        defaultSelect: const Value(false),
+        sort: Value(sort),
+        seedKey: const Value(null),
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+    return id;
+  }
+
+  /// 删除分类并把它的引用（账单/预算/导入映射）迁移到 [targetCategoryId]。
+  ///
+  /// 用于「分类下还有明细」的删除：不允许明细失去分类归属。要求目标分类
+  /// 存在、与被删分类同类型，且不是被删分类的子分类。单事务执行，任一
+  /// 步失败全部回滚。
+  Future<void> deleteWithReassign({
+    required String categoryId,
+    required String targetCategoryId,
+  }) async {
+    if (categoryId == targetCategoryId) {
+      throw const ValidationException('新分类不能与原分类相同');
+    }
+    final source = await _categories.getById(categoryId);
+    if (source == null) throw NotFoundException('分类不存在: $categoryId');
+    final target = await _categories.getById(targetCategoryId);
+    if (target == null) throw NotFoundException('目标分类不存在: $targetCategoryId');
+    if (target.type != source.type) {
+      throw const ValidationException('只能移动到同类型分类');
+    }
+    if (target.parentId == categoryId) {
+      throw const ValidationException('不能移动到原分类的子分类');
+    }
+    if (await _categories.countChildren(categoryId) > 0) {
+      throw const ValidationException('请先处理该分类下的子分类');
+    }
+
+    await _db.transaction(() async {
+      await _db.customUpdate(
+        'UPDATE bills SET category_id = ? WHERE category_id = ?',
+        variables: [Variable(targetCategoryId), Variable(categoryId)],
+        updates: {_db.bills},
+        updateKind: UpdateKind.update,
+      );
+      await _db.customUpdate(
+        'UPDATE budgets SET category_id = ? WHERE category_id = ?',
+        variables: [Variable(targetCategoryId), Variable(categoryId)],
+        updates: {_db.budgets},
+        updateKind: UpdateKind.update,
+      );
+      await _db.customUpdate(
+        'UPDATE import_mappings SET target_id = ? '
+        "WHERE target_id = ? AND entity_type = 'category'",
+        variables: [Variable(targetCategoryId), Variable(categoryId)],
+        updates: {_db.importMappings},
+        updateKind: UpdateKind.update,
+      );
+      await _categories.delete(categoryId);
+    });
+  }
+
   /// 确定目标分类：已有分类则改名/换图标/换色；否则新建一级分类。
   Future<String> _resolveTarget({
     required BillType type,
