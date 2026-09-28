@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../state/theme_provider.dart';
 import '../tokens/design_tokens.dart';
 import 'xp_button.dart';
+import 'xp_date_range_picker.dart';
 
 /// 统一底部配置弹窗入口。
 ///
@@ -331,8 +332,6 @@ Future<DateTimeRange?> showXpDateRangePicker({
   DateTime? initialDateRangeStart,
   DateTime? initialDateRangeEnd,
   String? helpText,
-  String? cancelText,
-  String? confirmText,
   String? saveText,
 }) {
   return showGeneralDialog<DateTimeRange>(
@@ -342,7 +341,7 @@ Future<DateTimeRange?> showXpDateRangePicker({
     barrierColor: Colors.black54,
     transitionDuration: XpMotion.container,
     transitionBuilder: _xpDialogTransition,
-    pageBuilder: (ctx, _, __) => DateRangePickerDialog(
+    pageBuilder: (ctx, _, __) => XpDateRangePicker(
       firstDate: firstDate,
       lastDate: lastDate,
       initialDateRange:
@@ -353,8 +352,6 @@ Future<DateTimeRange?> showXpDateRangePicker({
             )
           : null,
       helpText: helpText,
-      cancelText: cancelText,
-      confirmText: confirmText,
       saveText: saveText,
     ),
   );
