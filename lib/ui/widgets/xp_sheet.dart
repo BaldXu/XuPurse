@@ -21,11 +21,15 @@ import 'xp_date_range_picker.dart';
 ///   成本不可见）；磨砂只作用于弹窗表面，滑入完成后淡入、开始关闭时
 ///   立即淡出——滑动过程零模糊重算。
 /// - 交互：顶部拖拽手柄可下拉关闭；点击遮罩/返回键同样可关闭。
+/// - 高度自适应：[wrapContent] 为 true 时高度改由内容撑起（忽略
+///   [heightFactor] / [extraHeight]），适用于高度本就固定的轻量弹层
+///   （如自定义数字键盘）。要求内容自带固有高度（不可用 Expanded）。
 Future<T?> showXpSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
   double heightFactor = 0.85,
   double extraHeight = 0,
+  bool wrapContent = false,
   bool isDismissible = true,
   bool showDragHandle = true,
   Duration transitionDuration = XpMotion.component,
@@ -49,6 +53,7 @@ Future<T?> showXpSheet<T>({
       animation: animation,
       heightFactor: heightFactor,
       extraHeight: extraHeight,
+      wrapContent: wrapContent,
       showDragHandle: showDragHandle,
       sheetOn: sheetOn,
       sheetColor: sheetColor,
@@ -64,6 +69,7 @@ class _XpSheet extends StatefulWidget {
     required this.animation,
     required this.heightFactor,
     required this.extraHeight,
+    required this.wrapContent,
     required this.showDragHandle,
     required this.sheetOn,
     required this.sheetColor,
@@ -74,6 +80,10 @@ class _XpSheet extends StatefulWidget {
   final Animation<double> animation;
   final double heightFactor;
   final double extraHeight;
+
+  /// 高度由内容撑起（忽略 [heightFactor] / [extraHeight]）。
+  final bool wrapContent;
+
   final bool showDragHandle;
   final bool sheetOn;
   final Color? sheetColor;
@@ -219,55 +229,79 @@ class _XpSheetState extends State<_XpSheet> with TickerProviderStateMixin {
     return SizedBox(
       key: const ValueKey('xp_sheet_surface'),
       width: double.infinity,
-      height: sheetH,
+      // wrapContent：不设高度，由内容撑出实际高度（背景层用 Positioned.fill 铺满）。
+      height: widget.wrapContent ? null : sheetH,
       child: ClipPath(
         clipper: ShapeBorderClipper(shape: XpRadius.sheetLarge),
         child: Material(
           type: MaterialType.transparency,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // 表面磨砂：只模糊弹窗表面下的底层页面。必须先画模糊再画
-              // 上面的半透明底色（模糊采样不含底色）。淡入后才绘制
-              // （Opacity 0 不绘制）→ 滑入/滑出全程零模糊重算。
-              if (frosted)
-                FadeTransition(
-                  opacity: _frost,
-                  child: IgnorePointer(
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(
-                        sigmaX: _XpSheet.blurSigma,
-                        sigmaY: _XpSheet.blurSigma,
-                      ),
-                      child: const SizedBox.expand(),
+          child: widget.wrapContent
+              ? Stack(
+                  children: [
+                    for (final layer in _background(frosted: frosted, bg: bg))
+                      Positioned.fill(child: layer),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (widget.showDragHandle) _buildDragHandle(theme),
+                        // 内容自带固有高度（不可用 Expanded）。
+                        widget.builder(context),
+                      ],
                     ),
-                  ),
-                ),
-              ColoredBox(color: bg),
-              // 磨砂未到位（滑入中/下拉中）时补白到实面：滑入期是纯白
-              // 实面，到位后随磨砂淡入逐渐「透」出模糊，观感同 iOS sheet。
-              if (frosted)
-                FadeTransition(
-                  opacity: ReverseAnimation(_frost),
-                  child: ColoredBox(
-                    color: Colors.white.withValues(
-                      alpha: 1 - _XpSheet.frostedAlpha,
+                  ],
+                )
+              : Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    ..._background(frosted: frosted, bg: bg),
+                    Column(
+                      children: [
+                        if (widget.showDragHandle) _buildDragHandle(theme),
+                        // 真实内容首帧即构建：此时弹窗在屏幕外，构建成本不可见，
+                        // 避免「滑完才懒构建」在动画结束帧打出 build 尖刺。
+                        Expanded(child: widget.builder(context)),
+                      ],
                     ),
-                  ),
+                  ],
                 ),
-              Column(
-                children: [
-                  if (widget.showDragHandle) _buildDragHandle(theme),
-                  // 真实内容首帧即构建：此时弹窗在屏幕外，构建成本不可见，
-                  // 避免「滑完才懒构建」在动画结束帧打出 build 尖刺。
-                  Expanded(child: widget.builder(context)),
-                ],
-              ),
-            ],
-          ),
         ),
       ),
     );
+  }
+
+  /// 弹窗表面背景层（自下而上）：磨砂 → 底色 → 磨砂未到位补白。
+  ///
+  /// 固定高度弹窗按 `StackFit.expand` 铺满；内容自适应弹窗用
+  /// `Positioned.fill` 铺满内容撑出的高度。
+  List<Widget> _background({required bool frosted, required Color bg}) {
+    return [
+      // 表面磨砂：只模糊弹窗表面下的底层页面。必须先画模糊再画
+      // 上面的半透明底色（模糊采样不含底色）。淡入后才绘制
+      // （Opacity 0 不绘制）→ 滑入/滑出全程零模糊重算。
+      if (frosted)
+        FadeTransition(
+          opacity: _frost,
+          child: IgnorePointer(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(
+                sigmaX: _XpSheet.blurSigma,
+                sigmaY: _XpSheet.blurSigma,
+              ),
+              child: const SizedBox.expand(),
+            ),
+          ),
+        ),
+      ColoredBox(color: bg),
+      // 磨砂未到位（滑入中/下拉中）时补白到实面：滑入期是纯白
+      // 实面，到位后随磨砂淡入逐渐「透」出模糊，观感同 iOS sheet。
+      if (frosted)
+        FadeTransition(
+          opacity: ReverseAnimation(_frost),
+          child: ColoredBox(
+            color: Colors.white.withValues(alpha: 1 - _XpSheet.frostedAlpha),
+          ),
+        ),
+    ];
   }
 
   Widget _buildDragHandle(ThemeData theme) {

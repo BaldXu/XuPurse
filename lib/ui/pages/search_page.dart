@@ -20,7 +20,7 @@ import '../widgets/xp_picker_sheet.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_skeleton.dart';
 import '../widgets/xp_sliding_segmented.dart';
-import 'bookkeeping_sheet.dart';
+import 'bookkeeping_page.dart';
 
 /// 搜索页：关键词（备注/分类/标签）+ 底部筛选面板（类型/账户/分类/时间/金额）。
 ///
@@ -473,7 +473,7 @@ class _SearchPageState extends ConsumerState<SearchPage>
         padding: const EdgeInsets.only(bottom: XpSpacing.m),
         child: _DayGroupCard(
           group: groups[i],
-          onTapBill: (bill) => BookkeepingSheet.show(context, bill: bill),
+          onTapBill: (bill) => BookkeepingPage.push(context, bill: bill),
           onLongPressBill: (bill) => _delete(context, bill),
         ),
       ),

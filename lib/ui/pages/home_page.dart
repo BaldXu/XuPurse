@@ -15,7 +15,7 @@ import '../widgets/xp_stagger_in.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_skeleton.dart';
 import '../widgets/xp_sliding_segmented.dart';
-import 'bookkeeping_sheet.dart';
+import 'bookkeeping_page.dart';
 import 'search_page.dart';
 
 /// 首页：Hero 月汇总卡 + 过滤栏（类型/日期范围）+ 按日分组的账单卡流。
@@ -328,7 +328,7 @@ class _HomePageState extends ConsumerState<HomePage>
   Widget _buildDayCard(BuildContext context, WidgetRef ref, _DayEntry entry) {
     final card = _DayGroupCard(
       section: entry.section,
-      onTapBill: (bill) => BookkeepingSheet.show(context, bill: bill),
+      onTapBill: (bill) => BookkeepingPage.push(context, bill: bill),
       onLongPressBill: (bill) => _confirmDelete(context, ref, bill),
     );
     return Padding(

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../state/keyboard_haptic_provider.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../widgets/xp_card.dart';
 import '../widgets/xp_param_row.dart';
@@ -12,17 +14,18 @@ import 'tag_manage_page.dart';
 import '../tokens/design_tokens.dart';
 
 /// 设置页：基础数据与偏好入口（默认账户/分类/标签/预算/业务记录/汇率）。
-class SettingsPage extends StatefulWidget {
+class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
 
   @override
-  State<SettingsPage> createState() => _SettingsPageState();
+  ConsumerState<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage>
+class _SettingsPageState extends ConsumerState<SettingsPage>
     with XpPageScaffold<SettingsPage> {
   @override
   Widget build(BuildContext context) {
+    final hapticOn = ref.watch(keyboardHapticProvider);
     return buildXpScaffold(
       appBar: AppBar(title: const Text('设置')),
       body: ListView(
@@ -75,6 +78,22 @@ class _SettingsPageState extends State<SettingsPage>
                   '汇率设置',
                   subtitle: '本位币与汇率覆盖',
                   onTap: () => _push(context, const CurrencySettingsPage()),
+                ),
+                const XpParamDivider(indent: kXpParamDividerIndentWithLeading),
+                // 偏好开关行：无跳转，右侧直接切换。
+                XpParamRow(
+                  leadingIcon: Icons.vibration,
+                  label: '键盘震动',
+                  subtitle: '记账键盘按键时触发震动反馈',
+                  showChevron: false,
+                  onTap: () =>
+                      ref.read(keyboardHapticProvider.notifier).set(!hapticOn),
+                  valueWidget: Switch(
+                    value: hapticOn,
+                    onChanged: (v) =>
+                        ref.read(keyboardHapticProvider.notifier).set(v),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
                 ),
               ],
             ),

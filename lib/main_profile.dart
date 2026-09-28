@@ -17,7 +17,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'main.dart' as app;
 import 'state/theme_provider.dart';
 import 'ui/layout/xp_page_scaffold_mixin.dart';
-import 'ui/pages/bookkeeping_sheet.dart';
+import 'ui/pages/bookkeeping_page.dart';
 import 'ui/pages/theme_settings_page.dart';
 
 Future<void> main() async {
@@ -76,17 +76,19 @@ class _Harness {
       themePop['run$i'] = await _window(() async => nav.pop(), settleMs: 1400);
     }
 
-    // 场景 2：记账弹窗 —— 用户反馈卡顿点 ②
+    // 场景 2：新增明细页（进页面默认弹出键盘弹窗）—— 用户反馈卡顿点 ②
     final sheetOpen = <String, List<FrameTiming>>{};
     final sheetClose = <String, List<FrameTiming>>{};
     for (var i = 1; i <= 3; i++) {
       sheetOpen['run$i'] = await _window(() async {
-        unawaited(BookkeepingSheet.show(context));
+        unawaited(BookkeepingPage.push(context));
       }, settleMs: 2200);
-      sheetClose['run$i'] = await _window(
-        () async => nav.pop(),
-        settleMs: 1400,
-      );
+      sheetClose['run$i'] = await _window(() async {
+        // 键盘弹窗随页面默认弹出：先关弹窗，等其滑出后再关明细页。
+        nav.pop();
+        await Future<void>.delayed(const Duration(milliseconds: 320));
+        nav.pop();
+      }, settleMs: 1600);
     }
 
     void dump(String name, Map<String, List<FrameTiming>> windows) {
@@ -98,8 +100,8 @@ class _Harness {
 
     dump('theme_page_push', themePush);
     dump('theme_page_pop', themePop);
-    dump('bookkeeping_sheet_open', sheetOpen);
-    dump('bookkeeping_sheet_close', sheetClose);
+    dump('bookkeeping_page_open', sheetOpen);
+    dump('bookkeeping_page_close', sheetClose);
 
     debugPrint('=== REPORT END ===');
     await Future<void>.delayed(const Duration(milliseconds: 600));

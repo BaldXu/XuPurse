@@ -19,7 +19,7 @@ import '../widgets/xp_sheet.dart';
 import '../widgets/xp_skeleton.dart';
 import '../widgets/xp_snack.dart';
 import 'account_form_sheet.dart';
-import 'bookkeeping_sheet.dart';
+import 'bookkeeping_page.dart';
 
 /// 账户详情：顶部账户 Hero（余额大金额 tabular）→ 调账/快照入口 →
 /// 流水（watchPage 按账户过滤，drift watch 响应式）→ 历史快照。
@@ -262,7 +262,7 @@ class _AccountDetailPageState extends ConsumerState<AccountDetailPage>
     );
   }
 
-  void _editBill(Bill bill) => BookkeepingSheet.show(context, bill: bill);
+  void _editBill(Bill bill) => BookkeepingPage.push(context, bill: bill);
 
   Future<void> _deleteBill(Bill bill) async {
     final ok = await confirmXpDialog(

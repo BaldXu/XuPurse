@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -8,6 +9,7 @@ import '../../core/utils/bill_extra.dart';
 import '../../data/database/app_database.dart';
 import '../../domain/services/currency_service.dart';
 import '../../state/default_account_provider.dart';
+import '../../state/keyboard_haptic_provider.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/currency_meta.dart';
@@ -17,23 +19,21 @@ import '../widgets/xp_card.dart';
 import '../widgets/xp_param_row.dart';
 import '../widgets/xp_picker_sheet.dart';
 import '../widgets/xp_sheet.dart';
-import '../widgets/xp_skeleton.dart';
 import '../widgets/xp_sliding_segmented.dart';
 import '../widgets/xp_snack.dart';
 
-/// 弹窗最大高度占屏比（95%，接近全屏的记账面板）。
-const double _maxHeightFactor = 0.95;
-
 /// 数字键盘按键高度。
-const double _keyHeight = 50;
+const double _keyHeight = 60;
 
-/// 金额显示行高度（独立于按键高度：键盘加高后金额区不再同步放大，
-/// 把更多空间让给数字键）。
+/// 键盘按键之间的间隙（相邻键各留一半内边距，合计 [_keyGap]）。
+const double _keyGap = 10;
+
+/// 键盘内金额显示行高度。
 const double _amountRowHeight = 35;
 
-/// 键盘底部额外空白：内容不变，仅把键盘整体上顶约 20dp，
+/// 键盘底部额外空白：内容不变，仅把键盘整体上顶，
 /// 避免数字键贴近全面屏手势区 / 底部导航。
-const double _keyboardBottomSpace = 40;
+const double _keyboardBottomSpace = 50;
 
 /// 分类网格列数与单元格宽高比。
 const int _categoryColumns = 5;
@@ -45,37 +45,29 @@ const double _inlineFieldWidth = 160;
 /// 分类选中态的描边宽度。
 const double _cellBorderWidth = 1.5;
 
-/// 记账弹窗：支出 / 收入 / 转账 + 数字键盘 + 二级分类 + 账户选择。
+/// 记账页：支出 / 收入 / 转账 + 二级分类 + 明细参数 + 独立数字键盘。
 ///
+/// 进入页面默认弹出键盘弹窗；页面右下角可上下拖拽的悬浮按钮同样唤起键盘。
+/// 键盘「确认」即提交整笔账单（不再单独放保存按钮）。
 /// [initialBill] 非空时为编辑模式（保存走 updateBill）。
-class BookkeepingSheet extends ConsumerStatefulWidget {
-  const BookkeepingSheet({super.key, this.initialBill});
+class BookkeepingPage extends ConsumerStatefulWidget {
+  const BookkeepingPage({super.key, this.initialBill});
 
   final Bill? initialBill;
 
-  static Future<void> show(BuildContext context, {Bill? bill}) {
-    // 记账弹窗 95% 屏高、出场动画比通用弹层更慢（XpMotion.container），
-    // 滑入/滑出用非线性曲线（easeOutCubic）。
-    return showXpSheet(
-      context: context,
-      heightFactor: 0.95,
-      transitionDuration: XpMotion.container,
-      transitionCurve: Curves.easeOutCubic,
-      builder: (_) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: BookkeepingSheet(initialBill: bill),
-      ),
-    );
+  /// 全库统一样式进入本页（[XpRoute] 转场）。
+  static Future<void> push(BuildContext context, {Bill? bill}) {
+    return Navigator.of(
+      context,
+    ).push(XpRoute<void>(builder: (_) => BookkeepingPage(initialBill: bill)));
   }
 
   @override
-  ConsumerState<BookkeepingSheet> createState() => _BookkeepingSheetState();
+  ConsumerState<BookkeepingPage> createState() => _BookkeepingPageState();
 }
 
-class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
-    with XpSettleGate<BookkeepingSheet> {
+class _BookkeepingPageState extends ConsumerState<BookkeepingPage>
+    with XpPageScaffold<BookkeepingPage> {
   late BillType _type;
   // 金额局部刷新：键盘按键只更新 notifier + 金额显示区，不再整页 setState
   final ValueNotifier<String> _amountText = ValueNotifier('');
@@ -93,6 +85,15 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
 
   /// 记账币种（[CurrencyService.supportedCodes]；null = 跟随账户币种）。
   String? _currencyCode;
+
+  /// 键盘弹窗是否已打开（防重复弹出，也便于确认时判断是否需要先关弹窗）。
+  bool _keyboardOpen = false;
+
+  /// 键盘弹窗关闭的 future：确认后需等弹窗滑出，再关闭本页。
+  Future<void>? _keyboardFuture;
+
+  /// 本次键盘是否启用按键震动（打开键盘时按「键盘震动」偏好快照）。
+  bool _hapticOn = true;
 
   bool get _isEdit => widget.initialBill != null;
 
@@ -128,6 +129,8 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
       if (bill.type == BillType.transfer.name) _loadTransferFee();
       _loadTags();
     }
+    // 进页面默认弹出键盘：推迟到 push 转场结束后，避免与转场抢动画。
+    xpRunWhenSettled(_openKeyboard);
   }
 
   /// 无选中时兜底默认分类（从 build 内移出，避免构建期间写状态）。
@@ -228,6 +231,35 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
     _commentController.dispose();
     _feeController.dispose();
     super.dispose();
+  }
+
+  // ---------- 键盘弹窗 ----------
+
+  /// 弹出键盘弹窗（高度由键盘内容撑起）；已打开时忽略。
+  void _openKeyboard() {
+    if (_keyboardOpen || !mounted) return;
+    _keyboardOpen = true;
+    // 按当前偏好快照震动开关（键盘弹窗内容为一次性构建，无需响应式）。
+    _hapticOn = ref.read(keyboardHapticProvider);
+    _keyboardFuture = showXpSheet<void>(
+      context: context,
+      wrapContent: true,
+      transitionDuration: XpMotion.component,
+      transitionCurve: Curves.easeOutCubic,
+      builder: (_) => _buildKeyboard(),
+    ).whenComplete(() => _keyboardOpen = false);
+  }
+
+  /// 键盘「确认」：保存成功 → 先关键盘弹窗（等其滑出）→ 再关本页。
+  Future<void> _confirm() async {
+    final ok = await _save();
+    if (!ok || !mounted) return;
+    if (_keyboardOpen) {
+      Navigator.of(context).pop();
+      final pending = _keyboardFuture;
+      if (pending != null) await pending;
+    }
+    if (mounted) Navigator.of(context).pop();
   }
 
   // ---------- 输入 ----------
@@ -353,29 +385,30 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
 
   // ---------- 保存 ----------
 
-  Future<void> _save() async {
+  /// 保存整笔账单；成功返回 true（不在此处关页面，交给调用方决定收尾）。
+  Future<bool> _save() async {
     final amountInput = parseYuanInput(_amountText.value);
     if (amountInput == null || amountInput <= 0) {
       _toast('请输入有效金额');
-      return;
+      return false;
     }
     final categoryId = _subId ?? _parentId;
     if (categoryId == null) {
       _toast('请选择分类');
-      return;
+      return false;
     }
     if (_type != BillType.transfer && _accountId == null) {
       _toast('请选择账户');
-      return;
+      return false;
     }
     if (_type == BillType.transfer) {
       if (_accountId == null || _incomeAccountId == null) {
         _toast('请选择转出与转入账户');
-        return;
+        return false;
       }
       if (_accountId == _incomeAccountId) {
         _toast('转出与转入账户不能相同');
-        return;
+        return false;
       }
     }
     final time = DateTime(
@@ -468,9 +501,10 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
           baseCurrency: currencyCode == null ? null : base,
         );
       }
-      if (mounted) Navigator.of(context).pop();
+      return true;
     } catch (e) {
       _toast('保存失败：$e');
+      return false;
     }
   }
 
@@ -499,42 +533,141 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    // 滑入动画期间只渲染骨架：分类网格 / 账户 / 标签 / 键盘整树首帧构建
-    // 会撞上 sheet 滑入动画抢帧；route animation completed 后首次构建
-    // 真实内容（XpSettleGate 骨架门）。
-    if (!xpEnterSettled) {
-      return const XpSkeletonPage();
-    }
+    return buildXpScaffold(
+      appBar: AppBar(title: Text(_isEdit ? '编辑明细' : '新增明细')),
+      // buildBody：转场动画期间自动出骨架，completed 后首次构建真实内容。
+      buildBody: (_) => _buildBody(scheme),
+    );
+  }
+
+  Widget _buildBody(ColorScheme scheme) {
     final isTransfer = _type == BillType.transfer;
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * _maxHeightFactor,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildTypeTabs(),
-          const Divider(height: 1),
-          // 分类/转账主体 + 明细参数行都在滚动区内，键盘固定底部，
-          // 内容多时可滑动，避免挤压显得局促。
-          Flexible(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: XpSpacing.m),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (!isTransfer) ...[
-                    _buildCategoryBody(),
-                    const SizedBox(height: XpSpacing.m),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Column(
+          children: [
+            _buildAmountHeader(scheme),
+            _buildTypeTabs(),
+            const Divider(height: 1),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(vertical: XpSpacing.m),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (!isTransfer) ...[
+                      _buildCategoryBody(),
+                      const SizedBox(height: XpSpacing.m),
+                    ],
+                    _buildSettingsSection(scheme),
                   ],
-                  _buildSettingsSection(scheme),
-                ],
+                ),
               ),
             ),
-          ),
-          const Divider(height: 1),
-          _buildKeyboard(scheme),
-        ],
+          ],
+        ),
+        // 右下角悬浮按钮：点击唤起键盘弹窗，可上下拖动。
+        _AmountFab(onPressed: _openKeyboard),
+      ],
+    );
+  }
+
+  /// 页面顶部大号金额：点击同样唤起键盘弹窗；金额随键盘输入实时刷新。
+  Widget _buildAmountHeader(ColorScheme scheme) {
+    final textTheme = Theme.of(context).textTheme;
+    final amountStyle = textTheme.displayMedium
+        ?.copyWith(fontWeight: FontWeight.w700)
+        .tabular;
+    final symbolStyle = textTheme.titleLarge?.copyWith(
+      color: scheme.primary,
+      fontWeight: FontWeight.w700,
+    );
+    final accCur = _accountCurrencyOf(_accountId);
+    final billCur = _effectiveCurrency;
+    return InkWell(
+      onTap: _openKeyboard,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          XpSpacing.l,
+          XpSpacing.m,
+          XpSpacing.l,
+          XpSpacing.m,
+        ),
+        child: ValueListenableBuilder<String>(
+          valueListenable: _amountText,
+          builder: (context, text, _) {
+            final input = parseYuanInput(text);
+            final converted = billCur != accCur && input != null
+                ? convertAmount(
+                    input,
+                    billCur,
+                    accCur,
+                    ref.read(currencyServiceProvider),
+                  )
+                : null;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.keyboard_alt_outlined,
+                      size: 16,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: XpSpacing.xs),
+                    Text(
+                      '金额',
+                      style: textTheme.labelMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: XpSpacing.xs),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Text(
+                              billCur == 'CNY' ? '¥' : billCur,
+                              style: symbolStyle,
+                            ),
+                            const SizedBox(width: XpSpacing.xs),
+                            Text(text.isEmpty ? '0' : text, style: amountStyle),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(
+                  height: XpSpacing.l,
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      converted == null
+                          ? ''
+                          : '≈ $accCur ${formatYuan(converted)}',
+                      maxLines: 1,
+                      style: textTheme.labelSmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -638,9 +771,13 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
     }
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: XpSpacing.l),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: rows,
+      child: XpCard(
+        padding: const EdgeInsets.all(XpSpacing.m),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: rows,
+        ),
       ),
     );
   }
@@ -878,17 +1015,19 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
     );
   }
 
-  Widget _buildKeyboard(ColorScheme scheme) {
-    // 大号金额输入:Display 32 + tabular 等宽数字,输入时不跳动
-    final amountStyle = Theme.of(
-      context,
-    ).textTheme.displayLarge?.copyWith(fontWeight: FontWeight.w700);
+  /// 键盘弹窗内容：金额显示行 + 数字键 + 「确认」（高度由内容撑起，
+  /// 底部留白 [_keyboardBottomSpace]）。
+  Widget _buildKeyboard() {
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    // 大号金额输入:Display + tabular 等宽数字,输入时不跳动
+    final amountStyle = textTheme.displayLarge
+        ?.copyWith(fontWeight: FontWeight.w700)
+        .tabular;
     final accCur = _accountCurrencyOf(_accountId);
     final billCur = _effectiveCurrency;
     // 金额显示区局部刷新：按键只重建这里（P7）
     return Padding(
-      // 左右保持 12；底部留白 = 8 + [_keyboardBottomSpace]，键盘整体
-      // 上顶约 20dp（内容不变）。
       padding: const EdgeInsets.fromLTRB(
         XpSpacing.m,
         XpSpacing.s,
@@ -896,6 +1035,7 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
         XpSpacing.s + _keyboardBottomSpace,
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           ValueListenableBuilder<String>(
             valueListenable: _amountText,
@@ -946,7 +1086,7 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
                             ? ''
                             : '≈ $accCur ${formatYuan(converted)}',
                         maxLines: 1,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        style: textTheme.labelSmall?.copyWith(
                           color: scheme.onSurfaceVariant,
                         ),
                       ),
@@ -968,7 +1108,7 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
                       ['1', '2', '3'],
                       ['4', '5', '6'],
                       ['7', '8', '9'],
-                      ['.', '0', '00'],
+                      ['00', '0', '.'],
                     ])
                       Row(
                         children: [
@@ -976,6 +1116,7 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
                             Expanded(
                               child: _KeyButton(
                                 label: key,
+                                haptic: _hapticOn,
                                 onTap: () => _append(key),
                               ),
                             ),
@@ -988,15 +1129,19 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
                 flex: 1,
                 child: Column(
                   children: [
-                    _KeyButton(label: '⌫', onTap: _backspace),
-                    _KeyButton(label: 'C', onTap: _clear),
+                    _KeyButton(
+                      label: '⌫',
+                      haptic: _hapticOn,
+                      onTap: _backspace,
+                    ),
+                    _KeyButton(label: 'C', haptic: _hapticOn, onTap: _clear),
                     SizedBox(
                       height: 2 * _keyHeight,
                       child: Padding(
                         padding: const EdgeInsets.all(XpSpacing.xs),
                         child: FilledButton(
-                          onPressed: _save,
-                          child: Text(_isEdit ? '更新' : '保存'),
+                          onPressed: _confirm,
+                          child: const Text('确认'),
                         ),
                       ),
                     ),
@@ -1011,25 +1156,100 @@ class _BookkeepingSheetState extends ConsumerState<BookkeepingSheet>
   }
 }
 
+/// 记账页右下角悬浮按钮：形同统计页 AI 按钮，仅允许上下拖动
+/// （水平锁定右缘），默认停在右下角。
+class _AmountFab extends StatefulWidget {
+  const _AmountFab({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  State<_AmountFab> createState() => _AmountFabState();
+}
+
+class _AmountFabState extends State<_AmountFab> {
+  /// 右缘留白（与页面左右边距一致）。
+  static const double _rightInset = XpSpacing.l;
+
+  /// 拖动时上下最小留白。
+  static const double _minMargin = 8;
+
+  /// 按钮尺寸（FAB 标准 56）。
+  static const double _fabSize = 56;
+
+  /// 按钮纵向位置（占可用高度比例 0~1）；null = 默认停在右下角。
+  double? _fraction;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxH = constraints.maxHeight;
+        // 全面屏手势区留白：避免按钮默认位置被手势条遮挡。
+        final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+        final minTop = _minMargin;
+        final maxTop = maxH - _fabSize - _minMargin - bottomInset;
+        if (maxTop < minTop) return const SizedBox.shrink();
+
+        final top = (_fraction == null ? maxTop : _fraction! * maxH)
+            .clamp(minTop, maxTop)
+            .toDouble();
+
+        return Stack(
+          children: [
+            Positioned(
+              right: _rightInset,
+              top: top,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onPanUpdate: (d) {
+                  final next = (top + d.delta.dy)
+                      .clamp(minTop, maxTop)
+                      .toDouble();
+                  setState(() => _fraction = next / maxH);
+                },
+                child: FloatingActionButton(
+                  tooltip: '输入金额',
+                  heroTag: 'bookkeeping_amount_fab',
+                  onPressed: widget.onPressed,
+                  child: const Icon(Icons.keyboard_alt_outlined),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
 /// 数字键盘按键
 class _KeyButton extends StatelessWidget {
-  const _KeyButton({required this.label, required this.onTap});
+  const _KeyButton({
+    required this.label,
+    required this.onTap,
+    this.haptic = true,
+  });
 
   final String label;
   final VoidCallback onTap;
+
+  /// 是否触发按键震动（由「键盘震动」偏好控制）。
+  final bool haptic;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       height: _keyHeight,
       child: Padding(
-        // 竖向内边距收窄（4→2），把高度让给键面本身，数字键更好点按。
-        padding: const EdgeInsets.symmetric(
-          horizontal: XpSpacing.xs,
-          vertical: 2,
-        ),
+        // 内边距取间隙的一半：相邻键（左右/上下）合计 [_keyGap]。
+        padding: const EdgeInsets.all(_keyGap / 2),
         child: OutlinedButton(
-          onPressed: onTap,
+          onPressed: () {
+            // 每次按键轻震一下（数字/小数点/⌫/C 统一在此处理）。
+            if (haptic) HapticFeedback.mediumImpact();
+            onTap();
+          },
           style: OutlinedButton.styleFrom(
             padding: EdgeInsets.zero,
             textStyle: XpTextStyles.h3.tabular,

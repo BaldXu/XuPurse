@@ -13,6 +13,7 @@ import 'state/auto_backup_provider.dart';
 import 'state/default_account_provider.dart';
 import 'state/providers.dart';
 import 'state/icon_pack_provider.dart';
+import 'state/keyboard_haptic_provider.dart';
 import 'state/theme_provider.dart';
 import 'ui/pages/main_shell.dart';
 import 'ui/theme.dart';
@@ -29,6 +30,7 @@ Future<void> main() async {
   await FrostedGlassNotifier.init();
   await TransitionBlurNotifier.init();
   await IconPackNotifier.init();
+  await KeyboardHapticNotifier.init();
   await DefaultAccountNotifier.init();
   await AiConfigNotifier.init();
   await AiScopeNotifier.init();

@@ -9,7 +9,7 @@ import '../widgets/ai_chat_sheet.dart';
 import '../widgets/xp_fab.dart';
 import '../widgets/xp_frosted_bar.dart';
 import 'accounts_page.dart';
-import 'bookkeeping_sheet.dart';
+import 'bookkeeping_page.dart';
 import 'home_page.dart';
 import 'mine_page.dart';
 import 'statistics_page.dart';
@@ -71,7 +71,7 @@ class _MainShellState extends ConsumerState<MainShell> {
   Widget _buildFab() {
     return XpFab(
       tooltip: '记一笔',
-      onPressed: () => BookkeepingSheet.show(context),
+      onPressed: () => BookkeepingPage.push(context),
       icon: const Icon(Icons.add),
     );
   }
