@@ -48,7 +48,7 @@ const double _cellBorderWidth = 1.5;
 /// 记账页：支出 / 收入 / 转账 + 二级分类 + 明细参数 + 独立数字键盘。
 ///
 /// 进入页面默认弹出键盘弹窗；页面右下角可上下拖拽的悬浮按钮同样唤起键盘。
-/// 键盘「确认」即提交整笔账单（不再单独放保存按钮）。
+/// 键盘「确认」与标题栏右上角「保存」等价：均提交整笔账单并关闭本页。
 /// [initialBill] 非空时为编辑模式（保存走 updateBill）。
 class BookkeepingPage extends ConsumerStatefulWidget {
   const BookkeepingPage({super.key, this.initialBill});
@@ -534,7 +534,22 @@ class _BookkeepingPageState extends ConsumerState<BookkeepingPage>
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return buildXpScaffold(
-      appBar: AppBar(title: Text(_isEdit ? '编辑明细' : '新增明细')),
+      appBar: AppBar(
+        title: Text(_isEdit ? '编辑明细' : '新增明细'),
+        // 标题栏右上角「保存」：等价于键盘「确认」，无需再唤起键盘。
+        actions: [
+          TextButton(
+            onPressed: _confirm,
+            child: Text(
+              '保存',
+              style: TextStyle(
+                color: scheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
       // buildBody：转场动画期间自动出骨架，completed 后首次构建真实内容。
       buildBody: (_) => _buildBody(scheme),
     );
