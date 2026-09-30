@@ -47,7 +47,8 @@ const double _cellBorderWidth = 1.5;
 
 /// 记账页：支出 / 收入 / 转账 + 二级分类 + 明细参数 + 独立数字键盘。
 ///
-/// 进入页面默认弹出键盘弹窗；页面右下角可上下拖拽的悬浮按钮同样唤起键盘。
+/// 进入页面不自动弹出键盘；点击顶部金额区或页面右下角可上下拖拽的悬浮
+/// 按钮唤起键盘。
 /// 键盘「确认」与标题栏右上角「保存」等价：均提交整笔账单并关闭本页。
 /// [initialBill] 非空时为编辑模式（保存走 updateBill）。
 class BookkeepingPage extends ConsumerStatefulWidget {
@@ -129,8 +130,6 @@ class _BookkeepingPageState extends ConsumerState<BookkeepingPage>
       if (bill.type == BillType.transfer.name) _loadTransferFee();
       _loadTags();
     }
-    // 进页面默认弹出键盘：推迟到 push 转场结束后，避免与转场抢动画。
-    xpRunWhenSettled(_openKeyboard);
   }
 
   /// 无选中时兜底默认分类（从 build 内移出，避免构建期间写状态）。
