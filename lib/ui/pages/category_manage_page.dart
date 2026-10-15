@@ -6,6 +6,7 @@ import '../../core/constants/enums.dart';
 import '../../core/utils/icons.dart';
 import '../../core/utils/ids.dart';
 import '../../data/database/app_database.dart';
+import '../../domain/services/category_service.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/app_icon.dart';
@@ -72,6 +73,16 @@ class _CategoryManagePageState extends ConsumerState<CategoryManagePage>
   }
 }
 
+/// 拖拽列表里的一行：一级分类，或某个一级分类下展开出来的子分类。
+class _CategoryRow {
+  const _CategoryRow(this.category, {this.parentId});
+
+  final Category category;
+
+  /// 所属层级：null = 一级分类层；非 null = 该父分类的子分类层（＝拖动范围）。
+  final String? parentId;
+}
+
 class _CategoryList extends ConsumerStatefulWidget {
   const _CategoryList({required this.type});
 
@@ -85,10 +96,22 @@ class _CategoryListState extends ConsumerState<_CategoryList> {
   /// 已展开的一级分类 id；默认全部折叠（否则分类一多整屏铺开看不清）。
   final Set<String> _expanded = {};
 
+  /// 拖拽落位后的本地排序值覆盖（id → sort，取值与写库值相同）；
+  /// 写库成功/失败后立即清除，回到数据库真实顺序。
+  final Map<String, int> _localSort = {};
+
+  int _sortOf(Category c) => _localSort[c.id] ?? c.sort;
+
   @override
   Widget build(BuildContext context) {
     final all = ref.watch(categoriesProvider).valueOrNull ?? [];
-    final typed = all.where((c) => c.type == widget.type.name).toList();
+    // 正常情况下顺序由库里 (sort, name) 决定；拖拽落位后先按本地覆盖值渲染，
+    // 否则等写库回流的那一两帧里列表会先弹回原位再跳到新位置。
+    final typed = all.where((c) => c.type == widget.type.name).toList()
+      ..sort((a, b) {
+        final bySort = _sortOf(a).compareTo(_sortOf(b));
+        return bySort != 0 ? bySort : a.name.compareTo(b.name);
+      });
     if (typed.isEmpty) {
       return const XpEmptyState(
         icon: Icons.category_outlined,
@@ -103,41 +126,142 @@ class _CategoryListState extends ConsumerState<_CategoryList> {
         (childrenByParent[c.parentId!] ??= []).add(c);
       }
     }
-    return ListView(
+    // 拉平成一维行（一级分类 + 其展开的子分类），交给 ReorderableListView 拖动。
+    final rows = <_CategoryRow>[];
+    for (final parent in parents) {
+      rows.add(_CategoryRow(parent));
+      if (_expanded.contains(parent.id)) {
+        for (final child in childrenByParent[parent.id] ?? const <Category>[]) {
+          rows.add(_CategoryRow(child, parentId: parent.id));
+        }
+      }
+    }
+    return ReorderableListView.builder(
       padding: const EdgeInsets.only(bottom: 96),
-      children: [
-        for (final parent in parents) ...[
-          _SwipeRevealTile(
-            key: ValueKey('p-${parent.id}'),
-            onDelete: () => _delete(parent),
-            child: _CategoryTile(
-              category: parent,
-              childCount: childrenByParent[parent.id]?.length ?? 0,
-              expanded: _expanded.contains(parent.id),
-              onToggleExpand: () => _toggleExpand(parent.id),
-              // 一级分类：点击整行 = 展开/收起，只有最右侧编辑图标才进入编辑。
-              onTap: (childrenByParent[parent.id]?.isNotEmpty ?? false)
-                  ? () => _toggleExpand(parent.id)
-                  : null,
-              onEdit: () => _edit(parent),
-            ),
-          ),
-          if (_expanded.contains(parent.id))
-            for (final child in childrenByParent[parent.id] ?? [])
-              _SwipeRevealTile(
-                key: ValueKey('c-${child.id}'),
-                onDelete: () => _delete(child),
+      // 关掉桌面端默认的拖拽把手，统一「长按整行」拖动（手机/桌面手势一致）。
+      buildDefaultDragHandles: false,
+      header: rows.length > 1 ? _buildDragHint(context) : null,
+      itemCount: rows.length,
+      onReorder: (oldIndex, newIndex) => _reorder(rows, oldIndex, newIndex),
+      itemBuilder: (context, i) {
+        final row = rows[i];
+        final category = row.category;
+        final isParent = row.parentId == null;
+        final childCount = childrenByParent[category.id]?.length ?? 0;
+        return Column(
+          key: ValueKey('${isParent ? 'p' : 'c'}-${category.id}'),
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ReorderableDelayedDragStartListener(
+              index: i,
+              child: _SwipeRevealTile(
+                onDelete: () => _delete(category),
                 child: _CategoryTile(
-                  category: child,
-                  indent: true,
-                  onTap: () => _edit(child),
-                  onEdit: () => _edit(child),
+                  category: category,
+                  indent: !isParent,
+                  childCount: childCount,
+                  expanded: isParent && _expanded.contains(category.id),
+                  onToggleExpand: isParent
+                      ? () => _toggleExpand(category.id)
+                      : null,
+                  // 一级分类：点击整行 = 展开/收起（无子分类时进编辑）；
+                  // 子分类：点击整行 = 编辑。
+                  onTap: isParent
+                      ? (childCount > 0
+                            ? () => _toggleExpand(category.id)
+                            : null)
+                      : () => _edit(category),
+                  onEdit: () => _edit(category),
                 ),
               ),
-          if (parent != parents.last) const Divider(height: 1),
-        ],
-      ],
+            ),
+            // 分组分隔线：仅当下一行是另一个一级分类时画（与旧列表一致，末组不收尾）。
+            if (i + 1 < rows.length && rows[i + 1].parentId == null)
+              const Divider(height: 1),
+          ],
+        );
+      },
     );
+  }
+
+  /// 列表顶部提示（ReorderableListView 的 header 不参与拖动）。
+  Widget _buildDragHint(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        XpSpacing.l,
+        XpSpacing.s,
+        XpSpacing.l,
+        XpSpacing.m,
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.drag_indicator,
+            size: 16,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: XpSpacing.xs),
+          Expanded(
+            child: Text(
+              '长按分类可上下拖动排序，一级分类与子分类各自在同层级内移动',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 长按拖动落位：只在同层级内移动（一级分类之间 / 同一父分类的子分类之间），
+  /// 按落点顺序重新编号写库。只写 sort，**不改 parentId**，层级不会被拖动改掉。
+  Future<void> _reorder(
+    List<_CategoryRow> rows,
+    int oldIndex,
+    int newIndex,
+  ) async {
+    // ReorderableListView 给的 newIndex 是「移除被拖项之前」的插入位，先归一化。
+    if (newIndex > oldIndex) newIndex -= 1;
+    if (newIndex == oldIndex) return;
+    final moved = rows[oldIndex];
+    final scope = moved.parentId; // null = 一级分类层
+    // 同层兄弟（保持当前显示顺序，且排除被拖动项）。
+    final siblings = <String>[
+      for (var i = 0; i < rows.length; i++)
+        if (i != oldIndex && rows[i].parentId == scope) rows[i].category.id,
+    ];
+    // 落点：数一数「移除被拖项后、插入位之前的同层兄弟」有几个（必 ∈ [0, len]）。
+    var pos = 0;
+    var seen = 0;
+    for (var i = 0; i < rows.length && seen < newIndex; i++) {
+      if (i == oldIndex) continue;
+      if (rows[i].parentId == scope) pos += 1;
+      seen += 1;
+    }
+    siblings.insert(pos, moved.category.id);
+
+    // 先本地渲染新顺序（编号规则与写库共用 siblingSortMap），写完再交回数据库顺序。
+    final sorts = CategoryService.siblingSortMap(
+      siblings,
+      topLevel: scope == null,
+    );
+    setState(() => _localSort.addAll(sorts));
+    try {
+      await ref
+          .read(categoryServiceProvider)
+          .reorderSiblings(
+            type: widget.type,
+            orderedIds: siblings,
+            topLevel: scope == null,
+          );
+    } catch (e) {
+      if (mounted) showXpSnack(context, '排序失败：$e', error: true);
+    } finally {
+      _localSort.removeWhere((id, _) => sorts.containsKey(id));
+      if (mounted) setState(() {});
+    }
   }
 
   void _toggleExpand(String id) {
@@ -545,8 +669,8 @@ class _CategoryTile extends StatelessWidget {
       ),
       title: Text(category.name),
       subtitle: isParent
-          ? Text('$childCount 个子分类 · 排序 ${category.sort}')
-          : Text('子分类 · 排序 ${category.sort}'),
+          ? Text(childCount > 0 ? '$childCount 个子分类' : '一级分类')
+          : const Text('子分类'),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -578,11 +702,7 @@ class _CategoryTile extends StatelessWidget {
 /// - 向左拖动：前景左移，右侧露出固定宽度删除按钮；松手按位移/速度吸附。
 /// - 展开态点击前景：先收起（不误触进入编辑）。
 class _SwipeRevealTile extends StatefulWidget {
-  const _SwipeRevealTile({
-    super.key,
-    required this.child,
-    required this.onDelete,
-  });
+  const _SwipeRevealTile({required this.child, required this.onDelete});
 
   final Widget child;
   final VoidCallback onDelete;
@@ -709,7 +829,6 @@ class _CategoryFormSheetState extends ConsumerState<CategoryFormSheet> {
   String? _parentId;
   String _color = '#4D3C77';
   String _icon = kDefaultCategoryIcon;
-  int _sort = 0;
   bool _saving = false;
 
   static const _palette = [
@@ -736,7 +855,6 @@ class _CategoryFormSheetState extends ConsumerState<CategoryFormSheet> {
     _parentId = c?.parentId;
     _color = c?.color ?? '#4D3C77';
     _icon = c?.icon ?? kDefaultCategoryIcon;
-    _sort = c?.sort ?? 0;
   }
 
   @override
@@ -836,13 +954,11 @@ class _CategoryFormSheetState extends ConsumerState<CategoryFormSheet> {
               ],
             ),
             const SizedBox(height: XpSpacing.m),
-            TextField(
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: '排序（数字越小越靠前）',
-                border: OutlineInputBorder(),
+            Text(
+              '排序请直接在分类列表里长按拖动调整',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-              onChanged: (v) => _sort = int.tryParse(v) ?? 0,
             ),
             const SizedBox(height: 20),
             SizedBox(
@@ -869,6 +985,11 @@ class _CategoryFormSheetState extends ConsumerState<CategoryFormSheet> {
     final now = DateTime.now().millisecondsSinceEpoch;
     try {
       if (widget.category == null) {
+        // 新分类排在目标层级末尾（一级分类步长 100、子分类步长 1），
+        // 之后在列表里长按拖动就能调位置。
+        final sort = await ref
+            .read(categoryServiceProvider)
+            .nextSort(type: _type, parentId: _parentId);
         await repo.insert(
           CategoriesCompanion.insert(
             id: genId(),
@@ -879,15 +1000,23 @@ class _CategoryFormSheetState extends ConsumerState<CategoryFormSheet> {
             parentId: Value(_parentId),
             customName: Value(true),
             defaultSelect: const Value(false),
-            sort: Value(_sort),
+            sort: Value(sort),
             seedKey: const Value(null),
             createdAt: now,
             updatedAt: now,
           ),
         );
       } else {
+        final old = widget.category!;
+        // 只有「换了父分类」（层级变了）才重算排序值，落到新层级末尾；
+        // 平时编辑不写 sort —— 顺序一律交给分类列表长按拖动，避免手填序号撞号。
+        final newSort = old.parentId == _parentId
+            ? null
+            : await ref
+                  .read(categoryServiceProvider)
+                  .nextSort(type: _type, parentId: _parentId);
         await repo.update(
-          widget.category!.id,
+          old.id,
           CategoriesCompanion(
             type: Value(_type.name),
             name: Value(name),
@@ -895,7 +1024,7 @@ class _CategoryFormSheetState extends ConsumerState<CategoryFormSheet> {
             color: Value(_color),
             parentId: Value(_parentId),
             customName: Value(true),
-            sort: Value(_sort),
+            sort: newSort == null ? const Value.absent() : Value(newSort),
             updatedAt: Value(now),
           ),
         );

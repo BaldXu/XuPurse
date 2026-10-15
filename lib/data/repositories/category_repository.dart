@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import '../../core/constants/enums.dart';
+import '../../core/utils/ids.dart';
 import '../database/app_database.dart';
 
 /// 分类数据访问（两级树；查询结果按 sort, name 排序）。
@@ -83,6 +84,26 @@ class CategoryRepository {
 
   Future<void> update(String id, CategoriesCompanion entry) =>
       (_db.update(_db.categories)..where((t) => t.id.equals(id))).write(entry);
+
+  /// 批量改写排序值（列表长按拖动排序用）。单事务，任一条失败整体回滚。
+  ///
+  /// [sortById] = 分类 id → 新 sort；调用方负责给出同层级内互不重复的序号。
+  /// **只写 sort/updated_at，绝不碰 parent_id**——拖动排序不会改变分类层级。
+  Future<void> updateSortOrders(Map<String, int> sortById) async {
+    if (sortById.isEmpty) return;
+    await _db.transaction(() async {
+      for (final entry in sortById.entries) {
+        await (_db.update(
+          _db.categories,
+        )..where((t) => t.id.equals(entry.key))).write(
+          CategoriesCompanion(
+            sort: Value(entry.value),
+            updatedAt: Value(nowMs()),
+          ),
+        );
+      }
+    });
+  }
 
   Future<void> delete(String id) =>
       (_db.delete(_db.categories)..where((t) => t.id.equals(id))).go();

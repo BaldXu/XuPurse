@@ -6,6 +6,11 @@ import '../../core/utils/ids.dart';
 import '../../data/database/app_database.dart';
 import '../../data/repositories/category_repository.dart';
 
+/// 一级分类排序步长（内置分类即 100/200/300…；子分类步长 1）。
+///
+/// 编号留间隔是为了新增/插入时不必重排全表，也便于与内置分类的编号习惯一致。
+const int kTopLevelSortStep = 100;
+
 /// 分类业务：合并（分类管理页 -「分类合并」）。
 class CategoryService {
   CategoryService(this._db) : _categories = CategoryRepository(_db);
@@ -127,6 +132,73 @@ class CategoryService {
     });
   }
 
+  /// 拖拽排序：把同一层级的兄弟分类按 [orderedIds] 的顺序重新编号。
+  ///
+  /// - [topLevel] = true：重排一级分类（编号 100 起、步长 100，与内置分类一致）；
+  ///   false：重排同一父分类下的子分类（编号 1 起、步长 1）。
+  /// - 只接受同层兄弟：一级层要求全都没有父分类，子分类层要求父分类一致
+  ///   （不变量在这里兜底，跨层级/跨父分类的调用直接拒绝）。
+  /// - **只写 sort，不碰 parentId**——拖动排序永远不会改变分类层级。
+  /// - 重新编号使同层级内序号互不重复，顺手治好历史遗留的重号（手填 sort 撞号）。
+  Future<void> reorderSiblings({
+    required BillType type,
+    required List<String> orderedIds,
+    required bool topLevel,
+  }) async {
+    if (orderedIds.length < 2) return;
+    if (orderedIds.toSet().length != orderedIds.length) {
+      throw const ValidationException('排序数据里有重复的分类');
+    }
+    final all = await _categories.getByType(type);
+    final byId = {for (final c in all) c.id: c};
+    String? parentId;
+    for (final id in orderedIds) {
+      final c = byId[id];
+      if (c == null) throw NotFoundException('分类不存在: $id');
+      if (topLevel) {
+        if (c.parentId != null) {
+          throw const ValidationException('一级分类排序里混入了子分类');
+        }
+      } else {
+        if (c.parentId == null) {
+          throw const ValidationException('子分类排序里混入了一级分类');
+        }
+        parentId ??= c.parentId;
+        if (c.parentId != parentId) {
+          throw const ValidationException('不能在两个父分类之间拖动子分类');
+        }
+      }
+    }
+    await _categories.updateSortOrders(
+      siblingSortMap(orderedIds, topLevel: topLevel),
+    );
+  }
+
+  /// 同层按位置编号（列表长按拖动排序的唯一编号规则，UI 乐观更新也用它）：
+  /// 一级分类 100/200/300…、子分类 1/2/3…。
+  static Map<String, int> siblingSortMap(
+    List<String> orderedIds, {
+    required bool topLevel,
+  }) => {
+    for (var i = 0; i < orderedIds.length; i++)
+      orderedIds[i]: (i + 1) * (topLevel ? kTopLevelSortStep : 1),
+  };
+
+  /// 目标层级末尾的排序值：一级分类步长 100、子分类步长 1。
+  ///
+  /// 新增分类、以及编辑时换了父分类（层级变了）都要用它——沿用「排在最后」
+  /// 的直觉，且不会撞上已有序号；之后用户可在列表里长按拖动调整。
+  Future<int> nextSort({required BillType type, String? parentId}) async {
+    final all = await _categories.getByType(type);
+    final siblings = all.where((c) => c.parentId == parentId);
+    if (siblings.isEmpty) return parentId == null ? kTopLevelSortStep : 1;
+    var maxSort = siblings.first.sort;
+    for (final c in siblings) {
+      if (c.sort > maxSort) maxSort = c.sort;
+    }
+    return maxSort + (parentId == null ? kTopLevelSortStep : 1);
+  }
+
   /// 新建分类（删除含明细分类时「当场新建目标分类」复用）。返回新分类 id。
   ///
   /// [parentId] 非空时校验父分类存在且与 [type] 同类型。
@@ -136,7 +208,7 @@ class CategoryService {
     required String icon,
     String? color,
     String? parentId,
-    int sort = 0,
+    int? sort,
   }) async {
     final nameTrim = name.trim();
     if (nameTrim.isEmpty) {
@@ -160,7 +232,9 @@ class CategoryService {
         parentId: Value(parentId),
         customName: const Value(true),
         defaultSelect: const Value(false),
-        sort: Value(sort),
+        // 未指定时排到目标层级末尾（一级分类步长 100、子分类步长 1），
+        // 之后在分类列表里长按拖动即可调整。
+        sort: Value(sort ?? await nextSort(type: type, parentId: parentId)),
         seedKey: const Value(null),
         createdAt: now,
         updatedAt: now,
@@ -256,7 +330,8 @@ class CategoryService {
         parentId: const Value(null),
         customName: const Value(true),
         defaultSelect: Value(sourceHasDefault),
-        sort: const Value(0),
+        // 合并出来的新目标排在一级分类末尾：固定 0 会和别的分类撞号、顺序看运气。
+        sort: Value(await nextSort(type: type, parentId: null)),
         seedKey: const Value(null),
         createdAt: now,
         updatedAt: now,
