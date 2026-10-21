@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../state/keyboard_haptic_provider.dart';
+import '../../state/screen_orientation_provider.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../widgets/xp_card.dart';
 import '../widgets/xp_param_row.dart';
@@ -26,6 +27,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
   @override
   Widget build(BuildContext context) {
     final hapticOn = ref.watch(keyboardHapticProvider);
+    final followRotation = ref.watch(screenRotationProvider);
     return buildXpScaffold(
       appBar: AppBar(title: const Text('设置')),
       body: ListView(
@@ -92,6 +94,23 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                     value: hapticOn,
                     onChanged: (v) =>
                         ref.read(keyboardHapticProvider.notifier).set(v),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+                const XpParamDivider(indent: kXpParamDividerIndentWithLeading),
+                // 屏幕旋转：默认固定竖屏，开启后跟随设备旋转。
+                XpParamRow(
+                  leadingIcon: Icons.screen_rotation_outlined,
+                  label: '跟随系统设置旋转',
+                  subtitle: '关闭时固定竖屏使用，打开后随设备旋转',
+                  showChevron: false,
+                  onTap: () => ref
+                      .read(screenRotationProvider.notifier)
+                      .set(!followRotation),
+                  valueWidget: Switch(
+                    value: followRotation,
+                    onChanged: (v) =>
+                        ref.read(screenRotationProvider.notifier).set(v),
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                 ),

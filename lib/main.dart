@@ -14,6 +14,7 @@ import 'state/default_account_provider.dart';
 import 'state/providers.dart';
 import 'state/icon_pack_provider.dart';
 import 'state/keyboard_haptic_provider.dart';
+import 'state/screen_orientation_provider.dart';
 import 'state/theme_provider.dart';
 import 'ui/pages/main_shell.dart';
 import 'ui/theme.dart';
@@ -31,6 +32,8 @@ Future<void> main() async {
   await TransitionBlurNotifier.init();
   await IconPackNotifier.init();
   await KeyboardHapticNotifier.init();
+  // 屏幕方向：默认锁定竖屏，用户开启「跟随系统设置旋转」后放行旋转。
+  await ScreenRotationNotifier.init();
   await DefaultAccountNotifier.init();
   await AiConfigNotifier.init();
   await AiScopeNotifier.init();
