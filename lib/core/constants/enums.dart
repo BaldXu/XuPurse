@@ -22,6 +22,9 @@ abstract final class SnapshotType {
   static const int transferIn = 4;
   static const int manual = 5;
   static const int historical = 6;
+
+  /// 退款回补（支出退款把钱退回原账户；见 RefundService）
+  static const int refund = 7;
 }
 
 /// 预算周期

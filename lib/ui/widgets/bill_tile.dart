@@ -5,6 +5,7 @@ import '../../core/constants/enums.dart';
 import '../../core/utils/amount.dart';
 import '../../core/utils/app_colors.dart';
 import '../../data/database/app_database.dart';
+import '../../domain/services/refund_service.dart';
 import '../../state/providers.dart';
 import '../tokens/design_tokens.dart';
 import 'app_icon.dart';
@@ -34,6 +35,9 @@ class BillTile extends ConsumerWidget {
     final categories =
         ref.watch(categoriesProvider).value ?? const <Category>[];
     final accounts = ref.watch(accountsProvider).value ?? const <Account>[];
+    // 退款合计：支出按净额展示（原本 100 元支出 + 20 元退款 → 显示 80）
+    final refundTotals =
+        ref.watch(refundTotalsProvider).value ?? const <String, int>{};
     final catById = {for (final c in categories) c.id: c};
     final accById = {for (final a in accounts) a.id: a};
     final type = BillType.values.byName(bill.type);
@@ -42,12 +46,22 @@ class BillTile extends ConsumerWidget {
     final title = bill.comment?.isNotEmpty == true
         ? bill.comment!
         : (catById[bill.categoryId]?.name ?? '未知分类');
-    final subtitle = switch (type) {
+    final baseSubtitle = switch (type) {
       BillType.transfer =>
         '${accById[bill.accountId]?.name ?? '?'} → ${accById[bill.incomeAccountId]?.name ?? '?'}',
       BillType.expense => accById[bill.accountId]?.name ?? '',
       BillType.income => accById[bill.accountId]?.name ?? '',
     };
+    final refund = type == BillType.expense
+        ? (refundTotals[bill.id] ?? 0)
+        : 0;
+    // 有退款时副标题补一句，主金额展示净额，避免用户以为原金额没变
+    final subtitle = refund <= 0
+        ? baseSubtitle
+        : (baseSubtitle.isEmpty
+              ? '已退 ¥${formatYuan(refund)}'
+              : '$baseSubtitle · 已退 ¥${formatYuan(refund)}');
+    final netAmount = refund <= 0 ? bill.amount : bill.amount - refund;
     final color = semanticColorOf(type);
     final prefix = type == BillType.expense
         ? '-'
@@ -66,7 +80,7 @@ class BillTile extends ConsumerWidget {
           ? null
           : Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: Text(
-        '$prefix${formatYuan(bill.amount)}',
+        '$prefix${formatYuan(netAmount)}',
         style: Theme.of(context).textTheme.titleSmall
             ?.copyWith(color: color, fontWeight: FontWeight.w600)
             .tabular,
@@ -83,6 +97,8 @@ class BillDayGroups extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final refundTotals =
+        ref.watch(refundTotalsProvider).value ?? const <String, int>{};
     final groups = <String, List<Bill>>{};
     for (final bill in bills) {
       final dt = DateTime.fromMillisecondsSinceEpoch(bill.time);
@@ -96,7 +112,10 @@ class BillDayGroups extends ConsumerWidget {
       var expense = 0;
       var income = 0;
       for (final b in entry.value) {
-        if (b.type == BillType.expense.name) expense += b.amount;
+        // 小计同样按净额，才不会出现「小计 100 但下面那笔显示 80」
+        if (b.type == BillType.expense.name) {
+          expense += netAmountOf(b, refundTotals);
+        }
         if (b.type == BillType.income.name) income += b.amount;
       }
       widgets.add(

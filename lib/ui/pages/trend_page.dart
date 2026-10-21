@@ -515,15 +515,19 @@ class _CumulativeNetCardState extends ConsumerState<_CumulativeNetCard> {
     });
   }
 
-  Future<List<TrendPoint>> _loadFor(({int start, int? end}) range) {
+  Future<List<TrendPoint>> _loadFor(({int start, int? end}) range) async {
     final end = range.end ?? DateTime.now().millisecondsSinceEpoch;
-    return ref
+    final bills = await ref
         .read(billRepoProvider)
-        .listByRange(range.start, end)
-        .then(
-          (bills) =>
-              buildCumulativeNetPoints(bills, start: range.start, end: end),
-        );
+        .listByRange(range.start, end);
+    // 累计净额曲线：支出按净额（退款不算收入）
+    final refundTotals = await ref.read(refundServiceProvider).totals();
+    return buildCumulativeNetPoints(
+      bills,
+      start: range.start,
+      end: end,
+      refundTotals: refundTotals,
+    );
   }
 
   @override

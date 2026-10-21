@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/enums.dart';
 import '../../../core/utils/amount.dart';
+import '../../../domain/services/refund_service.dart';
 import '../../../state/providers.dart';
 import '../../tokens/design_tokens.dart';
 import '../../widgets/xp_card.dart';
@@ -85,7 +86,15 @@ class _TrendSectionState extends ConsumerState<StatsTrendSection>
     final bills = await ref
         .read(billRepoProvider)
         .listByRange(widget.start, widget.end, type: type);
-    return _TrendData(points: aggregateTrend(bills, granularity: granularity));
+    // 退款合计：趋势柱按净额（退款不算收入）
+    final refundTotals = await ref.read(refundServiceProvider).totals();
+    return _TrendData(
+      points: aggregateTrend(
+        bills,
+        granularity: granularity,
+        refundTotals: refundTotals,
+      ),
+    );
   }
 
   @override
@@ -360,6 +369,8 @@ class _TrendCompareCardState extends ConsumerState<_TrendCompareCard>
     );
     final prevBills = await repo.listByRange(prevStart, prevEnd, type: _type);
     final categories = await ref.read(categoryRepoProvider).getAll();
+    // 退款合计：环比比较同样按净额（退款不算收入）
+    final refundTotals = await ref.read(refundServiceProvider).totals();
     final byId = {for (final c in categories) c.id: c};
 
     // 上溯到一级分类
@@ -376,12 +387,12 @@ class _TrendCompareCardState extends ConsumerState<_TrendCompareCard>
     final curAgg = <String, int>{};
     for (final b in curBills) {
       final t = topId(b.categoryId);
-      curAgg[t] = (curAgg[t] ?? 0) + b.amount;
+      curAgg[t] = (curAgg[t] ?? 0) + netAmountOf(b, refundTotals);
     }
     final prevAgg = <String, int>{};
     for (final b in prevBills) {
       final t = topId(b.categoryId);
-      prevAgg[t] = (prevAgg[t] ?? 0) + b.amount;
+      prevAgg[t] = (prevAgg[t] ?? 0) + netAmountOf(b, refundTotals);
     }
 
     // 合并所有出现过的顶级分类（当前或上个区间）

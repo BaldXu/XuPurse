@@ -1,5 +1,6 @@
 import '../../core/constants/enums.dart';
 import '../../data/database/app_database.dart';
+import 'refund_service.dart';
 
 /// 资产趋势计算（docs/algorithms.md 算法五）。
 ///
@@ -140,6 +141,7 @@ List<TrendPoint> buildCumulativeNetPoints(
   List<Bill> bills, {
   int? start,
   int? end,
+  Map<String, int> refundTotals = const {},
 }) {
   final dayNet = <int, int>{};
   for (final b in bills) {
@@ -147,7 +149,10 @@ List<TrendPoint> buildCumulativeNetPoints(
     if (start != null && b.time < start) continue;
     if (end != null && b.time >= end) continue;
     final d = dayStart(b.time);
-    final signed = b.type == BillType.income.name ? b.amount : -b.amount;
+    // 支出按净额（原支出 − 退款）；退款不算收入
+    final signed = b.type == BillType.income.name
+        ? b.amount
+        : -netAmountOf(b, refundTotals);
     dayNet[d] = (dayNet[d] ?? 0) + signed;
   }
   final days = dayNet.keys.toList()..sort();

@@ -7,6 +7,7 @@ import '../../core/utils/amount.dart';
 import '../../core/utils/app_colors.dart';
 import '../../core/utils/bill_extra.dart';
 import '../../data/database/app_database.dart';
+import '../../domain/services/refund_service.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
@@ -347,6 +348,9 @@ class _SearchPageState extends ConsumerState<SearchPage>
 
     final tags = ref.watch(tagsProvider).valueOrNull ?? const <Tag>[];
     final billTagsAsync = ref.watch(_allBillTagsProvider);
+    // 退款合计：支出按净额统计（退款不算收入）
+    final refundTotals =
+        ref.watch(refundTotalsProvider).value ?? const <String, int>{};
     return billTagsAsync.when(
       loading: () => const XpSkeletonList(itemCount: 8),
       error: (e, _) => XpErrorState(
@@ -397,7 +401,9 @@ class _SearchPageState extends ConsumerState<SearchPage>
             ];
             var expense = 0, income = 0;
             for (final b in statBills) {
-              if (b.type == BillType.expense.name) expense += b.amount;
+              if (b.type == BillType.expense.name) {
+                expense += netAmountOf(b, refundTotals);
+              }
               if (b.type == BillType.income.name) income += b.amount;
             }
             return Column(
@@ -439,6 +445,10 @@ class _SearchPageState extends ConsumerState<SearchPage>
   }
 
   Widget _buildBillList(List<Bill> filtered) {
+    // 退款合计：当日支出小计按净额（父级 _buildResults 已 watch 该 provider，
+    // 这里 read 到的始终是最新值）
+    final refundTotals =
+        ref.read(refundTotalsProvider).value ?? const <String, int>{};
     // 按日分组（时间倒序，新→旧），每组一张卡片。
     final sorted = [...filtered]..sort((a, b) => b.time.compareTo(a.time));
     final groups = <_DayGroup>[];
@@ -455,6 +465,7 @@ class _SearchPageState extends ConsumerState<SearchPage>
             dayStart: dayStart,
             day: DateTime(dt.year, dt.month, dt.day),
             bills: [bill],
+            refunds: refundTotals,
           ),
         );
       } else {
@@ -1177,15 +1188,23 @@ class _ResultSummary extends StatelessWidget {
 }
 
 class _DayGroup {
-  _DayGroup({required this.dayStart, required this.day, required this.bills});
+  _DayGroup({
+    required this.dayStart,
+    required this.day,
+    required this.bills,
+    this.refunds = const {},
+  });
 
   final int dayStart;
   final DateTime day;
   final List<Bill> bills;
 
+  /// 退款合计（账单 id → 退款金额）：当日「支出」小计按净额算
+  final Map<String, int> refunds;
+
   int get expense => bills
       .where((b) => b.type == BillType.expense.name)
-      .fold(0, (s, b) => s + b.amount);
+      .fold(0, (s, b) => s + netAmountOf(b, refunds));
 
   int get income => bills
       .where((b) => b.type == BillType.income.name)
@@ -1320,9 +1339,12 @@ class _AnalysisViewState extends ConsumerState<_AnalysisView> {
       ),
       data: (billTags) {
         final tags = ref.watch(tagsProvider).valueOrNull ?? const <Tag>[];
+        // 退款合计：分析口径里支出同样按净额算
+        final refunds =
+            ref.watch(refundTotalsProvider).value ?? const <String, int>{};
         final tagCounts = _tagCounts(widget.bills, billTags);
-        final series = _trendSeries(widget.bills, _focus, _byMonth);
-        final cats = _categorySums(widget.bills, _focus);
+        final series = _trendSeries(widget.bills, _focus, _byMonth, refunds);
+        final cats = _categorySums(widget.bills, _focus, refunds);
         final textTheme = Theme.of(context).textTheme;
         return ListView(
           padding: const EdgeInsets.all(XpSpacing.l),
@@ -1395,6 +1417,7 @@ class _AnalysisViewState extends ConsumerState<_AnalysisView> {
     List<Bill> bills,
     _FocusType focus,
     bool byMonth,
+    Map<String, int> refunds,
   ) {
     final map = <int, int>{};
     for (final b in bills) {
@@ -1406,10 +1429,11 @@ class _AnalysisViewState extends ConsumerState<_AnalysisView> {
           ? DateTime(dt.year, dt.month).millisecondsSinceEpoch
           : DateTime(dt.year, dt.month, dt.day).millisecondsSinceEpoch;
       final delta = switch (focus) {
-        _FocusType.expense => isExpense ? b.amount : 0,
+        _FocusType.expense => isExpense ? netAmountOf(b, refunds) : 0,
         _FocusType.income => isIncome ? b.amount : 0,
         _FocusType.balance =>
-          (isIncome ? b.amount : 0) - (isExpense ? b.amount : 0),
+          (isIncome ? b.amount : 0) -
+              (isExpense ? netAmountOf(b, refunds) : 0),
       };
       map[key] = (map[key] ?? 0) + delta;
     }
@@ -1420,6 +1444,7 @@ class _AnalysisViewState extends ConsumerState<_AnalysisView> {
   List<({String categoryId, int amount})> _categorySums(
     List<Bill> bills,
     _FocusType focus,
+    Map<String, int> refunds,
   ) {
     if (focus == _FocusType.balance) return const [];
     final target = focus == _FocusType.expense
@@ -1428,7 +1453,7 @@ class _AnalysisViewState extends ConsumerState<_AnalysisView> {
     final map = <String, int>{};
     for (final b in bills) {
       if (b.type != target) continue;
-      map[b.categoryId] = (map[b.categoryId] ?? 0) + b.amount;
+      map[b.categoryId] = (map[b.categoryId] ?? 0) + netAmountOf(b, refunds);
     }
     return [for (final e in map.entries) (categoryId: e.key, amount: e.value)];
   }

@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 
 import '../../core/constants/enums.dart';
 import '../database/app_database.dart';
+import 'bill_sql.dart';
 
 /// 账单数据访问（核心表；含标签关联）。
 class BillRepository {
@@ -105,11 +106,12 @@ class BillRepository {
     return row.data['c'] as int;
   }
 
-  /// 时间段内按类型汇总金额（万分之元；转账单条同时计入转出/转入不在此统计）
+  /// 时间段内按类型汇总金额（万分之元；转账单条同时计入转出/转入不在此统计）。
+  /// 支出按**净额**（扣退款）计，收入不参与退款扣减。
   Future<int> sumByType(int start, int end, BillType type) async {
     final row = await _db
         .customSelect(
-          'SELECT COALESCE(SUM(amount), 0) AS s FROM bills '
+          'SELECT COALESCE(SUM($kBillNetSql), 0) AS s FROM bills '
           'WHERE type = ? AND time >= ? AND time < ?'
           '$_excludedSql',
           variables: [Variable(type.name), Variable(start), Variable(end)],
@@ -125,7 +127,7 @@ class BillRepository {
   ) async {
     final rows = await _db
         .customSelect(
-          'SELECT type, SUM(amount) AS s FROM bills '
+          'SELECT type, SUM($kBillNetSql) AS s FROM bills '
           'WHERE time >= ? AND time < ? AND type IN (?, ?)'
           '$_excludedSql GROUP BY type',
           variables: [
@@ -134,7 +136,7 @@ class BillRepository {
             Variable(BillType.expense.name),
             Variable(BillType.income.name),
           ],
-          readsFrom: {_db.bills},
+          readsFrom: {_db.bills, _db.refunds},
         )
         .get();
     var expense = 0;
@@ -151,7 +153,7 @@ class BillRepository {
   Stream<({int expense, int income})> watchSummaryInRange(int start, int end) {
     return _db
         .customSelect(
-          'SELECT type, SUM(amount) AS s FROM bills '
+          'SELECT type, SUM($kBillNetSql) AS s FROM bills '
           'WHERE time >= ? AND time < ? AND type IN (?, ?)'
           '$_excludedSql GROUP BY type',
           variables: [
@@ -160,7 +162,7 @@ class BillRepository {
             Variable(BillType.expense.name),
             Variable(BillType.income.name),
           ],
-          readsFrom: {_db.bills},
+          readsFrom: {_db.bills, _db.refunds},
         )
         .watch()
         .map((rows) {
@@ -186,12 +188,12 @@ class BillRepository {
     return _db
         .customSelect(
           "SELECT time, "
-          "CASE WHEN type = 'expense' THEN amount ELSE 0 END AS expense, "
+          "CASE WHEN type = 'expense' THEN $kBillNetSql ELSE 0 END AS expense, "
           "CASE WHEN type = 'income' THEN amount ELSE 0 END AS income "
           "FROM bills WHERE time >= ? AND time < ? "
           "AND type IN ('expense', 'income')",
           variables: [Variable(start), Variable(end)],
-          readsFrom: {_db.bills},
+          readsFrom: {_db.bills, _db.refunds},
         )
         .watch()
         .map((rows) {
@@ -225,6 +227,7 @@ class BillRepository {
   }
 
   /// 时间段内按分类汇总金额（统计页分类占比；不含转账；不含「不计入收支」）。
+  /// 支出按净额（扣退款）汇总，退款仍记在原账单的分类上。
   Future<List<({String categoryId, int amount})>> sumByCategoryInRange(
     int start,
     int end,
@@ -232,10 +235,11 @@ class BillRepository {
   ) async {
     final rows = await _db
         .customSelect(
-          'SELECT category_id AS cid, SUM(amount) AS s FROM bills '
+          'SELECT category_id AS cid, SUM($kBillNetSql) AS s FROM bills '
           'WHERE type = ? AND time >= ? AND time < ?'
           '$_excludedSql GROUP BY category_id',
           variables: [Variable(type.name), Variable(start), Variable(end)],
+          readsFrom: {_db.bills, _db.refunds},
         )
         .get();
     return [
@@ -256,6 +260,7 @@ class BillRepository {
   }
 
   /// 时间段内按标签汇总金额（统计页标签分区；不含转账；不含「不计入收支」）。
+  /// 支出按净额（扣退款）汇总。
   Future<List<({String tagId, int amount})>> sumByTagInRange(
     int start,
     int end,
@@ -263,11 +268,12 @@ class BillRepository {
   ) async {
     final rows = await _db
         .customSelect(
-          'SELECT bt.tag_id AS tid, SUM(b.amount) AS s FROM bills b '
+          'SELECT bt.tag_id AS tid, SUM($kBillNetSqlB) AS s FROM bills b '
           'JOIN bill_tags bt ON bt.bill_id = b.id '
           'WHERE b.type = ? AND b.time >= ? AND b.time < ?'
           '$_excludedSqlAliasB GROUP BY bt.tag_id',
           variables: [Variable(type.name), Variable(start), Variable(end)],
+          readsFrom: {_db.bills, _db.billTags, _db.refunds},
         )
         .get();
     return [
@@ -290,7 +296,7 @@ class BillRepository {
   }) async {
     final rows = await _db
         .customSelect(
-          'SELECT comment AS c, SUM(amount) AS s FROM bills '
+          'SELECT comment AS c, SUM($kBillNetSql) AS s FROM bills '
           'WHERE type IN (?, ?) AND time >= ? AND time < ?'
           " AND comment IS NOT NULL AND comment != ''"
           '$_excludedSql GROUP BY comment ORDER BY s DESC LIMIT ?',

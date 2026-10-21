@@ -7,6 +7,7 @@ import '../../core/utils/ids.dart';
 import '../../data/database/app_database.dart';
 import '../../data/repositories/account_repository.dart';
 import '../../data/repositories/bill_repository.dart';
+import '../../data/repositories/refund_repository.dart';
 import '../../data/repositories/snapshot_repository.dart';
 
 /// 账单业务：新增/修改/删除的余额联动与快照（docs/algorithms.md 算法一），
@@ -17,11 +18,13 @@ class BillService {
   BillService(this._db)
     : _accounts = AccountRepository(_db),
       _bills = BillRepository(_db),
+      _refunds = RefundRepository(_db),
       _snapshots = SnapshotRepository(_db);
 
   final AppDatabase _db;
   final AccountRepository _accounts;
   final BillRepository _bills;
+  final RefundRepository _refunds;
   final SnapshotRepository _snapshots;
 
   Stream<List<Bill>> watchPage({
@@ -180,6 +183,21 @@ class BillService {
         billId: id,
         sign: -1,
       );
+      // 退款回补也随账单走：先撤掉旧账户的回补（不写快照，退款快照交由
+      // invalidateByBill 失效），新账单应用后再补到（可能已变更的）账户。
+      final refundTotal = old.type == BillType.expense.name
+          ? await _refunds.totalOf(id)
+          : 0;
+      if (refundTotal != 0) {
+        await _shiftBalance(
+          old.accountId!,
+          -refundTotal,
+          old.time,
+          SnapshotType.refund,
+          id,
+          writeSnapshot: false,
+        );
+      }
       await _snapshots.invalidateByBill(id);
 
       await _bills.update(
@@ -215,6 +233,31 @@ class BillService {
         billId: id,
         sign: 1,
       );
+      // 退款回补落回新的账户 / 时间；改成收入或转账后退款不再成立 → 清掉
+      // 退款记录（净值等于原金额，不该再扣减统计）。
+      if (refundTotal != 0) {
+        if (newType == BillType.expense) {
+          await _shiftBalance(
+            newAccountId!,
+            refundTotal,
+            newTime,
+            SnapshotType.refund,
+            id,
+          );
+          await (_db.update(
+            _db.refunds,
+          )..where((t) => t.billId.equals(id))).write(
+            RefundsCompanion(
+              time: Value(newTime),
+              updatedAt: Value(nowMs()),
+            ),
+          );
+        } else {
+          await (_db.delete(
+            _db.refunds,
+          )..where((t) => t.billId.equals(id))).go();
+        }
+      }
       if (newType == BillType.transfer) {
         await _writeTransfer(
           billId: id,
@@ -255,8 +298,23 @@ class BillService {
         sign: -1,
       );
       await _snapshots.invalidateByBill(id);
+      // 退款回补反向：钱不再退回，退款记录随账单一起删除
+      final refundTotal = old.type == BillType.expense.name
+          ? await _refunds.totalOf(id)
+          : 0;
+      if (refundTotal != 0) {
+        await _shiftBalance(
+          old.accountId!,
+          -refundTotal,
+          old.time,
+          SnapshotType.refund,
+          id,
+          writeSnapshot: false,
+        );
+      }
       await (_db.delete(_db.billTags)..where((t) => t.billId.equals(id))).go();
       await (_db.delete(_db.transfers)..where((t) => t.billId.equals(id))).go();
+      await (_db.delete(_db.refunds)..where((t) => t.billId.equals(id))).go();
       await _bills.delete(id);
     });
   }
@@ -284,6 +342,17 @@ class BillService {
           _addTo(balance, bill.accountId, -amount);
           _addTo(balance, bill.incomeAccountId, amount);
         }
+      }
+
+      // 退款回补：退款的钱退回原账单账户（跳过的账单同样跳过其退款）
+      final byId = {for (final b in allBills) b.id: b};
+      final refundRows = await _db.select(_db.refunds).get();
+      for (final r in refundRows) {
+        final bill = byId[r.billId];
+        if (bill == null) continue;
+        if (bill.type != BillType.expense.name) continue;
+        if (BillExtra.fromJson(bill.extra).skipInRecalculate) continue;
+        _addTo(balance, bill.accountId, r.amount);
       }
 
       for (final entry in balance.entries) {

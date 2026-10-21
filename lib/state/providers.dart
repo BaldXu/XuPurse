@@ -11,12 +11,14 @@ import '../data/repositories/ledger_repository.dart';
 import '../data/repositories/budget_repository.dart';
 import '../data/repositories/category_repository.dart';
 import '../data/repositories/report_repository.dart';
+import '../data/repositories/refund_repository.dart';
 import '../data/repositories/snapshot_repository.dart';
 import '../data/repositories/tag_repository.dart';
 import '../domain/services/account_service.dart';
 import '../domain/services/bill_service.dart';
 import '../domain/services/category_service.dart';
 import '../domain/services/currency_service.dart';
+import '../domain/services/refund_service.dart';
 
 /// 数据库管理器（main 中完成账本初始化后 override 注入）。
 final databaseManagerProvider = Provider<DatabaseManager>(
@@ -53,6 +55,9 @@ final budgetRepoProvider = Provider(
 final reportRepoProvider = Provider(
   (ref) => ReportRepository(ref.watch(dbProvider)),
 );
+final refundRepoProvider = Provider(
+  (ref) => RefundRepository(ref.watch(dbProvider)),
+);
 
 // ---------- Service ----------
 
@@ -64,6 +69,19 @@ final accountServiceProvider = Provider(
 );
 final categoryServiceProvider = Provider(
   (ref) => CategoryService(ref.watch(dbProvider)),
+);
+
+/// 退款业务（登记退款 + 余额回补 + 快照）
+final refundServiceProvider = Provider(
+  (ref) => RefundService(ref.watch(dbProvider)),
+);
+
+/// 各账单退款合计流（账单 id → 退款金额）。
+///
+/// 列表 / 统计在 Dart 侧做净额换算（[netAmountOf]）时的唯一数据源；
+/// 退款表任一变化自动推送，因此退款保存后列表与统计立刻按净额刷新。
+final refundTotalsProvider = StreamProvider<Map<String, int>>(
+  (ref) => ref.watch(refundRepoProvider).watchTotals(),
 );
 
 /// 第三方导入引擎

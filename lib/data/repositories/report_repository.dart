@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import '../../core/constants/enums.dart';
 import '../../domain/services/currency_service.dart' show convertAmount;
 import '../database/app_database.dart';
+import 'bill_sql.dart';
 
 /// 「报告汇总」入口门槛判定结果。
 class ReportGate {
@@ -76,7 +77,7 @@ class ReportRepository {
   /// 数据指纹只跟踪数据变化（账单/账户/快照/汇率），不感知代码逻辑变化；
   /// 若不加版本号，逻辑修复后已落库的旧口径缓存会一直沿用（如年初资产
   /// 曾把「有快照但晚于年初」的账户按当前余额计入）。
-  static const int _computeVersion = 2;
+  static const int _computeVersion = 3;
 
   // ---------- 门槛 ----------
 
@@ -135,7 +136,7 @@ class ReportRepository {
         .customSelect(
           "SELECT time, "
           "CASE WHEN type = 'income' THEN amount ELSE 0 END AS income, "
-          "CASE WHEN type = 'expense' THEN amount ELSE 0 END AS expense "
+          "CASE WHEN type = 'expense' THEN $kBillNetSql ELSE 0 END AS expense "
           "FROM bills WHERE type IN ('expense', 'income') AND $_isRegular "
           'AND time >= ? AND time < ?',
           variables: [Variable(start), Variable(end)],
@@ -169,7 +170,7 @@ class ReportRepository {
     final end = DateTime(year + 1).millisecondsSinceEpoch;
     final rows = await _db
         .customSelect(
-          'SELECT category_id AS cid, SUM(amount) AS s FROM bills '
+          'SELECT category_id AS cid, SUM($kBillNetSql) AS s FROM bills '
           "WHERE type = ? AND time >= ? AND time < ? AND $_isRegular "
           'GROUP BY category_id',
           variables: [Variable(type.name), Variable(start), Variable(end)],
@@ -191,7 +192,7 @@ class ReportRepository {
     final end = DateTime(year + 1).millisecondsSinceEpoch;
     final rows = await _db
         .customSelect(
-          'SELECT bt.tag_id AS tid, SUM(b.amount) AS s FROM bills b '
+          'SELECT bt.tag_id AS tid, SUM($kBillNetSqlB) AS s FROM bills b '
           'JOIN bill_tags bt ON bt.bill_id = b.id '
           "WHERE b.type = 'expense' AND b.time >= ? AND b.time < ? "
           'AND $_isRegularB GROUP BY bt.tag_id',
@@ -216,7 +217,7 @@ class ReportRepository {
     final end = DateTime(year + 1).millisecondsSinceEpoch;
     final rows = await _db
         .customSelect(
-          'SELECT comment AS c, SUM(amount) AS s FROM bills '
+          'SELECT comment AS c, SUM($kBillNetSql) AS s FROM bills '
           "WHERE type = 'expense' AND time >= ? AND time < ? AND $_isRegular "
           " AND comment IS NOT NULL AND comment != '' "
           'GROUP BY comment ORDER BY s DESC LIMIT ?',
@@ -291,7 +292,7 @@ SELECT
            WHEN $_isAdjust AND type = 'expense' THEN -amount
            ELSE 0 END) AS adjust_net,
   SUM(CASE WHEN $_isRegular AND type = 'income' THEN amount ELSE 0 END) AS income,
-  SUM(CASE WHEN $_isRegular AND type = 'expense' THEN amount ELSE 0 END) AS expense,
+  SUM(CASE WHEN $_isRegular AND type = 'expense' THEN $kBillNetSql ELSE 0 END) AS expense,
   SUM(CASE WHEN $_isRegular THEN 1 ELSE 0 END) AS bill_count
 FROM bills
 WHERE type IN ('expense', 'income') AND time >= ? AND time < ?

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/enums.dart';
 import '../../../core/utils/amount.dart';
 import '../../../data/database/app_database.dart';
+import '../../../domain/services/refund_service.dart';
 import '../../../state/providers.dart';
 import '../../tokens/design_tokens.dart';
 import '../../widgets/xp_card.dart';
@@ -298,6 +299,9 @@ class _CategoryDetailSheetState extends ConsumerState<_CategoryDetailSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // 退款合计：明细卡合计与每行金额都按净额展示
+    final refundTotals =
+        ref.watch(refundTotalsProvider).value ?? const <String, int>{};
     return SafeArea(
       child: SizedBox(
         height: MediaQuery.sizeOf(context).height * 0.7,
@@ -351,7 +355,7 @@ class _CategoryDetailSheetState extends ConsumerState<_CategoryDetailSheet> {
                   }
                   var total = 0;
                   for (final b in bills) {
-                    total += b.amount;
+                    total += netAmountOf(b, refundTotals);
                   }
                   return ListView.builder(
                     padding: const EdgeInsets.fromLTRB(
@@ -379,6 +383,7 @@ class _CategoryDetailSheetState extends ConsumerState<_CategoryDetailSheet> {
                       return _DetailRow(
                         bill: b,
                         categories: widget.data.categories,
+                        refund: refundTotals[b.id] ?? 0,
                       );
                     },
                   );
@@ -393,10 +398,17 @@ class _CategoryDetailSheetState extends ConsumerState<_CategoryDetailSheet> {
 }
 
 class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.bill, required this.categories});
+  const _DetailRow({
+    required this.bill,
+    required this.categories,
+    this.refund = 0,
+  });
 
   final Bill bill;
   final List<Category> categories;
+
+  /// 该账单的退款合计（万分之元；支出按净额展示）
+  final int refund;
 
   @override
   Widget build(BuildContext context) {
@@ -442,7 +454,8 @@ class _DetailRow extends StatelessWidget {
             ),
           ),
           Text(
-            '${isExpense ? '-' : '+'}${formatYuan(bill.amount)}',
+            '${isExpense ? '-' : '+'}'
+            '${formatYuan(isExpense && refund > 0 ? bill.amount - refund : bill.amount)}',
             style: theme.textTheme.bodyMedium
                 ?.copyWith(
                   fontWeight: FontWeight.w600,

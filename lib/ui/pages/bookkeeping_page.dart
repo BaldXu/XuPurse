@@ -79,6 +79,11 @@ class _BookkeepingPageState extends ConsumerState<BookkeepingPage>
   final _feeController = TextEditingController();
   DateTime _date = DateTime.now();
   final _commentController = TextEditingController();
+
+  /// 退款输入框（仅支出；空 / 0 = 无退款）。
+  /// 退款不写进账单 amount——原支出金额保持不变，退款落 refunds 表。
+  final _refundController = TextEditingController();
+
   final Set<String> _tagIds = {};
 
   /// 不计入收支：仅记流水与余额，不参与收入/支出统计。
@@ -128,6 +133,7 @@ class _BookkeepingPageState extends ConsumerState<BookkeepingPage>
       _currencyCode = bill.currencyCode;
       _excludeFromStats = BillExtra.fromJson(bill.extra).excludeFromStats;
       if (bill.type == BillType.transfer.name) _loadTransferFee();
+      if (bill.type == BillType.expense.name) _loadRefund();
       _loadTags();
     }
   }
@@ -224,11 +230,34 @@ class _BookkeepingPageState extends ConsumerState<BookkeepingPage>
     }
   }
 
+  /// 编辑支出账单时回填已有退款。
+  ///
+  /// 退款按账户币种落库，这里换算回当前记账币种展示（外币账单编辑时
+  /// 与金额输入框口径一致）；账户信息尚未加载时按账户币种原值展示。
+  Future<void> _loadRefund() async {
+    final bill = widget.initialBill;
+    if (bill == null) return;
+    final total = await ref.read(refundServiceProvider).totalOf(bill.id);
+    if (total <= 0 || !mounted) return;
+    final accCur = _accountCurrencyOf(bill.accountId);
+    final billCur = _effectiveCurrency;
+    final shown = accCur == billCur
+        ? total
+        : convertAmount(
+            total,
+            accCur,
+            billCur,
+            ref.read(currencyServiceProvider),
+          );
+    setState(() => _refundController.text = formatYuan(shown));
+  }
+
   @override
   void dispose() {
     _amountText.dispose();
     _commentController.dispose();
     _feeController.dispose();
+    _refundController.dispose();
     super.dispose();
   }
 
@@ -456,8 +485,26 @@ class _BookkeepingPageState extends ConsumerState<BookkeepingPage>
       }
     }
 
+    // ---- 退款（仅支出）：换算到账户币种，与金额同口径 ----
+    var refundAmount = 0;
+    if (_type == BillType.expense) {
+      final refundText = _refundController.text.trim();
+      final refundInput = refundText.isEmpty
+          ? 0
+          : (parseYuanInput(refundText) ?? 0);
+      final fromCur = _accountCurrencyOf(_accountId);
+      refundAmount = (refundInput == 0 || billCur == fromCur)
+          ? refundInput
+          : convertAmount(refundInput, billCur, fromCur, rates);
+      if (refundAmount > amount) {
+        _toast('退款金额不能超过支出金额');
+        return false;
+      }
+    }
+
     try {
       final billService = ref.read(billServiceProvider);
+      String? savedBillId = _isEdit ? widget.initialBill!.id : null;
       if (_isEdit) {
         await billService.updateBill(
           widget.initialBill!.id,
@@ -482,7 +529,7 @@ class _BookkeepingPageState extends ConsumerState<BookkeepingPage>
               currencyCode == null && widget.initialBill!.currencyCode != null,
         );
       } else {
-        await billService.addBill(
+        savedBillId = await billService.addBill(
           type: _type,
           categoryId: categoryId,
           amount: amount,
@@ -499,6 +546,13 @@ class _BookkeepingPageState extends ConsumerState<BookkeepingPage>
           currencyAmount: currencyAmount,
           baseCurrency: currencyCode == null ? null : base,
         );
+      }
+      // 退款（仅支出）：原支出金额保持不变，退款作为独立记录写入 refunds 表，
+      // 列表与统计读取时按净额（金额 − 退款）计算；填 0 即清除退款。
+      if (savedBillId != null && _type == BillType.expense) {
+        await ref
+            .read(refundServiceProvider)
+            .setRefund(billId: savedBillId, amount: refundAmount);
       }
       return true;
     } catch (e) {
@@ -608,9 +662,11 @@ class _BookkeepingPageState extends ConsumerState<BookkeepingPage>
           XpSpacing.l,
           XpSpacing.m,
         ),
-        child: ValueListenableBuilder<String>(
-          valueListenable: _amountText,
-          builder: (context, text, _) {
+        child: ListenableBuilder(
+          // 金额 + 退款任一变化都要刷新（净额提示同时依赖两者）
+          listenable: Listenable.merge([_amountText, _refundController]),
+          builder: (context, _) {
+            final text = _amountText.value;
             final input = parseYuanInput(text);
             final converted = billCur != accCur && input != null
                 ? convertAmount(
@@ -620,6 +676,15 @@ class _BookkeepingPageState extends ConsumerState<BookkeepingPage>
                     ref.read(currencyServiceProvider),
                   )
                 : null;
+            final refundInput = _type == BillType.expense
+                ? (parseYuanInput(_refundController.text) ?? 0)
+                : 0;
+            final hintText = [
+              if (converted != null) '≈ $accCur ${formatYuan(converted)}',
+              if (refundInput > 0)
+                '已退 ${formatYuan(refundInput)}　净额 '
+                    '${formatYuan((input ?? 0) - refundInput)}',
+            ].join('　');
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -668,9 +733,7 @@ class _BookkeepingPageState extends ConsumerState<BookkeepingPage>
                   child: Align(
                     alignment: Alignment.centerRight,
                     child: Text(
-                      converted == null
-                          ? ''
-                          : '≈ $accCur ${formatYuan(converted)}',
+                      hintText,
                       maxLines: 1,
                       style: textTheme.labelSmall?.copyWith(
                         color: scheme.onSurfaceVariant,
@@ -943,6 +1006,23 @@ class _BookkeepingPageState extends ConsumerState<BookkeepingPage>
         valueWidget: _inlineField(controller: _commentController, hint: '可选'),
       ),
     );
+
+    // 退款（仅支出）：原支出金额保持不变，退款单独落库并冲减统计口径
+    if (_type == BillType.expense) {
+      add(
+        XpParamRow(
+          leadingIcon: Icons.assignment_return_outlined,
+          label: '退款',
+          subtitle: '退款不计入收入，只冲减这笔支出',
+          showChevron: false,
+          valueWidget: _inlineField(
+            controller: _refundController,
+            hint: '0.00',
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          ),
+        ),
+      );
+    }
 
     if (!isTransfer) {
       add(

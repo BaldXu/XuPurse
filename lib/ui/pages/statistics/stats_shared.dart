@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/enums.dart';
 import '../../../data/database/app_database.dart';
+import '../../../domain/services/refund_service.dart';
 import '../../../state/providers.dart';
 import '../../tokens/design_tokens.dart';
 
@@ -104,6 +105,7 @@ String granularityLabel(StatsGranularity g, BillType type) {
 List<({String label, int amount})> aggregateTrend(
   List<Bill> bills, {
   required StatsGranularity granularity,
+  Map<String, int> refundTotals = const {},
 }) {
   final map = <int, int>{};
   final labels = <int, String>{};
@@ -124,7 +126,7 @@ List<({String label, int amount})> aggregateTrend(
         key = DateTime(dt.year, dt.month).millisecondsSinceEpoch;
         label = '${dt.month}月';
     }
-    map[key] = (map[key] ?? 0) + b.amount;
+    map[key] = (map[key] ?? 0) + netAmountOf(b, refundTotals);
     labels[key] = label;
   }
   final keys = map.keys.toList()..sort();

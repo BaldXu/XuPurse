@@ -6,6 +6,7 @@ import '../../core/constants/enums.dart';
 import '../../core/utils/amount.dart';
 import '../../core/utils/ids.dart';
 import '../../data/database/app_database.dart';
+import '../../data/repositories/bill_sql.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../widgets/xp_card.dart';
@@ -95,7 +96,7 @@ final _budgetsWithUsageProvider = StreamProvider<List<_BudgetWithUsage>>((
             ).millisecondsSinceEpoch;
         final rows = await db
             .customSelect(
-              'SELECT COALESCE(SUM(amount), 0) AS s FROM bills '
+              'SELECT COALESCE(SUM($kBillNetSql), 0) AS s FROM bills '
               'WHERE type = ? AND time >= ? AND time < ? '
               '${b.categoryId != null ? 'AND category_id = ?' : ''}',
               variables: [

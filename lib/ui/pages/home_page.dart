@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/utils/amount.dart';
 import '../../data/database/app_database.dart';
+import '../../domain/services/refund_service.dart';
 import '../../state/providers.dart';
 import '../../state/theme_provider.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
@@ -185,6 +186,9 @@ class _HomePageState extends ConsumerState<HomePage>
   ) {
     // 逐月收支柱（红绿条数据源；刻意不受类型筛选影响）
     final summaries = ref.watch(monthlySummariesProvider).value ?? const {};
+    // 退款合计：日卡支出小计按净额（退款不算收入）
+    final refundTotals =
+        ref.watch(refundTotalsProvider).value ?? const <String, int>{};
     final sections = <_DaySection>[];
     for (final bill in bills) {
       final dt = DateTime.fromMillisecondsSinceEpoch(bill.time);
@@ -205,7 +209,9 @@ class _HomePageState extends ConsumerState<HomePage>
         sections.last.bills.add(bill);
       }
       final s = sections.last;
-      if (bill.type == 'expense') s.expense += bill.amount;
+      if (bill.type == 'expense') {
+        s.expense += netAmountOf(bill, refundTotals);
+      }
       if (bill.type == 'income') s.income += bill.amount;
     }
 
