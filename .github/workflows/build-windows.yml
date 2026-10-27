@@ -12,10 +12,16 @@ permissions:
 
 jobs:
   build-windows:
-    runs-on: windows-2019
+    # 固定 windows-2022（自带 VS2022 + C++ 工作负载）。
+    # 不要用 windows-2019：只有 VS2019(16.x)，Flutter 会拿 "Visual Studio 16 2019"
+    # 生成器去 configure，缺 C++ 工具集时在 CMakeLists.txt:3 (project) 报
+    # "Unable to generate build files"。
+    # 也别图省事写 windows-latest：镜像升到 VS2026 后 CMake 生成器名字对不上，
+    # 会以同样方式失败。
+    runs-on: windows-2022
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -27,8 +33,25 @@ jobs:
       - name: Enable Windows desktop
         run: flutter config --enable-windows-desktop
 
+      # 失败时这段日志能直接看出 runner 里是哪个 VS / 哪个 CMake。
+      - name: Show toolchain versions
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          flutter --version
+          cmake --version
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          if (Test-Path $vswhere) { & $vswhere -latest -products * -format json } else { Write-Host "vswhere not found" }
+
       - name: Install dependencies
         run: flutter pub get
+
+      # 生成 plugin symlink 需要 Developer Mode，runner 上默认关闭。
+      - name: Enable developer mode
+        shell: pwsh
+        run: |
+          New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" `
+            -Name AllowDevelopmentWithoutDevLicense -PropertyType DWORD -Value 1 -Force
 
       - name: Build Windows (release)
         run: flutter build windows --release
@@ -37,12 +60,13 @@ jobs:
         shell: pwsh
         run: |
           $src = "build/windows/x64/runner/Release"
+          if (-not (Test-Path $src)) { throw "构建产物目录不存在：$src" }
           $dest = "XuPurse-windows-x64.zip"
           Compress-Archive -Path "$src/*" -DestinationPath $dest -Force
           Write-Host "Created $dest"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: XuPurse-windows-x64
           path: XuPurse-windows-x64.zip
