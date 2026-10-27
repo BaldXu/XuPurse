@@ -7,6 +7,22 @@ import 'package:web/web.dart' as web;
 /// 定时备份固定文件名（Web 端展示用；真实落盘在配置目录或 OPFS）。
 const String autoBackupFileName = 'xupurse_auto_backup.json';
 
+/// 定时备份文件名前缀：`xupurse_auto_20261023_004512.json`
+/// （Web 端不按份数轮换，但 UI 文案要用，与 IO 端保持一致）。
+const String autoBackupPrefix = 'xupurse_auto_';
+
+/// 保留的定时备份份数（Web 端目录权限下同样轮换，UI 文案用）。
+const int autoBackupKeep = 5;
+
+/// Web 端没有「公共目录」概念，定时备份不写公共存储。
+bool get usesPublicBackupDir => false;
+
+/// Web 端没有 SAF 目录授权。
+bool isTreeUri(String? dir) => false;
+
+/// Web 端没有树 URI，原样返回。
+String treeDirLabel(String tree) => tree;
+
 /// 回退存储键（localStorage；仅兼容旧版本遗留备份）。
 const String _storageKey = 'auto_backup_json';
 

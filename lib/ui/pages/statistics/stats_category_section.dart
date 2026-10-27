@@ -114,15 +114,15 @@ class _CategorySectionState extends ConsumerState<StatsCategorySection>
             _CategoryPieCard(
               title: '支出分类占比',
               emptyHint: '本时段暂无支出',
-              categorySum: d.expenseSum,
-              categories: d.categories,
+              type: BillType.expense,
+              data: d,
             ),
             const SizedBox(height: XpSpacing.l),
             _CategoryPieCard(
               title: '收入分类占比',
               emptyHint: '本时段暂无收入',
-              categorySum: d.incomeSum,
-              categories: d.categories,
+              type: BillType.income,
+              data: d,
             ),
             const SizedBox(height: XpSpacing.l),
             _CategoryRankCard(start: widget.start, end: widget.end, data: d),
@@ -604,29 +604,61 @@ String _catName(List<Category> categories, String id) {
   return '未知分类';
 }
 
-class _CategoryPieCard extends StatelessWidget {
+/// 分类构成粒度：一级（归并到父分类） / 二级（叶子分类直显，更精细）。
+enum _CompositionLevel { top, leaf }
+
+/// 分类占比卡：一级 / 二级分类切换 + Top5 环形图 + 图例（支出 / 收入共用）。
+class _CategoryPieCard extends StatefulWidget {
   const _CategoryPieCard({
     required this.title,
     required this.emptyHint,
-    required this.categorySum,
-    required this.categories,
+    required this.type,
+    required this.data,
   });
 
   final String title;
   final String emptyHint;
-  final List<({String categoryId, int amount})> categorySum;
-  final List<Category> categories;
+  final BillType type;
+  final _CategoryData data;
+
+  @override
+  State<_CategoryPieCard> createState() => _CategoryPieCardState();
+}
+
+class _CategoryPieCardState extends State<_CategoryPieCard> {
+  _CompositionLevel _level = _CompositionLevel.top;
+
+  List<({String categoryId, int amount})> get _leafSum =>
+      widget.type == BillType.expense
+      ? widget.data.expenseSum
+      : widget.data.incomeSum;
+
+  /// 按当前粒度取名称 + 金额，金额降序。
+  /// 两种粒度汇总金额相同（同一批叶子只换分组方式）。
+  List<({String name, int amount})> _rows() {
+    if (_level == _CompositionLevel.top) {
+      return [
+        for (final e in widget.data.topLevelSum(_leafSum))
+          (name: _catName(widget.data.categories, e.categoryId), amount: e.amount),
+      ];
+    }
+    final sorted = [..._leafSum]..sort((a, b) => b.amount.compareTo(a.amount));
+    return [
+      for (final e in sorted)
+        (name: _catName(widget.data.categories, e.categoryId), amount: e.amount),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (categorySum.isEmpty) {
+    if (_leafSum.isEmpty) {
       return XpCard(
         padding: EdgeInsets.zero,
-        child: XpEmptyState(icon: Icons.pie_chart_outline, title: emptyHint),
+        child: XpEmptyState(icon: Icons.pie_chart_outline, title: widget.emptyHint),
       );
     }
-    final sorted = [...categorySum]
-      ..sort((a, b) => b.amount.compareTo(a.amount));
+    final theme = Theme.of(context);
+    final sorted = _rows();
     final total = sorted.fold<int>(0, (s, e) => s + e.amount);
     final top5 = sorted.take(5).toList();
     final otherAmount = total - top5.fold<int>(0, (s, e) => s + e.amount);
@@ -654,7 +686,25 @@ class _CategoryPieCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: Theme.of(context).textTheme.titleSmall),
+          Row(
+            children: [
+              Expanded(
+                child: Text(widget.title, style: theme.textTheme.titleSmall),
+              ),
+              const SizedBox(width: XpSpacing.m),
+              SizedBox(
+                width: 120,
+                child: XpSlidingSegmented<_CompositionLevel>(
+                  items: const [
+                    XpSegmentedItem(value: _CompositionLevel.top, label: '一级'),
+                    XpSegmentedItem(value: _CompositionLevel.leaf, label: '二级'),
+                  ],
+                  selected: _level,
+                  onChanged: (v) => setState(() => _level = v),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: XpSpacing.m),
           Row(
             children: [
@@ -677,7 +727,7 @@ class _CategoryPieCard extends StatelessWidget {
                       _legend(
                         context,
                         piePalette[i % piePalette.length],
-                        _catName(categories, top5[i].categoryId),
+                        top5[i].name,
                         '${formatYuan(top5[i].amount)}'
                         '（${(top5[i].amount / total * 100).toStringAsFixed(0)}%）',
                       ),

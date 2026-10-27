@@ -3,6 +3,11 @@
          debug/profile 构建由 Flutter 模板自带 INTERNET 权限，
          但 release 安装包必须在此显式声明，否则所有网络请求失败。 -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- 定时备份写公共下载目录：Android 9 及以下需要 legacy 写权限，
+         10+ 走 MediaStore 不需要该权限，故用 maxSdkVersion 限定。 -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28"/>
     <application
         android:label="xupurse"
         android:name="${applicationName}"

@@ -6,8 +6,9 @@ import 'backup_service.dart';
 
 /// 定时备份：开关开启时，每次启动距上次备份 ≥24h 自动备份一次。
 ///
-/// - 保存位置固定（应用文档目录固定文件 / Web 浏览器 localStorage），
-///   只覆盖上一次定时备份文件，与手动备份（用户另存）互不干扰。
+/// - 保存位置固定：Android 写公共目录 `Download/XuPurse/`（应用私有目录会随
+///   卸载被删，放那里等于没有备份），桌面写应用文档目录，Web 写浏览器私有
+///   文件系统；只保留最近若干份，与手动备份（用户另存）互不干扰。
 /// - 加密：开启「加密定时备份」时密码保存在本机 SharedPreferences，
 ///   每次自动备份都用它加密；密码不会随备份文件导出。
 /// - 启动检查失败静默（不打扰启动，不更新时间戳，下次启动重试）。
@@ -31,10 +32,13 @@ class AutoBackupService {
   /// 定时备份备份内容（是否包含应用设置）。
   static const String kIncludeSettings = 'auto_backup_include_settings';
 
+  /// 上次自动备份的失败原因（成功时清空；备份页展示，避免静默失败没人知道）。
+  static const String kLastError = 'auto_backup_last_error';
+
   /// 自动备份间隔：超过 24 小时才触发下一次。
   static const Duration interval = Duration(hours: 24);
 
-  /// 启动时检查：开关开且距上次 ≥24h → 自动备份。失败静默（下次再试）。
+  /// 启动时检查：开关开且距上次 ≥24h → 自动备份。失败记下原因（下次再试）。
   Future<void> maybeRun() async {
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getBool(kEnabled) != true) return;
@@ -43,14 +47,34 @@ class AutoBackupService {
     if (elapsed < interval.inMilliseconds) return;
     try {
       await run();
-    } catch (_) {
-      // 静默失败：不打断启动流程，下次启动再试。
+      await prefs.remove(kLastError);
+    } catch (e) {
+      // 不打断启动流程，但把原因留下来，备份页能看到「上次失败原因」
+      await prefs.setString(kLastError, describeError(e));
     }
   }
 
-  /// 立即执行一次定时备份（加密按记忆密码）。成功更新时间戳并返回展示文案。
+  /// 把异常翻译成一句能看懂的原因。
+  static String describeError(Object e) {
+    final text = e.toString();
+    if (text.contains('permission_denied')) {
+      return '未授予存储权限，无法写入保存位置';
+    }
+    if (text.contains('ENOENT') || text.contains('No such file')) {
+      return '保存目录不存在（可能被删除或 SD 卡已拔出）';
+    }
+    if (text.contains('permission') || text.contains('EACCES')) {
+      return '保存目录没有写入权限（授权可能已失效，请重新选目录）';
+    }
+    return text.length > 120 ? '${text.substring(0, 120)}…' : text;
+  }
+
+  /// 立即执行一次定时备份（加密按记忆密码），返回展示文案。
+  ///
   /// 备份内容/加密/保存位置均取任务保存时的配置。
-  Future<String> run() async {
+  /// [manual] = true 表示用户点的「立即备份」：**不更新**上次自动备份时间，
+  /// 因此 24 小时节奏不变（原定明天 14:00 仍是明天 14:00）。
+  Future<String> run({bool manual = false}) async {
     final prefs = await SharedPreferences.getInstance();
     final password = prefs.getString(kPassword);
     final dir = prefs.getString(kDir);
@@ -60,7 +84,19 @@ class AutoBackupService {
       includeSettings: includeSettings,
     );
     final info = await saveAutoBackup(json, dir: dir);
-    await prefs.setInt(kLastAt, DateTime.now().millisecondsSinceEpoch);
+    // 自选目录写失败时 store 会退回默认位置：这次备份没丢，但要告诉用户目录没生效
+    final fellBack = isTreeUri(dir) && !info.startsWith(treeDirLabel(dir!));
+    if (fellBack) {
+      await prefs.setString(
+        kLastError,
+        '自选目录写入失败，本次已保存到 $info，请重新选一次目录',
+      );
+    } else {
+      await prefs.remove(kLastError);
+    }
+    if (!manual) {
+      await prefs.setInt(kLastAt, DateTime.now().millisecondsSinceEpoch);
+    }
     return info;
   }
 

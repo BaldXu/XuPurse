@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../data/backup/auto_backup_service.dart';
+import '../../data/backup/auto_backup_store.dart';
 import '../../data/backup/backup_service.dart';
 import '../../data/backup/encryption_service.dart';
 import '../../data/backup/restore_service.dart';
@@ -62,6 +63,9 @@ class _BackupPageState extends ConsumerState<BackupPage>
 
   /// 定时备份执行中（立即备份按钮转加载态）。
   bool _autoBacking = false;
+
+  /// 「立即备份」执行中（防重复点击）。
+  bool _runningAutoNow = false;
 
   /// 当前模式。初始跟随定时备份开关状态（重进页面回到上次的模式）。
   late _BackupMode _mode = ref.read(autoBackupProvider).enabled
@@ -238,13 +242,21 @@ class _BackupPageState extends ConsumerState<BackupPage>
                   label: '上次自动备份',
                   value: auto.lastAt == null ? '尚未备份' : _fmtTime(auto.lastAt!),
                 ),
+                if ((auto.lastError ?? '').isNotEmpty)
+                  _InfoRow(label: '上次失败原因', value: auto.lastError!),
                 _InfoRow(
                   label: '加密',
                   value: auto.hasPassword ? '已加密（密码保存在本机）' : '明文（未加密）',
                 ),
                 _InfoRow(
                   label: '保存位置',
-                  value: auto.dir ?? (kIsWeb ? '浏览器私有文件系统（OPFS）' : '应用文档目录'),
+                  value: auto.dir != null && auto.dir!.isNotEmpty
+                      ? treeDirLabel(auto.dir!)
+                      : (kIsWeb
+                            ? '浏览器私有文件系统（OPFS）'
+                            : usesPublicBackupDir
+                            ? '手机存储/Download/XuPurse/'
+                            : '应用文档目录'),
                 ),
                 _InfoRow(
                   label: '备份内容',
@@ -252,17 +264,33 @@ class _BackupPageState extends ConsumerState<BackupPage>
                 ),
                 Align(
                   alignment: Alignment.centerRight,
-                  child: TextButton.icon(
-                    onPressed: _onDeleteAutoTask,
-                    icon: Icon(
-                      Icons.delete_outline,
-                      size: 18,
-                      color: scheme.error,
-                    ),
-                    label: Text(
-                      '删除定时任务',
-                      style: TextStyle(color: scheme.error),
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextButton.icon(
+                        onPressed: _runningAutoNow ? null : _onRunAutoNow,
+                        icon: _runningAutoNow
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.bolt_outlined, size: 18),
+                        label: Text(_runningAutoNow ? '备份中…' : '立即备份'),
+                      ),
+                      TextButton.icon(
+                        onPressed: _onDeleteAutoTask,
+                        icon: Icon(
+                          Icons.delete_outline,
+                          size: 18,
+                          color: scheme.error,
+                        ),
+                        label: Text(
+                          '删除定时任务',
+                          style: TextStyle(color: scheme.error),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -316,13 +344,15 @@ class _BackupPageState extends ConsumerState<BackupPage>
             XpParamRow(
               leadingIcon: Icons.folder_outlined,
               label: '保存方式',
-              subtitle: auto.dir != null
-                  ? '已配置：${auto.dir}'
+              subtitle: auto.dir != null && auto.dir!.isNotEmpty
+                  ? '已配置：${treeDirLabel(auto.dir!)}'
                   : kIsWeb
                   ? '默认：浏览器私有文件系统（OPFS）'
+                  : usesPublicBackupDir
+                  ? '默认：手机存储/Download/XuPurse/（点按可改到自选文件夹）'
                   : '默认：应用文档目录（xupurse_auto_backup.json）',
-              showChevron: false,
-              onTap: _onChooseAutoBackupDir,
+              showChevron: !kIsWeb,
+              onTap: kIsWeb ? null : _onChooseAutoBackupDir,
             ),
             const XpParamDivider(indent: XpSpacing.l),
             Padding(
@@ -336,15 +366,21 @@ class _BackupPageState extends ConsumerState<BackupPage>
                 children: [
                   Expanded(
                     child: Text(
-                      auto.dir != null
-                          ? '点按上方可修改目录，自动备份都会写入该目录'
+                      auto.dir != null && auto.dir!.isNotEmpty
+                          ? '备份会写入你选的文件夹（${treeDirLabel(auto.dir!)}），'
+                                '卸载 App 也不清除；文件名带时间戳，最多保留最近 '
+                                '$autoBackupKeep 份'
+                          : usesPublicBackupDir
+                          ? '写入手机公共目录，卸载 App 也不会被清除；'
+                                '文件名带时间戳，最多保留最近 $autoBackupKeep 份。'
+                                '想放到自己的文件夹（含 SD 卡）就点按上方选目录'
                           : '点按上方选择保存目录（配置一次，自动备份都写这里）',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
                     ),
                   ),
-                  if (auto.dir != null)
+                  if (auto.dir != null && auto.dir!.isNotEmpty)
                     TextButton(
                       onPressed: _onResetAutoBackupDir,
                       child: const Text('恢复默认'),
@@ -384,8 +420,12 @@ class _BackupPageState extends ConsumerState<BackupPage>
               const SizedBox(height: XpSpacing.s),
               _Bullet(text: '每次打开 App 自动检查一次：距上次自动备份超过 24 小时就自动备份'),
               _Bullet(
-                text: auto.dir != null
-                    ? '文件自动保存到已配置的目录，只覆盖上一次定时备份文件'
+                text: auto.dir != null && auto.dir!.isNotEmpty
+                    ? '文件自动保存到你选的文件夹（${treeDirLabel(auto.dir!)}），'
+                          '卸载重装不会丢，最多保留最近 $autoBackupKeep 份'
+                    : usesPublicBackupDir
+                    ? '文件默认保存到手机存储 Download/XuPurse/，卸载重装也不会丢，'
+                          '最多保留最近 $autoBackupKeep 份'
                     : kIsWeb
                     ? '文件默认保存到浏览器私有文件系统，只覆盖上一次定时备份文件'
                     : '文件默认保存到应用文档目录，只覆盖上一次定时备份文件',
@@ -500,7 +540,7 @@ class _BackupPageState extends ConsumerState<BackupPage>
       final picked = await AutoBackupService(mgr).configureDir();
       if (picked == null || !mounted) return; // 用户取消
       await ref.read(autoBackupProvider.notifier).setDir(picked);
-      if (mounted) showXpSnack(context, '定时备份将保存到：$picked');
+      if (mounted) showXpSnack(context, '定时备份将保存到：${treeDirLabel(picked)}');
     } on UnsupportedError catch (e) {
       if (!mounted) return;
       showXpSnack(context, e.message ?? '当前平台不支持选择目录', error: true);
@@ -575,6 +615,51 @@ class _BackupPageState extends ConsumerState<BackupPage>
         .saveTask(includeSettings: _includeSettings);
     if (!mounted) return;
     showXpSnack(context, auto.enabled ? '定时备份任务已覆盖保存' : '定时备份任务已创建');
+  }
+
+  /// 「立即备份」：按当前定时任务配置立刻写一份定时备份，
+  /// 但**不更新**「上次自动备份」时间 —— 24 小时节奏保持不变。
+  Future<void> _onRunAutoNow() async {
+    if (_runningAutoNow) return;
+    final auto = ref.read(autoBackupProvider);
+    final where = auto.dir != null && auto.dir!.isNotEmpty
+        ? treeDirLabel(auto.dir!)
+        : (kIsWeb
+              ? '浏览器私有文件系统'
+              : usesPublicBackupDir
+              ? '手机存储/Download/XuPurse/'
+              : '应用文档目录');
+    final next = auto.lastAt == null
+        ? '首次启动后自动检查'
+        : _fmtTime(auto.lastAt! + AutoBackupService.interval.inMilliseconds);
+
+    final ok = await confirmXpDialog(
+      context,
+      title: '立即备份一次？',
+      content:
+          '按当前定时任务配置（${auto.hasPassword ? '加密' : '明文'}、'
+          '${auto.includeSettings ? '数据库+应用设置' : '仅数据库'}）'
+          '立刻写一份备份到：$where\n\n'
+          '不会改变定时节奏：下次自动备份仍是 $next。\n'
+          '定时备份文件只保留最近 $autoBackupKeep 份，较早的会被删掉。',
+      confirmLabel: '立即备份',
+    );
+    if (ok != true || !mounted) return;
+
+    setState(() => _runningAutoNow = true);
+    final mgr = ref.read(databaseManagerProvider);
+    try {
+      final info = await AutoBackupService(mgr).run(manual: true);
+      await ref.read(autoBackupProvider.notifier).refreshFromPrefs();
+      if (!mounted) return;
+      showXpSnack(context, '已备份到：$info');
+    } catch (e) {
+      await ref.read(autoBackupProvider.notifier).refreshFromPrefs();
+      if (!mounted) return;
+      showXpSnack(context, '备份失败：${AutoBackupService.describeError(e)}');
+    } finally {
+      if (mounted) setState(() => _runningAutoNow = false);
+    }
   }
 
   /// 删除定时备份任务：确认弹窗内长按 3 秒才真正删除。

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/constants/enums.dart';
 import '../../core/utils/amount.dart';
+import '../../core/utils/amount_expression.dart';
 import '../../core/utils/bill_extra.dart';
 import '../../data/database/app_database.dart';
 import '../../domain/services/currency_service.dart';
@@ -292,33 +293,62 @@ class _BookkeepingPageState extends ConsumerState<BookkeepingPage>
 
   // ---------- 输入 ----------
 
+  /// 键盘统一入口：运算符走 [_withOperator]，其余按最后一段操作数追加。
   void _append(String ch) {
     final cur = _amountText.value;
-    String next = cur;
+    final next = isAmountOperatorChar(ch)
+        ? _withOperator(cur, ch)
+        : _appendToOperand(cur, ch);
+    if (next != cur) _amountText.value = next;
+  }
+
+  /// 追加运算符：末尾已是运算符则替换（避免 `12+×`）；
+  /// 末尾是孤立小数点先去掉（`12.` + → `12+`）。空输入不接受运算符。
+  String _withOperator(String cur, String op) {
+    if (cur.isEmpty) return cur;
+    if (isAmountOperatorChar(cur[cur.length - 1])) {
+      return '${cur.substring(0, cur.length - 1)}$op';
+    }
+    final base = cur.endsWith('.') ? cur.substring(0, cur.length - 1) : cur;
+    return '$base$op';
+  }
+
+  /// 追加数字 / 小数点 / `00`：限制只作用于最后一段操作数
+  /// （整数 ≤9 位、小数 ≤2 位，`.` 不重复，`00` 受整数位上限约束）。
+  String _appendToOperand(String cur, String ch) {
+    final operand = lastAmountOperand(cur);
+    final prefix = cur.substring(0, cur.length - operand.length);
+    var next = operand;
     if (ch == '.') {
-      if (!cur.contains('.')) {
-        next = cur.isEmpty ? '0.' : '$cur.';
-      }
+      if (!operand.contains('.')) next = operand.isEmpty ? '0.' : '$operand.';
     } else if (ch == '00') {
-      if (cur.isNotEmpty && cur != '0' && !cur.contains('.')) {
-        // 与单数字键一致受 9 位整数上限约束（cur 无小数点时 length 即整数位数）。
-        if (cur.length + 2 <= 9) {
-          next =
-              '$cur'
-              '00';
-        }
+      if (operand.isNotEmpty && operand != '0' && !operand.contains('.')) {
+        // 与单数字键一致受 9 位整数上限约束（operand 无小数点时 length 即整数位数）。
+        if (operand.length + 2 <= 9) next = '${operand}00';
       }
     } else {
       // 数字
-      final intPart = cur.split('.').first;
-      if (cur.contains('.')) {
-        final frac = cur.split('.')[1];
-        if (frac.length < 2) next = cur + ch; // 最多两位小数
+      final intPart = operand.split('.').first;
+      if (operand.contains('.')) {
+        final frac = operand.split('.')[1];
+        if (frac.length < 2) next = operand + ch; // 最多两位小数
       } else if (intPart.length < 9) {
-        next = cur == '0' ? ch : cur + ch;
+        next = operand == '0' ? ch : operand + ch;
       }
     }
-    if (next != cur) _amountText.value = next;
+    return '$prefix$next';
+  }
+
+  /// 「=」：把算式折叠成结果；纯数字输入不动。
+  void _equals() {
+    final cur = _amountText.value;
+    if (!hasAmountOperator(cur)) return;
+    final value = evaluateAmountExpression(cur);
+    if (value == null) {
+      _toast('算式无效');
+      return;
+    }
+    _amountText.value = formatYuan(value);
   }
 
   void _backspace() {
@@ -415,7 +445,8 @@ class _BookkeepingPageState extends ConsumerState<BookkeepingPage>
 
   /// 保存整笔账单；成功返回 true（不在此处关页面，交给调用方决定收尾）。
   Future<bool> _save() async {
-    final amountInput = parseYuanInput(_amountText.value);
+    // 键盘可能是算式（12.5+3×2），这里统一折叠成金额再校验。
+    final amountInput = parseAmountInput(_amountText.value);
     if (amountInput == null || amountInput <= 0) {
       _toast('请输入有效金额');
       return false;
@@ -667,7 +698,7 @@ class _BookkeepingPageState extends ConsumerState<BookkeepingPage>
           listenable: Listenable.merge([_amountText, _refundController]),
           builder: (context, _) {
             final text = _amountText.value;
-            final input = parseYuanInput(text);
+            final input = parseAmountInput(text);
             final converted = billCur != accCur && input != null
                 ? convertAmount(
                     input,
@@ -1134,7 +1165,9 @@ class _BookkeepingPageState extends ConsumerState<BookkeepingPage>
           ValueListenableBuilder<String>(
             valueListenable: _amountText,
             builder: (context, text, _) {
-              final input = parseYuanInput(text);
+              final input = parseAmountInput(text);
+              // 含运算符时实时显示「= 结果」，按键即见算出来多少。
+              final result = hasAmountOperator(text) ? input : null;
               final converted = billCur != accCur && input != null
                   ? convertAmount(
                       input,
@@ -1171,14 +1204,29 @@ class _BookkeepingPageState extends ConsumerState<BookkeepingPage>
                     ),
                   ),
                   SizedBox(
-                    // 换算行收窄（16→8），把空间让给数字键。
-                    height: XpSpacing.s,
+                    // 换算行：算式结果 + 外币换算（都为空时留白一行）。
+                    height: XpSpacing.l,
                     child: Align(
                       alignment: Alignment.centerRight,
-                      child: Text(
-                        converted == null
-                            ? ''
-                            : '≈ $accCur ${formatYuan(converted)}',
+                      child: Text.rich(
+                        TextSpan(
+                          children: [
+                            if (result != null)
+                              TextSpan(
+                                text: '= ${formatYuan(result)}',
+                                style: TextStyle(
+                                  color: scheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            if (result != null && converted != null)
+                              const TextSpan(text: '　'),
+                            if (converted != null)
+                              TextSpan(
+                                text: '≈ $accCur ${formatYuan(converted)}',
+                              ),
+                          ],
+                        ),
                         maxLines: 1,
                         style: textTheme.labelSmall?.copyWith(
                           color: scheme.onSurfaceVariant,
@@ -1240,6 +1288,30 @@ class _BookkeepingPageState extends ConsumerState<BookkeepingPage>
                       ),
                     ),
                   ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: XpSpacing.s),
+          // 运算符行：现场做四则运算，「=」把算式折叠成结果。
+          // 求值结果实时显示在金额下方（「= 15.50」），确认保存的就是它。
+          Row(
+            children: [
+              for (final op in amountOperators)
+                Expanded(
+                  child: _KeyButton(
+                    label: op,
+                    haptic: _hapticOn,
+                    accent: true,
+                    onTap: () => _append(op),
+                  ),
+                ),
+              Expanded(
+                child: _KeyButton(
+                  label: '=',
+                  haptic: _hapticOn,
+                  accent: true,
+                  onTap: _equals,
                 ),
               ),
             ],
@@ -1323,6 +1395,7 @@ class _KeyButton extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.haptic = true,
+    this.accent = false,
   });
 
   final String label;
@@ -1331,8 +1404,12 @@ class _KeyButton extends StatelessWidget {
   /// 是否触发按键震动（由「键盘震动」偏好控制）。
   final bool haptic;
 
+  /// 运算符键（`+ − × ÷ =`）：主题色文字 + 淡主题色底，与数字键区分。
+  final bool accent;
+
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return SizedBox(
       height: _keyHeight,
       child: Padding(
@@ -1340,13 +1417,20 @@ class _KeyButton extends StatelessWidget {
         padding: const EdgeInsets.all(_keyGap / 2),
         child: OutlinedButton(
           onPressed: () {
-            // 每次按键轻震一下（数字/小数点/⌫/C 统一在此处理）。
+            // 每次按键轻震一下（数字/小数点/⌫/C/运算符统一在此处理）。
             if (haptic) HapticFeedback.mediumImpact();
             onTap();
           },
           style: OutlinedButton.styleFrom(
             padding: EdgeInsets.zero,
             textStyle: XpTextStyles.h3.tabular,
+            foregroundColor: accent ? scheme.primary : null,
+            backgroundColor: accent
+                ? scheme.primary.withValues(alpha: 0.08)
+                : null,
+            side: accent
+                ? BorderSide(color: scheme.primary.withValues(alpha: 0.32))
+                : null,
           ),
           child: Text(label),
         ),

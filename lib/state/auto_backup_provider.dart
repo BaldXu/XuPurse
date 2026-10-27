@@ -11,6 +11,7 @@ class AutoBackupState {
     this.hasPassword = false,
     this.dir,
     this.includeSettings = true,
+    this.lastError,
   });
 
   final bool enabled;
@@ -27,12 +28,16 @@ class AutoBackupState {
   /// 备份内容是否包含应用设置。
   final bool includeSettings;
 
+  /// 上次自动备份失败原因（成功时为空）。
+  final String? lastError;
+
   AutoBackupState copyWith({
     bool? enabled,
     int? lastAt,
     bool? hasPassword,
     String? dir,
     bool? includeSettings,
+    String? lastError,
   }) {
     return AutoBackupState(
       enabled: enabled ?? this.enabled,
@@ -40,6 +45,7 @@ class AutoBackupState {
       hasPassword: hasPassword ?? this.hasPassword,
       dir: dir ?? this.dir,
       includeSettings: includeSettings ?? this.includeSettings,
+      lastError: lastError ?? this.lastError,
     );
   }
 }
@@ -67,6 +73,22 @@ class AutoBackupNotifier extends Notifier<AutoBackupState> {
       hasPassword: (p?.getString(AutoBackupService.kPassword) ?? '').isNotEmpty,
       dir: p?.getString(AutoBackupService.kDir),
       includeSettings: p?.getBool(AutoBackupService.kIncludeSettings) ?? true,
+      lastError: p?.getString(AutoBackupService.kLastError),
+    );
+  }
+
+  /// 从 SharedPreferences 重新读一遍状态（立即备份后刷新「上次失败原因」用）。
+  Future<void> refreshFromPrefs() async {
+    final p = await SharedPreferences.getInstance();
+    _prefsCache = p;
+    state = AutoBackupState(
+      enabled: p.getBool(AutoBackupService.kEnabled) ?? false,
+      lastAt: p.getInt(AutoBackupService.kLastAt),
+      hasPassword: (p.getString(AutoBackupService.kPassword) ?? '').isNotEmpty,
+      dir: p.getString(AutoBackupService.kDir),
+      includeSettings:
+          p.getBool(AutoBackupService.kIncludeSettings) ?? true,
+      lastError: p.getString(AutoBackupService.kLastError),
     );
   }
 
