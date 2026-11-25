@@ -81,11 +81,14 @@ class AiConversation {
 
 /// 会话历史状态（多会话管理），持久化到 SharedPreferences。
 final aiChatProvider = NotifierProvider<AiChatNotifier, List<AiConversation>>(
-  AiChatNotifier.new,
+  () => AiChatNotifier('ai_conversations'),
 );
 
 class AiChatNotifier extends Notifier<List<AiConversation>> {
-  static const _key = 'ai_conversations';
+  AiChatNotifier(this._key);
+
+  /// SharedPreferences 存储键（不同入口不同键 = 会话隔离）。
+  final String _key;
 
   @override
   List<AiConversation> build() {

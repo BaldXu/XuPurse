@@ -61,6 +61,18 @@ class BillRepository {
     return query.get();
   }
 
+  /// 时间段账单数量（统计口径，排除「不计入收支」；AI 分析发送前预检用）。
+  Future<int> countInRange(int start, int end) async {
+    final row = await _db
+        .customSelect(
+          'SELECT COUNT(*) AS c FROM bills WHERE time >= ? AND time < ?'
+          '$_excludedSql',
+          variables: [Variable(start), Variable(end)],
+        )
+        .getSingle();
+    return row.data['c'] as int;
+  }
+
   Future<Bill?> getById(String id) =>
       (_db.select(_db.bills)..where((t) => t.id.equals(id))).getSingleOrNull();
 

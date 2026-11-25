@@ -33,8 +33,8 @@ class _AiScopeHelpPageState extends State<AiScopeHelpPage>
         ),
         children: [
           Text(
-            '你在聊天窗提问时，应用会先从你本机的账单里生成一份「统计摘要」，'
-            '随问题一起发给 AI。这份摘要就是 AI 唯一能看到的你的数据。',
+            '你在聊天窗提问时，应用会先从本机账单生成发给 AI 的数据，再随问题发送。'
+            '发多少由「数据范围设置」里的模式决定：标准=聚合摘要，详细=逐笔明细。',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: scheme.onSurfaceVariant,
             ),
@@ -50,17 +50,25 @@ class _AiScopeHelpPageState extends State<AiScopeHelpPage>
           const SizedBox(height: XpSpacing.m),
           const _PointCard(
             icon: Icons.description_outlined,
-            title: '不是原始账单，是脱敏摘要',
+            title: '标准模式：只发聚合摘要',
             points: [
               '发送前，应用在你本机把账单聚合成一段 Markdown 文本（可以理解'
                   '成一份脱敏后的「财务简报」），再附到你的问题后面发给 AI。',
-              '默认只发金额合计、分类排行、趋势等汇总数据，'
+              '只发金额合计、分类排行、趋势等汇总数据，'
                   '不含单笔账单的备注、地点、标签、附件等明细。',
               '你配置的 AI 服务商只会收到这份摘要 + 你的对话内容，'
                   '不会拿到你的完整账本数据。',
-              '每段对话只附送一次：同一个聊天窗口内，首次提问会带上摘要，'
-                  '之后的追问不再重复发送（省 tokens）；如果账本数据有更新，'
-                  '新开一个聊天窗口即可让 AI 读取到最新摘要。',
+            ],
+          ),
+          const SizedBox(height: XpSpacing.m),
+          const _PointCard(
+            icon: Icons.list_alt_outlined,
+            title: '详细模式：逐笔明细（高风险）',
+            points: [
+              '把范围内每一笔账单以 JSON 发送：时间、金额、收支类型、分类、账户；'
+                  '备注默认不发送。',
+              '首次切换会弹出确认；页面常驻警示条，可随时查看「数据边界」说明。',
+              '单次最多 600 笔 / 64 KB，超限必须先缩小范围才能保存。',
             ],
           ),
           const SizedBox(height: XpSpacing.m),
@@ -70,12 +78,14 @@ class _AiScopeHelpPageState extends State<AiScopeHelpPage>
             points: [
               '摘要的读取与聚合都在你本机完成，不上传任何原始数据；'
                   'API Key 与对话内容也只发送到你配置的 API 端点。',
+              '每次提问都会重新带上数据（不是只发一次），'
+                  '所以追问也能对得上具体账目。',
             ],
           ),
           const SizedBox(height: XpSpacing.xl),
 
           Text(
-            '摘要是怎么生成的',
+            '标准模式的摘要怎么生成',
             style: theme.textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.w600,
             ),
@@ -107,8 +117,10 @@ class _AiScopeHelpPageState extends State<AiScopeHelpPage>
             icon: Icons.shield_outlined,
             title: '多重保护',
             points: [
-              '默认只发汇总，不发明细：摘要默认只含金额合计、分类排行、趋势，'
+              '标准模式默认只发汇总，不发明细：摘要只含金额合计、分类排行、趋势，'
                   '不含单笔账单的备注、地点、标签、附件等明细。',
+              '详细模式额外脱敏：备注里的手机号 / 身份证 / 银行卡 / 邮箱 / '
+                  '6 位以上连续数字会替换为 ***，单条备注超过 60 字截断。',
               '标签/备注需主动开启：这两项贴近消费明细、涉及隐私，默认关闭；'
                   '只有你在「数据范围设置」里开启后，才会把账单标签排行、'
                   '备注文本的金额排行发给 AI。',

@@ -3,7 +3,25 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// AI 数据范围：时间范围档位。
+/// AI 数据模式。
+///
+/// - [summary]：只给 AI 聚合统计摘要（默认，低隐私）。
+/// - [detail]：给 AI 逐笔明细 JSON（高隐私，需单独确认）。
+enum AiDataMode {
+  summary('标准'),
+  detail('详细');
+
+  const AiDataMode(this.label);
+
+  final String label;
+
+  static AiDataMode fromName(String? name) => values.firstWhere(
+    (e) => e.name == name,
+    orElse: () => AiDataMode.summary,
+  );
+}
+
+/// 标准模式：聚合摘要的时间范围档位。
 enum AiScopeRange {
   m1('近1个月', 30),
   m3('近3个月', 90),
@@ -23,10 +41,26 @@ enum AiScopeRange {
       values.firstWhere((e) => e.name == name, orElse: () => AiScopeRange.m6);
 }
 
-/// AI 统计摘要的数据范围配置。
+/// 详细模式：逐笔明细的时间范围档位。
+enum AiAnalysisRange {
+  thisMonth('本月'),
+  lastMonth('上月'),
+  last3Months('近3月'),
+  custom('自定义');
+
+  const AiAnalysisRange(this.label);
+
+  final String label;
+
+  static AiAnalysisRange fromName(String? name) => values.firstWhere(
+    (e) => e.name == name,
+    orElse: () => AiAnalysisRange.thisMonth,
+  );
+}
+
+/// AI 数据范围配置（一次设置全局生效）。
 ///
-/// 控制聊天时自动附带的本机统计摘要包含哪些数据（聚合口径，无单笔明细）。
-/// 持久化到 SharedPreferences，一次设置全局生效。
+/// 标准模式沿用原有聚合摘要开关；详细模式只关心时间范围与是否附带备注。
 class AiScope {
   const AiScope({
     required this.enabled,
@@ -37,12 +71,21 @@ class AiScope {
     required this.categoryTopN,
     required this.includeTags,
     required this.includeRemarks,
+    this.mode = AiDataMode.summary,
+    this.detailRange = AiAnalysisRange.thisMonth,
+    this.detailCustomStart,
+    this.detailCustomEnd,
+    this.detailIncludeNotes = false,
+    this.detailPrivacyAcked = false,
   });
 
-  /// 总开关：关闭后完全不给 AI 读取本机数据（纯聊天）。
+  /// 当前模式。
+  final AiDataMode mode;
+
+  /// 总开关：关闭后完全不给 AI 读取本机数据（纯聊天），仅对标准模式生效。
   final bool enabled;
 
-  /// 时间范围档位。
+  /// 标准模式时间范围档位。
   final AiScopeRange range;
 
   /// 是否允许读取资产情况（账户余额 + 资产趋势）。
@@ -63,7 +106,20 @@ class AiScope {
   /// 是否允许读取账单备注排行（涉及隐私，默认关闭）。
   final bool includeRemarks;
 
-  /// 默认模板（除涉及隐私的标签/备注外全开）。
+  /// 详细模式时间档位。
+  final AiAnalysisRange detailRange;
+
+  /// 详细模式自定义范围（毫秒，均为当天 00:00）。
+  final int? detailCustomStart;
+  final int? detailCustomEnd;
+
+  /// 详细模式是否附带备注（会做本地脱敏）。
+  final bool detailIncludeNotes;
+
+  /// 详细模式的隐私须知是否已确认（只在首次切到详细模式时弹一次）。
+  final bool detailPrivacyAcked;
+
+  /// 默认模板（除涉及隐私的标签/备注外全开；详细模式默认本月、不带备注）。
   static const AiScope defaultScope = AiScope(
     enabled: true,
     range: AiScopeRange.m6,
@@ -75,6 +131,46 @@ class AiScope {
     includeRemarks: false,
   );
 
+  bool get isDetail => mode == AiDataMode.detail;
+
+  /// 详细模式解析为 `[start, end)` 毫秒区间（end 为开区间）。
+  (int, int) resolveDetailRange(DateTime now) {
+    final thisMonthStart = DateTime(now.year, now.month, 1);
+    final nextMonthStart = DateTime(now.year, now.month + 1, 1);
+    switch (detailRange) {
+      case AiAnalysisRange.thisMonth:
+        return (
+          thisMonthStart.millisecondsSinceEpoch,
+          nextMonthStart.millisecondsSinceEpoch,
+        );
+      case AiAnalysisRange.lastMonth:
+        return (
+          DateTime(now.year, now.month - 1, 1).millisecondsSinceEpoch,
+          thisMonthStart.millisecondsSinceEpoch,
+        );
+      case AiAnalysisRange.last3Months:
+        return (
+          DateTime(now.year, now.month - 2, 1).millisecondsSinceEpoch,
+          nextMonthStart.millisecondsSinceEpoch,
+        );
+      case AiAnalysisRange.custom:
+        final s = detailCustomStart;
+        final e = detailCustomEnd;
+        if (s == null || e == null || e < s) {
+          return (
+            thisMonthStart.millisecondsSinceEpoch,
+            nextMonthStart.millisecondsSinceEpoch,
+          );
+        }
+        final endDay = DateTime.fromMillisecondsSinceEpoch(e);
+        return (
+          s,
+          DateTime(endDay.year, endDay.month, endDay.day + 1)
+              .millisecondsSinceEpoch,
+        );
+    }
+  }
+
   AiScope copyWith({
     bool? enabled,
     AiScopeRange? range,
@@ -84,6 +180,12 @@ class AiScope {
     int? categoryTopN,
     bool? includeTags,
     bool? includeRemarks,
+    AiDataMode? mode,
+    AiAnalysisRange? detailRange,
+    int? detailCustomStart,
+    int? detailCustomEnd,
+    bool? detailIncludeNotes,
+    bool? detailPrivacyAcked,
   }) => AiScope(
     enabled: enabled ?? this.enabled,
     range: range ?? this.range,
@@ -93,9 +195,16 @@ class AiScope {
     categoryTopN: categoryTopN ?? this.categoryTopN,
     includeTags: includeTags ?? this.includeTags,
     includeRemarks: includeRemarks ?? this.includeRemarks,
+    mode: mode ?? this.mode,
+    detailRange: detailRange ?? this.detailRange,
+    detailCustomStart: detailCustomStart ?? this.detailCustomStart,
+    detailCustomEnd: detailCustomEnd ?? this.detailCustomEnd,
+    detailIncludeNotes: detailIncludeNotes ?? this.detailIncludeNotes,
+    detailPrivacyAcked: detailPrivacyAcked ?? this.detailPrivacyAcked,
   );
 
   Map<String, Object?> toJson() => {
+    'mode': mode.name,
     'enabled': enabled,
     'range': range.name,
     'includeAssets': includeAssets,
@@ -104,11 +213,17 @@ class AiScope {
     'categoryTopN': categoryTopN,
     'includeTags': includeTags,
     'includeRemarks': includeRemarks,
+    'detailRange': detailRange.name,
+    'detailIncludeNotes': detailIncludeNotes,
+    'detailPrivacyAcked': detailPrivacyAcked,
+    if (detailCustomStart != null) 'detailCustomStart': detailCustomStart,
+    if (detailCustomEnd != null) 'detailCustomEnd': detailCustomEnd,
   };
 
   @override
   bool operator ==(Object other) =>
       other is AiScope &&
+      other.mode == mode &&
       other.enabled == enabled &&
       other.range == range &&
       other.includeAssets == includeAssets &&
@@ -116,10 +231,16 @@ class AiScope {
       other.includeCategories == includeCategories &&
       other.categoryTopN == categoryTopN &&
       other.includeTags == includeTags &&
-      other.includeRemarks == includeRemarks;
+      other.includeRemarks == includeRemarks &&
+      other.detailRange == detailRange &&
+      other.detailCustomStart == detailCustomStart &&
+      other.detailCustomEnd == detailCustomEnd &&
+      other.detailIncludeNotes == detailIncludeNotes &&
+      other.detailPrivacyAcked == detailPrivacyAcked;
 
   @override
   int get hashCode => Object.hash(
+    mode,
     enabled,
     range,
     includeAssets,
@@ -128,9 +249,15 @@ class AiScope {
     categoryTopN,
     includeTags,
     includeRemarks,
+    detailRange,
+    detailCustomStart,
+    detailCustomEnd,
+    detailIncludeNotes,
+    detailPrivacyAcked,
   );
 
   static AiScope fromJson(Map<String, Object?> json) => AiScope(
+    mode: AiDataMode.fromName(json['mode'] as String?),
     enabled: json['enabled'] as bool? ?? defaultScope.enabled,
     range: AiScopeRange.fromName(json['range'] as String?),
     includeAssets: json['includeAssets'] as bool? ?? defaultScope.includeAssets,
@@ -142,6 +269,11 @@ class AiScope {
     categoryTopN: json['categoryTopN'] as int? ?? defaultScope.categoryTopN,
     includeTags: json['includeTags'] as bool? ?? false,
     includeRemarks: json['includeRemarks'] as bool? ?? false,
+    detailRange: AiAnalysisRange.fromName(json['detailRange'] as String?),
+    detailCustomStart: json['detailCustomStart'] as int?,
+    detailCustomEnd: json['detailCustomEnd'] as int?,
+    detailIncludeNotes: json['detailIncludeNotes'] as bool? ?? false,
+    detailPrivacyAcked: json['detailPrivacyAcked'] as bool? ?? false,
   );
 }
 
