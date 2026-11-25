@@ -5,11 +5,13 @@ import '../../core/utils/amount.dart';
 import '../../data/database/app_database.dart';
 import '../../data/repositories/bill_list_repository.dart';
 import '../../domain/ai/ai_analysis_context.dart';
+import '../../domain/ai/ai_config.dart';
 import '../../domain/ai/ai_service.dart';
 import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/app_icon.dart';
+import '../widgets/xp_sheet.dart';
 
 /// 消费清单 AI 分析：把整份清单（逐笔 + 清单内分类）交给 AI。
 ///
@@ -38,6 +40,16 @@ class _AiListChatPageState extends ConsumerState<AiListChatPage>
 
   String? _convId;
   bool _sending = false;
+
+  /// 思考模式（默认关闭；仅疑似支持的模型显示开关）。
+  bool _thinking = false;
+
+  bool get _modelSupportsThinking {
+    final model = ref.watch(
+      aiConfigProvider.select((s) => s.current?.model ?? ''),
+    );
+    return AiClient.modelSupportsThinking(model);
+  }
   final _inputCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
 
@@ -124,6 +136,69 @@ class _AiListChatPageState extends ConsumerState<AiListChatPage>
     return null;
   }
 
+  Future<void> _newConversation() async {
+    final conv = await ref
+        .read(aiListChatProvider.notifier)
+        .createConversation();
+    if (mounted) setState(() => _convId = conv.id);
+  }
+
+  /// 历史对话：切回之前的分析，或开新的。
+  Future<void> _showHistory() async {
+    final conversations = ref.read(aiListChatProvider);
+    await showXpSheet<void>(
+      context: context,
+      heightFactor: 0.6,
+      builder: (sheetCtx) => ListView(
+        padding: const EdgeInsets.fromLTRB(
+          XpSpacing.l,
+          XpSpacing.m,
+          XpSpacing.l,
+          XpSpacing.l,
+        ),
+        children: [
+          Text(
+            '历史分析',
+            style: Theme.of(
+              sheetCtx,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: XpSpacing.m),
+          if (conversations.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(XpSpacing.l),
+              child: Text(
+                '还没有历史对话',
+                style: Theme.of(sheetCtx).textTheme.bodySmall,
+              ),
+            )
+          else
+            for (final c in conversations)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const AppIcon(icon: Icons.chat_bubble_outline),
+                title: Text(
+                  c.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text('${c.messages.length} 条消息'),
+                trailing: c.id == _convId
+                    ? Icon(
+                        Icons.check,
+                        color: Theme.of(sheetCtx).colorScheme.primary,
+                      )
+                    : null,
+                onTap: () {
+                  setState(() => _convId = c.id);
+                  Navigator.of(sheetCtx).pop();
+                },
+              ),
+        ],
+      ),
+    );
+  }
+
   String _systemPrompt() {
     return '$kDefaultSystemPrompt\n\n'
         '## 本机消费清单（用户已授权，逐笔）\n'
@@ -170,6 +245,7 @@ class _AiListChatPageState extends ConsumerState<AiListChatPage>
         systemPrompt: _systemPrompt(),
         history: history,
         userMessage: text,
+        enableThinking: _thinking,
       );
       if (reply.trim().isEmpty) {
         await chat.replaceLast(
@@ -220,7 +296,34 @@ class _AiListChatPageState extends ConsumerState<AiListChatPage>
     final messages = conv?.messages ?? const <AiMessage>[];
 
     return buildXpScaffold(
-      appBar: AppBar(title: const Text('AI 分析清单')),
+      appBar: AppBar(
+        title: const Text('AI 分析清单'),
+        actions: [
+          if (_modelSupportsThinking)
+            IconButton(
+              tooltip: _thinking ? '思考模式：开（点击关闭）' : '思考模式：关（点击开启）',
+              icon: Icon(
+                _thinking ? Icons.psychology : Icons.psychology_outlined,
+                size: 22,
+                color: _thinking
+                    ? scheme.primary
+                    : scheme.onSurfaceVariant,
+              ),
+              onPressed: () => setState(() => _thinking = !_thinking),
+            ),
+          IconButton(
+            tooltip: '历史分析',
+            icon: const AppIcon(icon: Icons.history, size: 22),
+            onPressed: _showHistory,
+          ),
+          IconButton(
+            tooltip: '新建对话',
+            icon: const AppIcon(icon: Icons.add_comment_outlined, size: 22),
+            onPressed: _sending ? null : _newConversation,
+          ),
+          const SizedBox(width: XpSpacing.xs),
+        ],
+      ),
       body: Column(
         children: [
           Container(
