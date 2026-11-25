@@ -135,6 +135,50 @@ class BillTags extends Table {
   Set<Column> get primaryKey => {billId, tagId};
 }
 
+/// 账单位置（1:1，与 bills 分离：便于按城市/区县聚合做消费地图）
+///
+/// 坐标存原始值 + [coordSystem] 说明坐标系（WGS-84 / GCJ-02），
+/// 接地图底图时再按需转换，避免入库时不可逆地改写。
+@TableIndex(name: 'idx_bill_locations_city', columns: {#city})
+@TableIndex(name: 'idx_bill_locations_district', columns: {#district})
+class BillLocations extends Table {
+  TextColumn get billId =>
+      text().references(Bills, #id, onDelete: KeyAction.cascade)();
+  RealColumn get lat => real().nullable()();
+  RealColumn get lng => real().nullable()();
+
+  /// 坐标系：wgs84（GPS / IP 原始）或 gcj02（国内地图底图）。
+  TextColumn get coordSystem => text().withDefault(const Constant('wgs84'))();
+
+  /// 定位精度（米）；IP 级定位为空。
+  RealColumn get accuracy => real().nullable()();
+
+  /// 用户可见地点名（如「深圳」「公司楼下」）。
+  TextColumn get name => text().nullable()();
+
+  /// 详细地址（逆地理服务接入后才会有值）。
+  TextColumn get address => text().nullable()();
+
+  TextColumn get province => text().nullable()();
+  TextColumn get city => text().nullable()();
+  TextColumn get district => text().nullable()();
+
+  /// 行政区划码（未来地图边界匹配用）。
+  TextColumn get adcode => text().nullable()();
+
+  /// 地图 POI id（未来接入地图选点时写入）。
+  TextColumn get poiId => text().nullable()();
+
+  /// 来源：ip / gps / manual / import。
+  TextColumn get source => text().withDefault(const Constant('manual'))();
+
+  /// 采集时间（位置具有时效性）。
+  IntColumn get capturedAt => integer()();
+
+  @override
+  Set<Column> get primaryKey => {billId};
+}
+
 /// 余额快照（趋势图数据源；isValid=false 表示关联账单已失效）
 @TableIndex(name: 'idx_snapshots_account', columns: {#accountId, #timestamp})
 class BalanceSnapshots extends Table {

@@ -10,6 +10,7 @@ import '../../domain/services/category_service.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/app_icon.dart';
+import '../widgets/category_icon_picker.dart';
 import '../widgets/xp_empty_state.dart';
 import '../widgets/xp_fab.dart';
 import '../widgets/xp_snack.dart';
@@ -551,7 +552,7 @@ class _NewCategorySheetState extends ConsumerState<_NewCategorySheet> {
             const SizedBox(height: XpSpacing.m),
             Text('图标', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: XpSpacing.s),
-            _CategoryIconPicker(
+            CategoryIconPicker(
               selected: _icon,
               onChanged: _saving ? null : (v) => setState(() => _icon = v),
             ),
@@ -591,45 +592,6 @@ class _NewCategorySheetState extends ConsumerState<_NewCategorySheet> {
       setState(() => _saving = false);
       showXpSnack(context, '创建失败：$e', error: true);
     }
-  }
-}
-
-/// 图标选择网格（分类表单 / 新建分类弹窗共用）。
-class _CategoryIconPicker extends StatelessWidget {
-  const _CategoryIconPicker({required this.selected, required this.onChanged});
-
-  final String selected;
-  final ValueChanged<String>? onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Wrap(
-      spacing: XpSpacing.s,
-      runSpacing: XpSpacing.s,
-      children: [
-        for (final name in iconRegistry.keys.toList()..sort())
-          GestureDetector(
-            onTap: onChanged == null ? null : () => onChanged!(name),
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: selected == name
-                    ? scheme.primary.withValues(alpha: 0.12)
-                    : scheme.surfaceContainerHighest,
-                border: Border.all(
-                  color: selected == name ? scheme.primary : Colors.transparent,
-                  width: 2,
-                ),
-              ),
-              alignment: Alignment.center,
-              child: AppIcon(name: name, size: 22),
-            ),
-          ),
-      ],
-    );
   }
 }
 
@@ -926,7 +888,7 @@ class _CategoryFormSheetState extends ConsumerState<CategoryFormSheet> {
             const SizedBox(height: XpSpacing.m),
             Text('图标', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: XpSpacing.s),
-            _CategoryIconPicker(
+            CategoryIconPicker(
               selected: _icon,
               onChanged: _saving ? null : (v) => setState(() => _icon = v),
             ),

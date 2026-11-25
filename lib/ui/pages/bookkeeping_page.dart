@@ -9,6 +9,8 @@ import '../../core/utils/amount_expression.dart';
 import '../../core/utils/bill_extra.dart';
 import '../../data/database/app_database.dart';
 import '../../domain/services/currency_service.dart';
+import '../../domain/services/location_service.dart';
+import '../../state/location_auto_provider.dart';
 import '../../state/default_account_provider.dart';
 import '../../state/keyboard_haptic_provider.dart';
 import '../../state/providers.dart';
@@ -16,6 +18,7 @@ import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/currency_meta.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/app_icon.dart';
+import '../widgets/category_icon_picker.dart';
 import '../widgets/xp_card.dart';
 import '../widgets/xp_param_row.dart';
 import '../widgets/xp_picker_sheet.dart';
@@ -102,6 +105,25 @@ class _BookkeepingPageState extends ConsumerState<BookkeepingPage>
   /// 本次键盘是否启用按键震动（打开键盘时按「键盘震动」偏好快照）。
   bool _hapticOn = true;
 
+  /// 本次选中的位置（IP 识别或手动输入）。
+  GeoPlace? _place;
+
+  /// 手动输入 / 编辑既有账单时直接展示的地点名（优先于 [_place]）。
+  String? _placeLabelOverride;
+
+  /// 位置识别中（自动识别或手动重试）。
+  bool _placeLoading = false;
+
+  /// 展示用地点文案；无位置时为 null。
+  String? get _placeLabel {
+    final manual = _placeLabelOverride;
+    if (manual != null && manual.trim().isNotEmpty) return manual.trim();
+    final place = _place;
+    if (place == null) return null;
+    final label = place.label;
+    return label.isEmpty ? null : label;
+  }
+
   bool get _isEdit => widget.initialBill != null;
 
   @override
@@ -137,6 +159,133 @@ class _BookkeepingPageState extends ConsumerState<BookkeepingPage>
       if (bill.type == BillType.expense.name) _loadRefund();
       _loadTags();
     }
+    // 位置：编辑时读已有；新增时按开关自动识别（IP 城市级）。
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initPlace());
+  }
+
+  /// 初始化位置：编辑取既有记录，新增按需自动识别。
+  Future<void> _initPlace() async {
+    if (_isEdit) {
+      final loc = await ref
+          .read(billLocationRepoProvider)
+          .getByBillId(widget.initialBill!.id);
+      if (!mounted || loc == null) return;
+      setState(() {
+        _placeLabelOverride = loc.name;
+        _place = GeoPlace(
+          country: '',
+          city: loc.city ?? '',
+          province: loc.province,
+          lat: loc.lat,
+          lng: loc.lng,
+          source: loc.source,
+        );
+      });
+      return;
+    }
+    if (!ref.read(locationAutoProvider)) return;
+    await _autoLocate();
+  }
+
+  /// 通过 IP 识别当前城市（免权限、免 Key）。
+  Future<void> _autoLocate() async {
+    if (_placeLoading) return;
+    setState(() => _placeLoading = true);
+    final place = await ref
+        .read(locationServiceProvider)
+        .currentCity(force: true);
+    if (!mounted) return;
+    setState(() {
+      _placeLoading = false;
+      if (place != null) {
+        _place = place;
+        _placeLabelOverride = null;
+      }
+    });
+    if (place == null && mounted) {
+      showXpSnack(context, '位置获取失败，可手动输入地点');
+    }
+  }
+
+  /// 位置操作面板：识别 / 手输 / 清除。
+  Future<void> _pickPlace() async {
+    final action = await showXpSheet<String>(
+      context: context,
+      wrapContent: true,
+      builder: (sheetCtx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const AppIcon(icon: Icons.my_location),
+            title: const Text('使用当前位置'),
+            subtitle: const Text('通过 IP 识别城市（如「中国-深圳」）'),
+            onTap: () => Navigator.of(sheetCtx).pop('auto'),
+          ),
+          ListTile(
+            leading: const AppIcon(icon: Icons.edit_location_alt_outlined),
+            title: const Text('手动输入地点'),
+            onTap: () => Navigator.of(sheetCtx).pop('manual'),
+          ),
+          if (_placeLabel != null)
+            ListTile(
+              leading: const AppIcon(icon: Icons.close),
+              title: const Text('清除位置'),
+              onTap: () => Navigator.of(sheetCtx).pop('clear'),
+            ),
+          const SizedBox(height: XpSpacing.s),
+        ],
+      ),
+    );
+    if (action == null || !mounted) return;
+    if (action == 'auto') {
+      await _autoLocate();
+    } else if (action == 'manual') {
+      await _promptManualPlace();
+    } else if (action == 'clear') {
+      setState(() {
+        _place = null;
+        _placeLabelOverride = null;
+      });
+    }
+  }
+
+  /// 手动输入地点名（空内容 = 清除）。
+  Future<void> _promptManualPlace() async {
+    final ctrl = TextEditingController(text: _placeLabel ?? '');
+    final input = await showXpDialog<String>(
+      context: context,
+      title: '输入地点',
+      contentWidget: TextField(
+        controller: ctrl,
+        autofocus: true,
+        maxLength: 20,
+        textInputAction: TextInputAction.done,
+        onSubmitted: (v) => Navigator.of(context).pop(v),
+        decoration: const InputDecoration(
+          labelText: '地点名称',
+          hintText: '如：公司楼下、深圳',
+          counterText: '',
+          border: OutlineInputBorder(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(ctrl.text),
+          child: const Text('确定'),
+        ),
+      ],
+    );
+    ctrl.dispose();
+    if (input == null || !mounted) return;
+    final name = input.trim();
+    setState(() {
+      _place = null;
+      _placeLabelOverride = name.isEmpty ? null : name;
+    });
   }
 
   /// 无选中时兜底默认分类（从 build 内移出，避免构建期间写状态）。
@@ -585,6 +734,25 @@ class _BookkeepingPageState extends ConsumerState<BookkeepingPage>
             .read(refundServiceProvider)
             .setRefund(billId: savedBillId, amount: refundAmount);
       }
+      // 位置（可选）：无位置时清掉旧记录，避免编辑后残留。
+      if (savedBillId != null) {
+        final locationRepo = ref.read(billLocationRepoProvider);
+        final label = _placeLabel;
+        if (label == null) {
+          await locationRepo.delete(savedBillId);
+        } else {
+          final place = _place;
+          await locationRepo.save(
+            billId: savedBillId,
+            lat: place?.lat,
+            lng: place?.lng,
+            name: label,
+            province: place?.province,
+            city: place?.city,
+            source: place?.source ?? 'manual',
+          );
+        }
+      }
       return true;
     } catch (e) {
       _toast('保存失败：$e');
@@ -873,7 +1041,9 @@ class _BookkeepingPageState extends ConsumerState<BookkeepingPage>
         ),
       );
       final subs = childrenOf[_parentId] ?? const [];
-      if (subs.isNotEmpty && rowParents.any((c) => c.id == _parentId)) {
+      // 选中任意一级分类都展开子项面板：即使暂时没有二级分类，
+      // 也能通过末尾的「+」当场新建一个。
+      if (rowParents.any((c) => c.id == _parentId)) {
         rows.add(_buildSubCategoryPanel(subs));
       }
     }
@@ -890,7 +1060,118 @@ class _BookkeepingPageState extends ConsumerState<BookkeepingPage>
     );
   }
 
-  /// 二级分类展开区：紧贴选中行下方插入，5 列网格 + 首项「全部」。
+  /// 快速新建二级分类：只在当前一级分类下新增，类型与图标跟随一级分类。
+  Future<void> _quickAddSubCategory() async {
+    final parentId = _parentId;
+    if (parentId == null) return;
+    final all = ref.read(categoriesProvider).valueOrNull ?? const <Category>[];
+    Category? found;
+    for (final c in all) {
+      if (c.id == parentId) {
+        found = c;
+        break;
+      }
+    }
+    if (found == null) return;
+    final parent = found;
+    final parentName = parent.name;
+    final siblingNames = {
+      for (final c in all)
+        if (c.parentId == parentId) c.name,
+    };
+
+    final nameCtrl = TextEditingController();
+    // 图标默认继承一级分类，用户可当场改。
+    var selectedIcon = parent.icon ?? 'bookmark';
+    final input = await showXpDialog<String>(
+      context: context,
+      title: '新建二级分类',
+      contentWidget: StatefulBuilder(
+        builder: (dialogContext, setDialogState) => ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 380),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '在「$parentName」下新增，类型自动跟随这个一级分类。',
+                  style: Theme.of(dialogContext).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(dialogContext).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: XpSpacing.m),
+                TextField(
+                  controller: nameCtrl,
+                  autofocus: true,
+                  maxLength: 12,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (v) => Navigator.of(context).pop(v),
+                  decoration: const InputDecoration(
+                    labelText: '分类名称',
+                    border: OutlineInputBorder(),
+                    counterText: '',
+                  ),
+                ),
+                const SizedBox(height: XpSpacing.s),
+                Text(
+                  '图标',
+                  style: Theme.of(dialogContext).textTheme.titleSmall,
+                ),
+                const SizedBox(height: XpSpacing.s),
+                CategoryIconPicker(
+                  selected: selectedIcon,
+                  onChanged: (v) => setDialogState(() => selectedIcon = v),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(nameCtrl.text),
+          child: const Text('创建'),
+        ),
+      ],
+    );
+    nameCtrl.dispose();
+    if (input == null || !mounted) return;
+
+    final name = input.trim();
+    if (name.isEmpty) {
+      showXpSnack(context, '分类名称不能为空', error: true);
+      return;
+    }
+    if (siblingNames.contains(name)) {
+      showXpSnack(context, '「$parentName」下已有同名分类', error: true);
+      return;
+    }
+
+    final type = _type == BillType.income ? BillType.income : BillType.expense;
+    try {
+      final id = await ref
+          .read(categoryServiceProvider)
+          .createCategory(
+            type: type,
+            name: name,
+            icon: selectedIcon,
+            parentId: parentId,
+          );
+      if (!mounted) return;
+      setState(() => _subId = id);
+      showXpSnack(context, '已新建「$name」');
+    } catch (e) {
+      if (!mounted) return;
+      showXpSnack(context, '创建失败：$e', error: true);
+    }
+  }
+
+  /// 二级分类展开区：紧贴选中行下方插入，5 列网格 + 首项「全部」+ 末尾「新建」。
   Widget _buildSubCategoryPanel(List<Category> subs) {
     return AnimatedSize(
       duration: XpMotion.component,
@@ -914,7 +1195,7 @@ class _BookkeepingPageState extends ConsumerState<BookkeepingPage>
               childAspectRatio: _categoryAspect,
               mainAxisSpacing: XpSpacing.s,
             ),
-            itemCount: subs.length + 1,
+            itemCount: subs.length + 2,
             itemBuilder: (context, i) {
               if (i == 0) {
                 return _SubCategoryCell(
@@ -923,6 +1204,10 @@ class _BookkeepingPageState extends ConsumerState<BookkeepingPage>
                   selected: _subId == null || _subId == _parentId,
                   onTap: () => setState(() => _subId = _parentId),
                 );
+              }
+              // 末位「+」：当场新建一个二级分类。
+              if (i == subs.length + 1) {
+                return _AddSubCategoryCell(onTap: _quickAddSubCategory);
               }
               final sub = subs[i - 1];
               return _SubCategoryCell(
@@ -1026,6 +1311,17 @@ class _BookkeepingPageState extends ConsumerState<BookkeepingPage>
         label: '日期',
         value: DateFormat('M月d日').format(_date),
         onTap: _pickDate,
+      ),
+    );
+
+    // 位置：IP 城市级 / 手动输入；关闭开关时不自动识别，仍可手动。
+    add(
+      XpParamRow(
+        leadingIcon: Icons.place_outlined,
+        label: '位置',
+        subtitle: _placeLoading ? '正在识别当前城市…' : null,
+        value: _placeLoading ? '识别中…' : (_placeLabel ?? '未记录'),
+        onTap: _placeLoading ? null : _pickPlace,
       ),
     );
 
@@ -1458,6 +1754,49 @@ class _CategoryCell extends StatelessWidget {
       label: category.name,
       selected: selected,
       onTap: onTap,
+    );
+  }
+}
+
+/// 二级分类末尾的「新建」格：虚线感浅色圆形 + 主题色加号。
+class _AddSubCategoryCell extends StatelessWidget {
+  const _AddSubCategoryCell({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(XpRadius.c),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: scheme.primary.withValues(alpha: 0.08),
+              border: Border.all(
+                color: scheme.primary.withValues(alpha: 0.45),
+              ),
+            ),
+            child: Icon(Icons.add, size: 22, color: scheme.primary),
+          ),
+          const SizedBox(height: XpSpacing.xs),
+          Text(
+            '新建',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: XpTextStyles.caption.copyWith(
+              color: scheme.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

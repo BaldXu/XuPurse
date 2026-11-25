@@ -77,6 +77,7 @@ class BackupService {
       'tags': await _rows(db.select(db.tags)),
       'tag_groups': await _rows(db.select(db.tagGroups)),
       'bills': await _rows(db.select(db.bills)),
+      'bill_locations': await _rows(db.select(db.billLocations)),
       'bill_tags': await _rows(db.select(db.billTags)),
       'balance_snapshots': await _rows(db.select(db.balanceSnapshots)),
       'transfers': await _rows(db.select(db.transfers)),

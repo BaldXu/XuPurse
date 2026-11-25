@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../state/keyboard_haptic_provider.dart';
+import '../../state/location_auto_provider.dart';
 import '../../state/screen_orientation_provider.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../widgets/xp_card.dart';
@@ -28,6 +29,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
   Widget build(BuildContext context) {
     final hapticOn = ref.watch(keyboardHapticProvider);
     final followRotation = ref.watch(screenRotationProvider);
+    final locationAuto = ref.watch(locationAutoProvider);
     return buildXpScaffold(
       appBar: AppBar(title: const Text('设置')),
       body: ListView(
@@ -111,6 +113,23 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                     value: followRotation,
                     onChanged: (v) =>
                         ref.read(screenRotationProvider.notifier).set(v),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+                const XpParamDivider(indent: kXpParamDividerIndentWithLeading),
+                // 位置识别：IP 城市级，不需要系统定位权限；默认关闭。
+                XpParamRow(
+                  leadingIcon: Icons.place_outlined,
+                  label: '记账自动识别位置',
+                  subtitle: '进入新增明细时通过 IP 识别城市（如「中国-深圳」），不申请定位权限',
+                  showChevron: false,
+                  onTap: () => ref
+                      .read(locationAutoProvider.notifier)
+                      .set(!locationAuto),
+                  valueWidget: Switch(
+                    value: locationAuto,
+                    onChanged: (v) =>
+                        ref.read(locationAutoProvider.notifier).set(v),
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                 ),

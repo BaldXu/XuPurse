@@ -18,6 +18,7 @@ part 'app_database.g.dart';
     TagGroups,
     Bills,
     BillTags,
+    BillLocations,
     BalanceSnapshots,
     Transfers,
     Lends,
@@ -47,7 +48,7 @@ class AppDatabase extends _$AppDatabase {
   factory AppDatabase.memory() => AppDatabase(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   /// 清空数据库：删除全部用户表并重置 schema 版本，下次打开时自动重建。
   ///
@@ -70,11 +71,27 @@ class AppDatabase extends _$AppDatabase {
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) => m.createAll(),
+    // 账单删除时级联清理位置行；每个连接都要显式开启。
+    beforeOpen: (details) async {
+      await customStatement('PRAGMA foreign_keys = ON');
+    },
     onUpgrade: (m, from, to) async {
       // 增量迁移：结构变更一律走 migration，禁止删库重建。
       if (from < 2) {
         // v2：新增年度报告汇总缓存表（纯派生数据，可随时全量重算）。
         await m.createTable(yearReports);
+      }
+      if (from < 3) {
+        // v3：新增账单位置表；把历史 bills.location_lat/lng 回填进来
+        // （导入数据可能带坐标，不能在新功能上线后丢失）。
+        await m.createTable(billLocations);
+        await customStatement(
+          "INSERT OR IGNORE INTO bill_locations "
+          "(bill_id, lat, lng, coord_system, source, captured_at) "
+          "SELECT id, location_lat, location_lng, 'wgs84', 'import', "
+          "COALESCE(created_at, 0) FROM bills "
+          "WHERE location_lat IS NOT NULL AND location_lng IS NOT NULL",
+        );
       }
     },
   );

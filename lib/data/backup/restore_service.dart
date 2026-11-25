@@ -198,6 +198,12 @@ class RestoreService {
       );
       _batchInsert(
         batch,
+        db.billLocations,
+        (m) => BillLocation.fromJson(m).toCompanion(true),
+        data['bill_locations'],
+      );
+      _batchInsert(
+        batch,
         db.billTags,
         (m) => BillTag.fromJson(m).toCompanion(true),
         data['bill_tags'],

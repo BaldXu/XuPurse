@@ -3936,6 +3936,819 @@ class BillTagsCompanion extends UpdateCompanion<BillTag> {
   }
 }
 
+class $BillLocationsTable extends BillLocations
+    with TableInfo<$BillLocationsTable, BillLocation> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BillLocationsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _billIdMeta = const VerificationMeta('billId');
+  @override
+  late final GeneratedColumn<String> billId = GeneratedColumn<String>(
+    'bill_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES bills (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _latMeta = const VerificationMeta('lat');
+  @override
+  late final GeneratedColumn<double> lat = GeneratedColumn<double>(
+    'lat',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lngMeta = const VerificationMeta('lng');
+  @override
+  late final GeneratedColumn<double> lng = GeneratedColumn<double>(
+    'lng',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _coordSystemMeta = const VerificationMeta(
+    'coordSystem',
+  );
+  @override
+  late final GeneratedColumn<String> coordSystem = GeneratedColumn<String>(
+    'coord_system',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('wgs84'),
+  );
+  static const VerificationMeta _accuracyMeta = const VerificationMeta(
+    'accuracy',
+  );
+  @override
+  late final GeneratedColumn<double> accuracy = GeneratedColumn<double>(
+    'accuracy',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _addressMeta = const VerificationMeta(
+    'address',
+  );
+  @override
+  late final GeneratedColumn<String> address = GeneratedColumn<String>(
+    'address',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _provinceMeta = const VerificationMeta(
+    'province',
+  );
+  @override
+  late final GeneratedColumn<String> province = GeneratedColumn<String>(
+    'province',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _cityMeta = const VerificationMeta('city');
+  @override
+  late final GeneratedColumn<String> city = GeneratedColumn<String>(
+    'city',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _districtMeta = const VerificationMeta(
+    'district',
+  );
+  @override
+  late final GeneratedColumn<String> district = GeneratedColumn<String>(
+    'district',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _adcodeMeta = const VerificationMeta('adcode');
+  @override
+  late final GeneratedColumn<String> adcode = GeneratedColumn<String>(
+    'adcode',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _poiIdMeta = const VerificationMeta('poiId');
+  @override
+  late final GeneratedColumn<String> poiId = GeneratedColumn<String>(
+    'poi_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _sourceMeta = const VerificationMeta('source');
+  @override
+  late final GeneratedColumn<String> source = GeneratedColumn<String>(
+    'source',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('manual'),
+  );
+  static const VerificationMeta _capturedAtMeta = const VerificationMeta(
+    'capturedAt',
+  );
+  @override
+  late final GeneratedColumn<int> capturedAt = GeneratedColumn<int>(
+    'captured_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    billId,
+    lat,
+    lng,
+    coordSystem,
+    accuracy,
+    name,
+    address,
+    province,
+    city,
+    district,
+    adcode,
+    poiId,
+    source,
+    capturedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'bill_locations';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<BillLocation> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('bill_id')) {
+      context.handle(
+        _billIdMeta,
+        billId.isAcceptableOrUnknown(data['bill_id']!, _billIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_billIdMeta);
+    }
+    if (data.containsKey('lat')) {
+      context.handle(
+        _latMeta,
+        lat.isAcceptableOrUnknown(data['lat']!, _latMeta),
+      );
+    }
+    if (data.containsKey('lng')) {
+      context.handle(
+        _lngMeta,
+        lng.isAcceptableOrUnknown(data['lng']!, _lngMeta),
+      );
+    }
+    if (data.containsKey('coord_system')) {
+      context.handle(
+        _coordSystemMeta,
+        coordSystem.isAcceptableOrUnknown(
+          data['coord_system']!,
+          _coordSystemMeta,
+        ),
+      );
+    }
+    if (data.containsKey('accuracy')) {
+      context.handle(
+        _accuracyMeta,
+        accuracy.isAcceptableOrUnknown(data['accuracy']!, _accuracyMeta),
+      );
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    }
+    if (data.containsKey('address')) {
+      context.handle(
+        _addressMeta,
+        address.isAcceptableOrUnknown(data['address']!, _addressMeta),
+      );
+    }
+    if (data.containsKey('province')) {
+      context.handle(
+        _provinceMeta,
+        province.isAcceptableOrUnknown(data['province']!, _provinceMeta),
+      );
+    }
+    if (data.containsKey('city')) {
+      context.handle(
+        _cityMeta,
+        city.isAcceptableOrUnknown(data['city']!, _cityMeta),
+      );
+    }
+    if (data.containsKey('district')) {
+      context.handle(
+        _districtMeta,
+        district.isAcceptableOrUnknown(data['district']!, _districtMeta),
+      );
+    }
+    if (data.containsKey('adcode')) {
+      context.handle(
+        _adcodeMeta,
+        adcode.isAcceptableOrUnknown(data['adcode']!, _adcodeMeta),
+      );
+    }
+    if (data.containsKey('poi_id')) {
+      context.handle(
+        _poiIdMeta,
+        poiId.isAcceptableOrUnknown(data['poi_id']!, _poiIdMeta),
+      );
+    }
+    if (data.containsKey('source')) {
+      context.handle(
+        _sourceMeta,
+        source.isAcceptableOrUnknown(data['source']!, _sourceMeta),
+      );
+    }
+    if (data.containsKey('captured_at')) {
+      context.handle(
+        _capturedAtMeta,
+        capturedAt.isAcceptableOrUnknown(data['captured_at']!, _capturedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_capturedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {billId};
+  @override
+  BillLocation map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BillLocation(
+      billId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}bill_id'],
+      )!,
+      lat: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}lat'],
+      ),
+      lng: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}lng'],
+      ),
+      coordSystem: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}coord_system'],
+      )!,
+      accuracy: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}accuracy'],
+      ),
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      ),
+      address: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}address'],
+      ),
+      province: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}province'],
+      ),
+      city: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}city'],
+      ),
+      district: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}district'],
+      ),
+      adcode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}adcode'],
+      ),
+      poiId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}poi_id'],
+      ),
+      source: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source'],
+      )!,
+      capturedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}captured_at'],
+      )!,
+    );
+  }
+
+  @override
+  $BillLocationsTable createAlias(String alias) {
+    return $BillLocationsTable(attachedDatabase, alias);
+  }
+}
+
+class BillLocation extends DataClass implements Insertable<BillLocation> {
+  final String billId;
+  final double? lat;
+  final double? lng;
+
+  /// 坐标系：wgs84（GPS / IP 原始）或 gcj02（国内地图底图）。
+  final String coordSystem;
+
+  /// 定位精度（米）；IP 级定位为空。
+  final double? accuracy;
+
+  /// 用户可见地点名（如「深圳」「公司楼下」）。
+  final String? name;
+
+  /// 详细地址（逆地理服务接入后才会有值）。
+  final String? address;
+  final String? province;
+  final String? city;
+  final String? district;
+
+  /// 行政区划码（未来地图边界匹配用）。
+  final String? adcode;
+
+  /// 地图 POI id（未来接入地图选点时写入）。
+  final String? poiId;
+
+  /// 来源：ip / gps / manual / import。
+  final String source;
+
+  /// 采集时间（位置具有时效性）。
+  final int capturedAt;
+  const BillLocation({
+    required this.billId,
+    this.lat,
+    this.lng,
+    required this.coordSystem,
+    this.accuracy,
+    this.name,
+    this.address,
+    this.province,
+    this.city,
+    this.district,
+    this.adcode,
+    this.poiId,
+    required this.source,
+    required this.capturedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['bill_id'] = Variable<String>(billId);
+    if (!nullToAbsent || lat != null) {
+      map['lat'] = Variable<double>(lat);
+    }
+    if (!nullToAbsent || lng != null) {
+      map['lng'] = Variable<double>(lng);
+    }
+    map['coord_system'] = Variable<String>(coordSystem);
+    if (!nullToAbsent || accuracy != null) {
+      map['accuracy'] = Variable<double>(accuracy);
+    }
+    if (!nullToAbsent || name != null) {
+      map['name'] = Variable<String>(name);
+    }
+    if (!nullToAbsent || address != null) {
+      map['address'] = Variable<String>(address);
+    }
+    if (!nullToAbsent || province != null) {
+      map['province'] = Variable<String>(province);
+    }
+    if (!nullToAbsent || city != null) {
+      map['city'] = Variable<String>(city);
+    }
+    if (!nullToAbsent || district != null) {
+      map['district'] = Variable<String>(district);
+    }
+    if (!nullToAbsent || adcode != null) {
+      map['adcode'] = Variable<String>(adcode);
+    }
+    if (!nullToAbsent || poiId != null) {
+      map['poi_id'] = Variable<String>(poiId);
+    }
+    map['source'] = Variable<String>(source);
+    map['captured_at'] = Variable<int>(capturedAt);
+    return map;
+  }
+
+  BillLocationsCompanion toCompanion(bool nullToAbsent) {
+    return BillLocationsCompanion(
+      billId: Value(billId),
+      lat: lat == null && nullToAbsent ? const Value.absent() : Value(lat),
+      lng: lng == null && nullToAbsent ? const Value.absent() : Value(lng),
+      coordSystem: Value(coordSystem),
+      accuracy: accuracy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(accuracy),
+      name: name == null && nullToAbsent ? const Value.absent() : Value(name),
+      address: address == null && nullToAbsent
+          ? const Value.absent()
+          : Value(address),
+      province: province == null && nullToAbsent
+          ? const Value.absent()
+          : Value(province),
+      city: city == null && nullToAbsent ? const Value.absent() : Value(city),
+      district: district == null && nullToAbsent
+          ? const Value.absent()
+          : Value(district),
+      adcode: adcode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(adcode),
+      poiId: poiId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(poiId),
+      source: Value(source),
+      capturedAt: Value(capturedAt),
+    );
+  }
+
+  factory BillLocation.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BillLocation(
+      billId: serializer.fromJson<String>(json['billId']),
+      lat: serializer.fromJson<double?>(json['lat']),
+      lng: serializer.fromJson<double?>(json['lng']),
+      coordSystem: serializer.fromJson<String>(json['coordSystem']),
+      accuracy: serializer.fromJson<double?>(json['accuracy']),
+      name: serializer.fromJson<String?>(json['name']),
+      address: serializer.fromJson<String?>(json['address']),
+      province: serializer.fromJson<String?>(json['province']),
+      city: serializer.fromJson<String?>(json['city']),
+      district: serializer.fromJson<String?>(json['district']),
+      adcode: serializer.fromJson<String?>(json['adcode']),
+      poiId: serializer.fromJson<String?>(json['poiId']),
+      source: serializer.fromJson<String>(json['source']),
+      capturedAt: serializer.fromJson<int>(json['capturedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'billId': serializer.toJson<String>(billId),
+      'lat': serializer.toJson<double?>(lat),
+      'lng': serializer.toJson<double?>(lng),
+      'coordSystem': serializer.toJson<String>(coordSystem),
+      'accuracy': serializer.toJson<double?>(accuracy),
+      'name': serializer.toJson<String?>(name),
+      'address': serializer.toJson<String?>(address),
+      'province': serializer.toJson<String?>(province),
+      'city': serializer.toJson<String?>(city),
+      'district': serializer.toJson<String?>(district),
+      'adcode': serializer.toJson<String?>(adcode),
+      'poiId': serializer.toJson<String?>(poiId),
+      'source': serializer.toJson<String>(source),
+      'capturedAt': serializer.toJson<int>(capturedAt),
+    };
+  }
+
+  BillLocation copyWith({
+    String? billId,
+    Value<double?> lat = const Value.absent(),
+    Value<double?> lng = const Value.absent(),
+    String? coordSystem,
+    Value<double?> accuracy = const Value.absent(),
+    Value<String?> name = const Value.absent(),
+    Value<String?> address = const Value.absent(),
+    Value<String?> province = const Value.absent(),
+    Value<String?> city = const Value.absent(),
+    Value<String?> district = const Value.absent(),
+    Value<String?> adcode = const Value.absent(),
+    Value<String?> poiId = const Value.absent(),
+    String? source,
+    int? capturedAt,
+  }) => BillLocation(
+    billId: billId ?? this.billId,
+    lat: lat.present ? lat.value : this.lat,
+    lng: lng.present ? lng.value : this.lng,
+    coordSystem: coordSystem ?? this.coordSystem,
+    accuracy: accuracy.present ? accuracy.value : this.accuracy,
+    name: name.present ? name.value : this.name,
+    address: address.present ? address.value : this.address,
+    province: province.present ? province.value : this.province,
+    city: city.present ? city.value : this.city,
+    district: district.present ? district.value : this.district,
+    adcode: adcode.present ? adcode.value : this.adcode,
+    poiId: poiId.present ? poiId.value : this.poiId,
+    source: source ?? this.source,
+    capturedAt: capturedAt ?? this.capturedAt,
+  );
+  BillLocation copyWithCompanion(BillLocationsCompanion data) {
+    return BillLocation(
+      billId: data.billId.present ? data.billId.value : this.billId,
+      lat: data.lat.present ? data.lat.value : this.lat,
+      lng: data.lng.present ? data.lng.value : this.lng,
+      coordSystem: data.coordSystem.present
+          ? data.coordSystem.value
+          : this.coordSystem,
+      accuracy: data.accuracy.present ? data.accuracy.value : this.accuracy,
+      name: data.name.present ? data.name.value : this.name,
+      address: data.address.present ? data.address.value : this.address,
+      province: data.province.present ? data.province.value : this.province,
+      city: data.city.present ? data.city.value : this.city,
+      district: data.district.present ? data.district.value : this.district,
+      adcode: data.adcode.present ? data.adcode.value : this.adcode,
+      poiId: data.poiId.present ? data.poiId.value : this.poiId,
+      source: data.source.present ? data.source.value : this.source,
+      capturedAt: data.capturedAt.present
+          ? data.capturedAt.value
+          : this.capturedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BillLocation(')
+          ..write('billId: $billId, ')
+          ..write('lat: $lat, ')
+          ..write('lng: $lng, ')
+          ..write('coordSystem: $coordSystem, ')
+          ..write('accuracy: $accuracy, ')
+          ..write('name: $name, ')
+          ..write('address: $address, ')
+          ..write('province: $province, ')
+          ..write('city: $city, ')
+          ..write('district: $district, ')
+          ..write('adcode: $adcode, ')
+          ..write('poiId: $poiId, ')
+          ..write('source: $source, ')
+          ..write('capturedAt: $capturedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    billId,
+    lat,
+    lng,
+    coordSystem,
+    accuracy,
+    name,
+    address,
+    province,
+    city,
+    district,
+    adcode,
+    poiId,
+    source,
+    capturedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BillLocation &&
+          other.billId == this.billId &&
+          other.lat == this.lat &&
+          other.lng == this.lng &&
+          other.coordSystem == this.coordSystem &&
+          other.accuracy == this.accuracy &&
+          other.name == this.name &&
+          other.address == this.address &&
+          other.province == this.province &&
+          other.city == this.city &&
+          other.district == this.district &&
+          other.adcode == this.adcode &&
+          other.poiId == this.poiId &&
+          other.source == this.source &&
+          other.capturedAt == this.capturedAt);
+}
+
+class BillLocationsCompanion extends UpdateCompanion<BillLocation> {
+  final Value<String> billId;
+  final Value<double?> lat;
+  final Value<double?> lng;
+  final Value<String> coordSystem;
+  final Value<double?> accuracy;
+  final Value<String?> name;
+  final Value<String?> address;
+  final Value<String?> province;
+  final Value<String?> city;
+  final Value<String?> district;
+  final Value<String?> adcode;
+  final Value<String?> poiId;
+  final Value<String> source;
+  final Value<int> capturedAt;
+  final Value<int> rowid;
+  const BillLocationsCompanion({
+    this.billId = const Value.absent(),
+    this.lat = const Value.absent(),
+    this.lng = const Value.absent(),
+    this.coordSystem = const Value.absent(),
+    this.accuracy = const Value.absent(),
+    this.name = const Value.absent(),
+    this.address = const Value.absent(),
+    this.province = const Value.absent(),
+    this.city = const Value.absent(),
+    this.district = const Value.absent(),
+    this.adcode = const Value.absent(),
+    this.poiId = const Value.absent(),
+    this.source = const Value.absent(),
+    this.capturedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  BillLocationsCompanion.insert({
+    required String billId,
+    this.lat = const Value.absent(),
+    this.lng = const Value.absent(),
+    this.coordSystem = const Value.absent(),
+    this.accuracy = const Value.absent(),
+    this.name = const Value.absent(),
+    this.address = const Value.absent(),
+    this.province = const Value.absent(),
+    this.city = const Value.absent(),
+    this.district = const Value.absent(),
+    this.adcode = const Value.absent(),
+    this.poiId = const Value.absent(),
+    this.source = const Value.absent(),
+    required int capturedAt,
+    this.rowid = const Value.absent(),
+  }) : billId = Value(billId),
+       capturedAt = Value(capturedAt);
+  static Insertable<BillLocation> custom({
+    Expression<String>? billId,
+    Expression<double>? lat,
+    Expression<double>? lng,
+    Expression<String>? coordSystem,
+    Expression<double>? accuracy,
+    Expression<String>? name,
+    Expression<String>? address,
+    Expression<String>? province,
+    Expression<String>? city,
+    Expression<String>? district,
+    Expression<String>? adcode,
+    Expression<String>? poiId,
+    Expression<String>? source,
+    Expression<int>? capturedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (billId != null) 'bill_id': billId,
+      if (lat != null) 'lat': lat,
+      if (lng != null) 'lng': lng,
+      if (coordSystem != null) 'coord_system': coordSystem,
+      if (accuracy != null) 'accuracy': accuracy,
+      if (name != null) 'name': name,
+      if (address != null) 'address': address,
+      if (province != null) 'province': province,
+      if (city != null) 'city': city,
+      if (district != null) 'district': district,
+      if (adcode != null) 'adcode': adcode,
+      if (poiId != null) 'poi_id': poiId,
+      if (source != null) 'source': source,
+      if (capturedAt != null) 'captured_at': capturedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  BillLocationsCompanion copyWith({
+    Value<String>? billId,
+    Value<double?>? lat,
+    Value<double?>? lng,
+    Value<String>? coordSystem,
+    Value<double?>? accuracy,
+    Value<String?>? name,
+    Value<String?>? address,
+    Value<String?>? province,
+    Value<String?>? city,
+    Value<String?>? district,
+    Value<String?>? adcode,
+    Value<String?>? poiId,
+    Value<String>? source,
+    Value<int>? capturedAt,
+    Value<int>? rowid,
+  }) {
+    return BillLocationsCompanion(
+      billId: billId ?? this.billId,
+      lat: lat ?? this.lat,
+      lng: lng ?? this.lng,
+      coordSystem: coordSystem ?? this.coordSystem,
+      accuracy: accuracy ?? this.accuracy,
+      name: name ?? this.name,
+      address: address ?? this.address,
+      province: province ?? this.province,
+      city: city ?? this.city,
+      district: district ?? this.district,
+      adcode: adcode ?? this.adcode,
+      poiId: poiId ?? this.poiId,
+      source: source ?? this.source,
+      capturedAt: capturedAt ?? this.capturedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (billId.present) {
+      map['bill_id'] = Variable<String>(billId.value);
+    }
+    if (lat.present) {
+      map['lat'] = Variable<double>(lat.value);
+    }
+    if (lng.present) {
+      map['lng'] = Variable<double>(lng.value);
+    }
+    if (coordSystem.present) {
+      map['coord_system'] = Variable<String>(coordSystem.value);
+    }
+    if (accuracy.present) {
+      map['accuracy'] = Variable<double>(accuracy.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (address.present) {
+      map['address'] = Variable<String>(address.value);
+    }
+    if (province.present) {
+      map['province'] = Variable<String>(province.value);
+    }
+    if (city.present) {
+      map['city'] = Variable<String>(city.value);
+    }
+    if (district.present) {
+      map['district'] = Variable<String>(district.value);
+    }
+    if (adcode.present) {
+      map['adcode'] = Variable<String>(adcode.value);
+    }
+    if (poiId.present) {
+      map['poi_id'] = Variable<String>(poiId.value);
+    }
+    if (source.present) {
+      map['source'] = Variable<String>(source.value);
+    }
+    if (capturedAt.present) {
+      map['captured_at'] = Variable<int>(capturedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BillLocationsCompanion(')
+          ..write('billId: $billId, ')
+          ..write('lat: $lat, ')
+          ..write('lng: $lng, ')
+          ..write('coordSystem: $coordSystem, ')
+          ..write('accuracy: $accuracy, ')
+          ..write('name: $name, ')
+          ..write('address: $address, ')
+          ..write('province: $province, ')
+          ..write('city: $city, ')
+          ..write('district: $district, ')
+          ..write('adcode: $adcode, ')
+          ..write('poiId: $poiId, ')
+          ..write('source: $source, ')
+          ..write('capturedAt: $capturedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $BalanceSnapshotsTable extends BalanceSnapshots
     with TableInfo<$BalanceSnapshotsTable, BalanceSnapshot> {
   @override
@@ -9713,6 +10526,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $TagGroupsTable tagGroups = $TagGroupsTable(this);
   late final $BillsTable bills = $BillsTable(this);
   late final $BillTagsTable billTags = $BillTagsTable(this);
+  late final $BillLocationsTable billLocations = $BillLocationsTable(this);
   late final $BalanceSnapshotsTable balanceSnapshots = $BalanceSnapshotsTable(
     this,
   );
@@ -9748,6 +10562,14 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'idx_bill_tags_tag',
     'CREATE INDEX idx_bill_tags_tag ON bill_tags (tag_id)',
   );
+  late final Index idxBillLocationsCity = Index(
+    'idx_bill_locations_city',
+    'CREATE INDEX idx_bill_locations_city ON bill_locations (city)',
+  );
+  late final Index idxBillLocationsDistrict = Index(
+    'idx_bill_locations_district',
+    'CREATE INDEX idx_bill_locations_district ON bill_locations (district)',
+  );
   late final Index idxSnapshotsAccount = Index(
     'idx_snapshots_account',
     'CREATE INDEX idx_snapshots_account ON balance_snapshots (account_id, timestamp)',
@@ -9771,6 +10593,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     tagGroups,
     bills,
     billTags,
+    billLocations,
     balanceSnapshots,
     transfers,
     lends,
@@ -9786,10 +10609,22 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     idxBillsAccount,
     idxBillsCategory,
     idxBillTagsTag,
+    idxBillLocationsCity,
+    idxBillLocationsDistrict,
     idxSnapshotsAccount,
     idxTransfersBill,
     idxMappingsProvider,
   ];
+  @override
+  StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'bills',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('bill_locations', kind: UpdateKind.delete)],
+    ),
+  ]);
 }
 
 typedef $$AccountsTableCreateCompanionBuilder =
@@ -11110,6 +11945,29 @@ typedef $$BillsTableUpdateCompanionBuilder =
       Value<int> rowid,
     });
 
+final class $$BillsTableReferences
+    extends BaseReferences<_$AppDatabase, $BillsTable, Bill> {
+  $$BillsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$BillLocationsTable, List<BillLocation>>
+  _billLocationsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.billLocations,
+    aliasName: $_aliasNameGenerator(db.bills.id, db.billLocations.billId),
+  );
+
+  $$BillLocationsTableProcessedTableManager get billLocationsRefs {
+    final manager = $$BillLocationsTableTableManager(
+      $_db,
+      $_db.billLocations,
+    ).filter((f) => f.billId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_billLocationsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
 class $$BillsTableFilterComposer extends Composer<_$AppDatabase, $BillsTable> {
   $$BillsTableFilterComposer({
     required super.$db,
@@ -11207,6 +12065,31 @@ class $$BillsTableFilterComposer extends Composer<_$AppDatabase, $BillsTable> {
     column: $table.updatedAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  Expression<bool> billLocationsRefs(
+    Expression<bool> Function($$BillLocationsTableFilterComposer f) f,
+  ) {
+    final $$BillLocationsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.billLocations,
+      getReferencedColumn: (t) => t.billId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BillLocationsTableFilterComposer(
+            $db: $db,
+            $table: $db.billLocations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$BillsTableOrderingComposer
@@ -11385,6 +12268,31 @@ class $$BillsTableAnnotationComposer
 
   GeneratedColumn<int> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  Expression<T> billLocationsRefs<T extends Object>(
+    Expression<T> Function($$BillLocationsTableAnnotationComposer a) f,
+  ) {
+    final $$BillLocationsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.billLocations,
+      getReferencedColumn: (t) => t.billId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BillLocationsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.billLocations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$BillsTableTableManager
@@ -11398,9 +12306,9 @@ class $$BillsTableTableManager
           $$BillsTableAnnotationComposer,
           $$BillsTableCreateCompanionBuilder,
           $$BillsTableUpdateCompanionBuilder,
-          (Bill, BaseReferences<_$AppDatabase, $BillsTable, Bill>),
+          (Bill, $$BillsTableReferences),
           Bill,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool billLocationsRefs})
         > {
   $$BillsTableTableManager(_$AppDatabase db, $BillsTable table)
     : super(
@@ -11498,9 +12406,38 @@ class $$BillsTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) =>
+                    (e.readTable(table), $$BillsTableReferences(db, table, e)),
+              )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({billLocationsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [
+                if (billLocationsRefs) db.billLocations,
+              ],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (billLocationsRefs)
+                    await $_getPrefetchedData<Bill, $BillsTable, BillLocation>(
+                      currentTable: table,
+                      referencedTable: $$BillsTableReferences
+                          ._billLocationsRefsTable(db),
+                      managerFromTypedResult: (p0) => $$BillsTableReferences(
+                        db,
+                        table,
+                        p0,
+                      ).billLocationsRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.billId == item.id),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
         ),
       );
 }
@@ -11515,9 +12452,9 @@ typedef $$BillsTableProcessedTableManager =
       $$BillsTableAnnotationComposer,
       $$BillsTableCreateCompanionBuilder,
       $$BillsTableUpdateCompanionBuilder,
-      (Bill, BaseReferences<_$AppDatabase, $BillsTable, Bill>),
+      (Bill, $$BillsTableReferences),
       Bill,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool billLocationsRefs})
     >;
 typedef $$BillTagsTableCreateCompanionBuilder =
     BillTagsCompanion Function({
@@ -11652,6 +12589,503 @@ typedef $$BillTagsTableProcessedTableManager =
       (BillTag, BaseReferences<_$AppDatabase, $BillTagsTable, BillTag>),
       BillTag,
       PrefetchHooks Function()
+    >;
+typedef $$BillLocationsTableCreateCompanionBuilder =
+    BillLocationsCompanion Function({
+      required String billId,
+      Value<double?> lat,
+      Value<double?> lng,
+      Value<String> coordSystem,
+      Value<double?> accuracy,
+      Value<String?> name,
+      Value<String?> address,
+      Value<String?> province,
+      Value<String?> city,
+      Value<String?> district,
+      Value<String?> adcode,
+      Value<String?> poiId,
+      Value<String> source,
+      required int capturedAt,
+      Value<int> rowid,
+    });
+typedef $$BillLocationsTableUpdateCompanionBuilder =
+    BillLocationsCompanion Function({
+      Value<String> billId,
+      Value<double?> lat,
+      Value<double?> lng,
+      Value<String> coordSystem,
+      Value<double?> accuracy,
+      Value<String?> name,
+      Value<String?> address,
+      Value<String?> province,
+      Value<String?> city,
+      Value<String?> district,
+      Value<String?> adcode,
+      Value<String?> poiId,
+      Value<String> source,
+      Value<int> capturedAt,
+      Value<int> rowid,
+    });
+
+final class $$BillLocationsTableReferences
+    extends BaseReferences<_$AppDatabase, $BillLocationsTable, BillLocation> {
+  $$BillLocationsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $BillsTable _billIdTable(_$AppDatabase db) => db.bills.createAlias(
+    $_aliasNameGenerator(db.billLocations.billId, db.bills.id),
+  );
+
+  $$BillsTableProcessedTableManager get billId {
+    final $_column = $_itemColumn<String>('bill_id')!;
+
+    final manager = $$BillsTableTableManager(
+      $_db,
+      $_db.bills,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_billIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$BillLocationsTableFilterComposer
+    extends Composer<_$AppDatabase, $BillLocationsTable> {
+  $$BillLocationsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<double> get lat => $composableBuilder(
+    column: $table.lat,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get lng => $composableBuilder(
+    column: $table.lng,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get coordSystem => $composableBuilder(
+    column: $table.coordSystem,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get accuracy => $composableBuilder(
+    column: $table.accuracy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get address => $composableBuilder(
+    column: $table.address,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get province => $composableBuilder(
+    column: $table.province,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get city => $composableBuilder(
+    column: $table.city,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get district => $composableBuilder(
+    column: $table.district,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get adcode => $composableBuilder(
+    column: $table.adcode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get poiId => $composableBuilder(
+    column: $table.poiId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get capturedAt => $composableBuilder(
+    column: $table.capturedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$BillsTableFilterComposer get billId {
+    final $$BillsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.billId,
+      referencedTable: $db.bills,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BillsTableFilterComposer(
+            $db: $db,
+            $table: $db.bills,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BillLocationsTableOrderingComposer
+    extends Composer<_$AppDatabase, $BillLocationsTable> {
+  $$BillLocationsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<double> get lat => $composableBuilder(
+    column: $table.lat,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get lng => $composableBuilder(
+    column: $table.lng,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get coordSystem => $composableBuilder(
+    column: $table.coordSystem,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get accuracy => $composableBuilder(
+    column: $table.accuracy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get address => $composableBuilder(
+    column: $table.address,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get province => $composableBuilder(
+    column: $table.province,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get city => $composableBuilder(
+    column: $table.city,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get district => $composableBuilder(
+    column: $table.district,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get adcode => $composableBuilder(
+    column: $table.adcode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get poiId => $composableBuilder(
+    column: $table.poiId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get capturedAt => $composableBuilder(
+    column: $table.capturedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$BillsTableOrderingComposer get billId {
+    final $$BillsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.billId,
+      referencedTable: $db.bills,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BillsTableOrderingComposer(
+            $db: $db,
+            $table: $db.bills,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BillLocationsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BillLocationsTable> {
+  $$BillLocationsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<double> get lat =>
+      $composableBuilder(column: $table.lat, builder: (column) => column);
+
+  GeneratedColumn<double> get lng =>
+      $composableBuilder(column: $table.lng, builder: (column) => column);
+
+  GeneratedColumn<String> get coordSystem => $composableBuilder(
+    column: $table.coordSystem,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get accuracy =>
+      $composableBuilder(column: $table.accuracy, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get address =>
+      $composableBuilder(column: $table.address, builder: (column) => column);
+
+  GeneratedColumn<String> get province =>
+      $composableBuilder(column: $table.province, builder: (column) => column);
+
+  GeneratedColumn<String> get city =>
+      $composableBuilder(column: $table.city, builder: (column) => column);
+
+  GeneratedColumn<String> get district =>
+      $composableBuilder(column: $table.district, builder: (column) => column);
+
+  GeneratedColumn<String> get adcode =>
+      $composableBuilder(column: $table.adcode, builder: (column) => column);
+
+  GeneratedColumn<String> get poiId =>
+      $composableBuilder(column: $table.poiId, builder: (column) => column);
+
+  GeneratedColumn<String> get source =>
+      $composableBuilder(column: $table.source, builder: (column) => column);
+
+  GeneratedColumn<int> get capturedAt => $composableBuilder(
+    column: $table.capturedAt,
+    builder: (column) => column,
+  );
+
+  $$BillsTableAnnotationComposer get billId {
+    final $$BillsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.billId,
+      referencedTable: $db.bills,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BillsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.bills,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BillLocationsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $BillLocationsTable,
+          BillLocation,
+          $$BillLocationsTableFilterComposer,
+          $$BillLocationsTableOrderingComposer,
+          $$BillLocationsTableAnnotationComposer,
+          $$BillLocationsTableCreateCompanionBuilder,
+          $$BillLocationsTableUpdateCompanionBuilder,
+          (BillLocation, $$BillLocationsTableReferences),
+          BillLocation,
+          PrefetchHooks Function({bool billId})
+        > {
+  $$BillLocationsTableTableManager(_$AppDatabase db, $BillLocationsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BillLocationsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BillLocationsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BillLocationsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> billId = const Value.absent(),
+                Value<double?> lat = const Value.absent(),
+                Value<double?> lng = const Value.absent(),
+                Value<String> coordSystem = const Value.absent(),
+                Value<double?> accuracy = const Value.absent(),
+                Value<String?> name = const Value.absent(),
+                Value<String?> address = const Value.absent(),
+                Value<String?> province = const Value.absent(),
+                Value<String?> city = const Value.absent(),
+                Value<String?> district = const Value.absent(),
+                Value<String?> adcode = const Value.absent(),
+                Value<String?> poiId = const Value.absent(),
+                Value<String> source = const Value.absent(),
+                Value<int> capturedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BillLocationsCompanion(
+                billId: billId,
+                lat: lat,
+                lng: lng,
+                coordSystem: coordSystem,
+                accuracy: accuracy,
+                name: name,
+                address: address,
+                province: province,
+                city: city,
+                district: district,
+                adcode: adcode,
+                poiId: poiId,
+                source: source,
+                capturedAt: capturedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String billId,
+                Value<double?> lat = const Value.absent(),
+                Value<double?> lng = const Value.absent(),
+                Value<String> coordSystem = const Value.absent(),
+                Value<double?> accuracy = const Value.absent(),
+                Value<String?> name = const Value.absent(),
+                Value<String?> address = const Value.absent(),
+                Value<String?> province = const Value.absent(),
+                Value<String?> city = const Value.absent(),
+                Value<String?> district = const Value.absent(),
+                Value<String?> adcode = const Value.absent(),
+                Value<String?> poiId = const Value.absent(),
+                Value<String> source = const Value.absent(),
+                required int capturedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => BillLocationsCompanion.insert(
+                billId: billId,
+                lat: lat,
+                lng: lng,
+                coordSystem: coordSystem,
+                accuracy: accuracy,
+                name: name,
+                address: address,
+                province: province,
+                city: city,
+                district: district,
+                adcode: adcode,
+                poiId: poiId,
+                source: source,
+                capturedAt: capturedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$BillLocationsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({billId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (billId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.billId,
+                                referencedTable: $$BillLocationsTableReferences
+                                    ._billIdTable(db),
+                                referencedColumn: $$BillLocationsTableReferences
+                                    ._billIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$BillLocationsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $BillLocationsTable,
+      BillLocation,
+      $$BillLocationsTableFilterComposer,
+      $$BillLocationsTableOrderingComposer,
+      $$BillLocationsTableAnnotationComposer,
+      $$BillLocationsTableCreateCompanionBuilder,
+      $$BillLocationsTableUpdateCompanionBuilder,
+      (BillLocation, $$BillLocationsTableReferences),
+      BillLocation,
+      PrefetchHooks Function({bool billId})
     >;
 typedef $$BalanceSnapshotsTableCreateCompanionBuilder =
     BalanceSnapshotsCompanion Function({
@@ -14422,6 +15856,8 @@ class $AppDatabaseManager {
       $$BillsTableTableManager(_db, _db.bills);
   $$BillTagsTableTableManager get billTags =>
       $$BillTagsTableTableManager(_db, _db.billTags);
+  $$BillLocationsTableTableManager get billLocations =>
+      $$BillLocationsTableTableManager(_db, _db.billLocations);
   $$BalanceSnapshotsTableTableManager get balanceSnapshots =>
       $$BalanceSnapshotsTableTableManager(_db, _db.balanceSnapshots);
   $$TransfersTableTableManager get transfers =>
