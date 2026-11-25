@@ -104,7 +104,18 @@ class AppDatabase extends _$AppDatabase {
       if (from < 5) {
         // v5：清单内分类（只属于清单），明细增加分类归属列。
         await m.createTable(billListSections);
-        await m.addColumn(billListItems, billListItems.sectionId);
+        // from < 4 分支里的 createTable(billListItems) 用的是当前 schema，
+        // 已经带上 section_id；从旧版本一路升上来时这里再加会报
+        // duplicate column name。先查列再决定是否补。
+        final columns = await customSelect(
+          'PRAGMA table_info(bill_list_items)',
+        ).get();
+        final hasSectionId = columns.any(
+          (row) => row.read<String>('name') == 'section_id',
+        );
+        if (!hasSectionId) {
+          await m.addColumn(billListItems, billListItems.sectionId);
+        }
       }
       if (from < 6) {
         // v6：给 v5 之前已存在的清单补一套默认分类

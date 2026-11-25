@@ -14,6 +14,7 @@ import 'ai_settings_page.dart';
 import 'bill_lists_page.dart';
 import 'book_manage_page.dart';
 import 'data_manage_page.dart';
+import 'help/help_index_page.dart';
 import 'report/report_list_page.dart';
 import 'report/report_providers.dart';
 import 'settings_page.dart';
@@ -154,11 +155,22 @@ class _MinePageState extends ConsumerState<MinePage>
           XpCard(
             padding: EdgeInsets.zero,
             clipBehavior: Clip.antiAlias,
-            child: _Entry(
-              icon: Icons.info_outline,
-              title: '应用信息',
-              subtitle: '版本与关于',
-              onTap: () => _push(context, const AboutPage()),
+            child: Column(
+              children: [
+                _Entry(
+                  icon: Icons.info_outline,
+                  title: '应用信息',
+                  subtitle: '版本与关于',
+                  onTap: () => _push(context, const AboutPage()),
+                ),
+                _EntryDivider(),
+                _Entry(
+                  icon: Icons.menu_book_outlined,
+                  title: '说明',
+                  subtitle: '定位、AI 等使用说明',
+                  onTap: () => _push(context, const HelpIndexPage()),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: XpSpacing.xl),

@@ -63,3 +63,5 @@ android/key.properties
 /docs/
 
 .trae/
+/.hermes
+/backups

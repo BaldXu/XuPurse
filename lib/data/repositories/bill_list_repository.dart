@@ -61,8 +61,12 @@ class BillListRepository {
 SELECT l.id, l.name, l.icon, l.color, l.note,
        l.created_at, l.updated_at,
        COUNT(b.id) AS cnt,
-       COALESCE(SUM(CASE WHEN b.type <> 'transfer' THEN b.amount ELSE 0 END), 0)
-         AS total,
+       COALESCE(SUM(
+         CASE WHEN b.type <> 'transfer'
+           THEN b.amount - COALESCE(
+             (SELECT SUM(r.amount) FROM refunds r WHERE r.bill_id = b.id), 0)
+           ELSE 0 END
+       ), 0) AS total,
        MIN(b.time) AS min_time,
        MAX(b.time) AS max_time
 FROM bill_lists l
@@ -71,7 +75,12 @@ LEFT JOIN bills b ON b.id = li.bill_id
 GROUP BY l.id
 ORDER BY l.updated_at DESC
 ''',
-      readsFrom: {_db.billLists, _db.billListItems, _db.bills},
+      readsFrom: {
+        _db.billLists,
+        _db.billListItems,
+        _db.bills,
+        _db.refunds,
+      },
     );
     return query.watch().map(
       (rows) => [

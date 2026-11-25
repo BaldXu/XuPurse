@@ -13,7 +13,7 @@ import '../widgets/xp_empty_state.dart';
 import '../widgets/xp_sheet.dart';
 import '../widgets/xp_fab.dart';
 import '../widgets/xp_snack.dart';
-import 'ai_help_page.dart';
+import 'help/ai_help_page.dart';
 
 /// AI 设置页：多配置管理（新增/编辑/删除/启用停用/切换当前）+ 连通性测试。
 class AiSettingsPage extends ConsumerStatefulWidget {

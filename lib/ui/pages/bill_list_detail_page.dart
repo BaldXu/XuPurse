@@ -327,8 +327,11 @@ class _BillListDetailPageState extends ConsumerState<BillListDetailPage>
             stream: _items,
             builder: (context, itemSnap) {
               final items = itemSnap.data ?? const <BillListItemView>[];
+              final refunds =
+                  ref.watch(refundTotalsProvider).valueOrNull ??
+                  const <String, int>{};
               final groups = _groupOf(sections, items);
-              final total = _totalOf(items);
+              final total = _totalOf(items, refunds);
               return Column(
                 children: [
                   Expanded(
@@ -356,7 +359,7 @@ class _BillListDetailPageState extends ConsumerState<BillListDetailPage>
                             _SectionHeader(
                               title: group.section?.name ?? '未分类',
                               count: group.items.length,
-                              total: _totalOf(group.items),
+                              total: _totalOf(group.items, refunds),
                             ),
                             const SizedBox(height: XpSpacing.s),
                             // 同一分类下的明细合并进一张卡片，行间用分隔线，
@@ -467,11 +470,14 @@ List<_Group> _groupOf(
   return groups;
 }
 
-int _totalOf(List<BillListItemView> items) {
+/// 清单合计：支出按「原金额 − 退款」的净额计算，与列表展示口径一致。
+int _totalOf(List<BillListItemView> items, Map<String, int> refunds) {
   var total = 0;
   for (final item in items) {
-    if (item.bill.type == 'transfer') continue;
-    total += item.bill.amount;
+    final bill = item.bill;
+    if (bill.type == 'transfer') continue;
+    final refund = bill.type == 'expense' ? (refunds[bill.id] ?? 0) : 0;
+    total += bill.amount - refund;
   }
   return total;
 }

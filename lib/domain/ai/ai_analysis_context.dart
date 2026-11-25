@@ -162,6 +162,7 @@ class AiAnalysisContext {
     required bool includeNotes,
     String? listName,
     Map<String, String>? sectionByBillId,
+    Map<String, int>? refundByBillId,
   }) {
     final accounts = _read(accountsProvider).value ?? const <Account>[];
     final categories = _read(categoriesProvider).value ?? const <Category>[];
@@ -184,6 +185,7 @@ class AiAnalysisContext {
       categories: categories,
       listName: listName,
       sectionByBillId: sectionByBillId,
+      refundByBillId: refundByBillId,
     );
   }
 
@@ -196,6 +198,7 @@ class AiAnalysisContext {
     required List<Category> categories,
     String? listName,
     Map<String, String>? sectionByBillId,
+    Map<String, int>? refundByBillId,
   }) {
     final sorted = [...bills]..sort((a, b) => a.time.compareTo(b.time));
     final accountName = {for (final a in accounts) a.id: a.name};
@@ -220,18 +223,22 @@ class AiAnalysisContext {
       final type = isTransfer
           ? 'trf'
           : (b.type == 'income' ? 'inc' : 'exp');
-      if (type == 'exp') expense += b.amount;
+      // 支出按「原金额 − 退款」的净额发送，和列表/清单合计口径一致。
+      final refund = type == 'exp' ? (refundByBillId?[b.id] ?? 0) : 0;
+      final netAmount = b.amount - refund;
+      if (type == 'exp') expense += netAmount;
       if (type == 'inc') income += b.amount;
 
       final fromName = accountName[b.accountId] ?? '未知账户';
       final row = <String, Object?>{
         't': _formatTime(b.time),
         'ty': type,
-        'a': _yuan(b.amount),
+        'a': _yuan(netAmount),
         if (!isTransfer) 'c': categoryPath(b.categoryId),
         'ac': isTransfer
             ? '$fromName→${accountName[toAccount] ?? '未知账户'}'
             : fromName,
+        if (refund > 0) 'rf': _yuan(refund),
       };
 
       final section = sectionByBillId?[b.id];

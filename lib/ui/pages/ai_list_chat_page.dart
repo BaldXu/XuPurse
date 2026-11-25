@@ -6,6 +6,7 @@ import '../../data/database/app_database.dart';
 import '../../data/repositories/bill_list_repository.dart';
 import '../../domain/ai/ai_analysis_context.dart';
 import '../../domain/ai/ai_service.dart';
+import '../../state/providers.dart';
 import '../layout/xp_page_scaffold_mixin.dart';
 import '../tokens/design_tokens.dart';
 import '../widgets/app_icon.dart';
@@ -55,28 +56,38 @@ class _AiListChatPageState extends ConsumerState<AiListChatPage>
       final name = sectionName[item.sectionId];
       if (name != null) sectionByBill[item.bill.id] = name;
     }
+    final refunds =
+        ref.read(refundTotalsProvider).valueOrNull ?? const <String, int>{};
     _data = AiAnalysisContext(ref).buildFromBills(
       bills: [for (final item in widget.items) item.bill],
       includeNotes: true,
       listName: widget.listName,
       sectionByBillId: sectionByBill,
+      refundByBillId: refunds,
     );
-    _sectionSummary = _buildSectionSummary(sectionName);
+    _sectionSummary = _buildSectionSummary(sectionName, refunds);
     _ensureConversation();
   }
 
   /// 各清单分类的小计，放在 system prompt 里便于 AI 直接引用。
-  String _buildSectionSummary(Map<String, String?> sectionName) {
+  String _buildSectionSummary(
+    Map<String, String?> sectionName,
+    Map<String, int> refunds,
+  ) {
     final total = <String, int>{};
     final count = <String, int>{};
     for (final item in widget.items) {
       if (item.bill.type == 'transfer') continue;
       final name = sectionName[item.sectionId] ?? '未分类';
-      total.update(name, (v) => v + item.bill.amount, ifAbsent: () => item.bill.amount);
+      final refund = item.bill.type == 'expense'
+          ? (refunds[item.bill.id] ?? 0)
+          : 0;
+      final net = item.bill.amount - refund;
+      total.update(name, (v) => v + net, ifAbsent: () => net);
       count.update(name, (v) => v + 1, ifAbsent: () => 1);
     }
     if (total.isEmpty) return '';
-    final buf = StringBuffer('各分类小计：\n');
+    final buf = StringBuffer('各分类小计（已扣减退款）：\n');
     total.forEach((name, amount) {
       buf.writeln('- $name：${count[name]} 笔，¥${formatYuan(amount)}');
     });
@@ -117,8 +128,8 @@ class _AiListChatPageState extends ConsumerState<AiListChatPage>
         '合计支出 ¥${formatYuan(_data.expense)}。\n'
         '$_sectionSummary\n'
         'JSON 字段：t 时间；ty 类型（exp 支出 / inc 收入 / trf 转账）；'
-        'a 金额（元）；c 记账分类；sec 清单内分类；ac 账户；'
-        'n 备注（*** 表示已脱敏）。\n'
+        'a 金额（元，支出已扣减退款）；c 记账分类；sec 清单内分类；ac 账户；'
+        'rf 退款金额；n 备注（*** 表示已脱敏）。\n'
         '请围绕「这次事件花了多少、花在哪、哪些可以省」回答；'
         '可直接引用具体账目，但不要整段复述 JSON。\n\n'
         '```json\n${_data.json}\n```';
