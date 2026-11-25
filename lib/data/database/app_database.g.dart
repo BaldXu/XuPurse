@@ -4749,6 +4749,1125 @@ class BillLocationsCompanion extends UpdateCompanion<BillLocation> {
   }
 }
 
+class $BillListsTable extends BillLists
+    with TableInfo<$BillListsTable, BillList> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BillListsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _iconMeta = const VerificationMeta('icon');
+  @override
+  late final GeneratedColumn<String> icon = GeneratedColumn<String>(
+    'icon',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _colorMeta = const VerificationMeta('color');
+  @override
+  late final GeneratedColumn<String> color = GeneratedColumn<String>(
+    'color',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _noteMeta = const VerificationMeta('note');
+  @override
+  late final GeneratedColumn<String> note = GeneratedColumn<String>(
+    'note',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<int> updatedAt = GeneratedColumn<int>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    icon,
+    color,
+    note,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'bill_lists';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<BillList> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('icon')) {
+      context.handle(
+        _iconMeta,
+        icon.isAcceptableOrUnknown(data['icon']!, _iconMeta),
+      );
+    }
+    if (data.containsKey('color')) {
+      context.handle(
+        _colorMeta,
+        color.isAcceptableOrUnknown(data['color']!, _colorMeta),
+      );
+    }
+    if (data.containsKey('note')) {
+      context.handle(
+        _noteMeta,
+        note.isAcceptableOrUnknown(data['note']!, _noteMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  BillList map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BillList(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      icon: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}icon'],
+      ),
+      color: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}color'],
+      ),
+      note: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}note'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $BillListsTable createAlias(String alias) {
+    return $BillListsTable(attachedDatabase, alias);
+  }
+}
+
+class BillList extends DataClass implements Insertable<BillList> {
+  final String id;
+  final String name;
+  final String? icon;
+  final String? color;
+  final String? note;
+  final int createdAt;
+  final int updatedAt;
+  const BillList({
+    required this.id,
+    required this.name,
+    this.icon,
+    this.color,
+    this.note,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || icon != null) {
+      map['icon'] = Variable<String>(icon);
+    }
+    if (!nullToAbsent || color != null) {
+      map['color'] = Variable<String>(color);
+    }
+    if (!nullToAbsent || note != null) {
+      map['note'] = Variable<String>(note);
+    }
+    map['created_at'] = Variable<int>(createdAt);
+    map['updated_at'] = Variable<int>(updatedAt);
+    return map;
+  }
+
+  BillListsCompanion toCompanion(bool nullToAbsent) {
+    return BillListsCompanion(
+      id: Value(id),
+      name: Value(name),
+      icon: icon == null && nullToAbsent ? const Value.absent() : Value(icon),
+      color: color == null && nullToAbsent
+          ? const Value.absent()
+          : Value(color),
+      note: note == null && nullToAbsent ? const Value.absent() : Value(note),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory BillList.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BillList(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      icon: serializer.fromJson<String?>(json['icon']),
+      color: serializer.fromJson<String?>(json['color']),
+      note: serializer.fromJson<String?>(json['note']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      updatedAt: serializer.fromJson<int>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'icon': serializer.toJson<String?>(icon),
+      'color': serializer.toJson<String?>(color),
+      'note': serializer.toJson<String?>(note),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'updatedAt': serializer.toJson<int>(updatedAt),
+    };
+  }
+
+  BillList copyWith({
+    String? id,
+    String? name,
+    Value<String?> icon = const Value.absent(),
+    Value<String?> color = const Value.absent(),
+    Value<String?> note = const Value.absent(),
+    int? createdAt,
+    int? updatedAt,
+  }) => BillList(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    icon: icon.present ? icon.value : this.icon,
+    color: color.present ? color.value : this.color,
+    note: note.present ? note.value : this.note,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  BillList copyWithCompanion(BillListsCompanion data) {
+    return BillList(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      icon: data.icon.present ? data.icon.value : this.icon,
+      color: data.color.present ? data.color.value : this.color,
+      note: data.note.present ? data.note.value : this.note,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BillList(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('icon: $icon, ')
+          ..write('color: $color, ')
+          ..write('note: $note, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, name, icon, color, note, createdAt, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BillList &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.icon == this.icon &&
+          other.color == this.color &&
+          other.note == this.note &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class BillListsCompanion extends UpdateCompanion<BillList> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String?> icon;
+  final Value<String?> color;
+  final Value<String?> note;
+  final Value<int> createdAt;
+  final Value<int> updatedAt;
+  final Value<int> rowid;
+  const BillListsCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.icon = const Value.absent(),
+    this.color = const Value.absent(),
+    this.note = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  BillListsCompanion.insert({
+    required String id,
+    required String name,
+    this.icon = const Value.absent(),
+    this.color = const Value.absent(),
+    this.note = const Value.absent(),
+    required int createdAt,
+    required int updatedAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<BillList> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? icon,
+    Expression<String>? color,
+    Expression<String>? note,
+    Expression<int>? createdAt,
+    Expression<int>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (icon != null) 'icon': icon,
+      if (color != null) 'color': color,
+      if (note != null) 'note': note,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  BillListsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String?>? icon,
+    Value<String?>? color,
+    Value<String?>? note,
+    Value<int>? createdAt,
+    Value<int>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return BillListsCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      icon: icon ?? this.icon,
+      color: color ?? this.color,
+      note: note ?? this.note,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (icon.present) {
+      map['icon'] = Variable<String>(icon.value);
+    }
+    if (color.present) {
+      map['color'] = Variable<String>(color.value);
+    }
+    if (note.present) {
+      map['note'] = Variable<String>(note.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<int>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BillListsCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('icon: $icon, ')
+          ..write('color: $color, ')
+          ..write('note: $note, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $BillListItemsTable extends BillListItems
+    with TableInfo<$BillListItemsTable, BillListItem> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BillListItemsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _listIdMeta = const VerificationMeta('listId');
+  @override
+  late final GeneratedColumn<String> listId = GeneratedColumn<String>(
+    'list_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES bill_lists (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _billIdMeta = const VerificationMeta('billId');
+  @override
+  late final GeneratedColumn<String> billId = GeneratedColumn<String>(
+    'bill_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES bills (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _addedAtMeta = const VerificationMeta(
+    'addedAt',
+  );
+  @override
+  late final GeneratedColumn<int> addedAt = GeneratedColumn<int>(
+    'added_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sectionIdMeta = const VerificationMeta(
+    'sectionId',
+  );
+  @override
+  late final GeneratedColumn<String> sectionId = GeneratedColumn<String>(
+    'section_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [listId, billId, addedAt, sectionId];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'bill_list_items';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<BillListItem> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('list_id')) {
+      context.handle(
+        _listIdMeta,
+        listId.isAcceptableOrUnknown(data['list_id']!, _listIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_listIdMeta);
+    }
+    if (data.containsKey('bill_id')) {
+      context.handle(
+        _billIdMeta,
+        billId.isAcceptableOrUnknown(data['bill_id']!, _billIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_billIdMeta);
+    }
+    if (data.containsKey('added_at')) {
+      context.handle(
+        _addedAtMeta,
+        addedAt.isAcceptableOrUnknown(data['added_at']!, _addedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_addedAtMeta);
+    }
+    if (data.containsKey('section_id')) {
+      context.handle(
+        _sectionIdMeta,
+        sectionId.isAcceptableOrUnknown(data['section_id']!, _sectionIdMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {listId, billId};
+  @override
+  BillListItem map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BillListItem(
+      listId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}list_id'],
+      )!,
+      billId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}bill_id'],
+      )!,
+      addedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}added_at'],
+      )!,
+      sectionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}section_id'],
+      ),
+    );
+  }
+
+  @override
+  $BillListItemsTable createAlias(String alias) {
+    return $BillListItemsTable(attachedDatabase, alias);
+  }
+}
+
+class BillListItem extends DataClass implements Insertable<BillListItem> {
+  final String listId;
+  final String billId;
+  final int addedAt;
+
+  /// 清单内分类 id；null = 未分类。
+  final String? sectionId;
+  const BillListItem({
+    required this.listId,
+    required this.billId,
+    required this.addedAt,
+    this.sectionId,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['list_id'] = Variable<String>(listId);
+    map['bill_id'] = Variable<String>(billId);
+    map['added_at'] = Variable<int>(addedAt);
+    if (!nullToAbsent || sectionId != null) {
+      map['section_id'] = Variable<String>(sectionId);
+    }
+    return map;
+  }
+
+  BillListItemsCompanion toCompanion(bool nullToAbsent) {
+    return BillListItemsCompanion(
+      listId: Value(listId),
+      billId: Value(billId),
+      addedAt: Value(addedAt),
+      sectionId: sectionId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sectionId),
+    );
+  }
+
+  factory BillListItem.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BillListItem(
+      listId: serializer.fromJson<String>(json['listId']),
+      billId: serializer.fromJson<String>(json['billId']),
+      addedAt: serializer.fromJson<int>(json['addedAt']),
+      sectionId: serializer.fromJson<String?>(json['sectionId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'listId': serializer.toJson<String>(listId),
+      'billId': serializer.toJson<String>(billId),
+      'addedAt': serializer.toJson<int>(addedAt),
+      'sectionId': serializer.toJson<String?>(sectionId),
+    };
+  }
+
+  BillListItem copyWith({
+    String? listId,
+    String? billId,
+    int? addedAt,
+    Value<String?> sectionId = const Value.absent(),
+  }) => BillListItem(
+    listId: listId ?? this.listId,
+    billId: billId ?? this.billId,
+    addedAt: addedAt ?? this.addedAt,
+    sectionId: sectionId.present ? sectionId.value : this.sectionId,
+  );
+  BillListItem copyWithCompanion(BillListItemsCompanion data) {
+    return BillListItem(
+      listId: data.listId.present ? data.listId.value : this.listId,
+      billId: data.billId.present ? data.billId.value : this.billId,
+      addedAt: data.addedAt.present ? data.addedAt.value : this.addedAt,
+      sectionId: data.sectionId.present ? data.sectionId.value : this.sectionId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BillListItem(')
+          ..write('listId: $listId, ')
+          ..write('billId: $billId, ')
+          ..write('addedAt: $addedAt, ')
+          ..write('sectionId: $sectionId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(listId, billId, addedAt, sectionId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BillListItem &&
+          other.listId == this.listId &&
+          other.billId == this.billId &&
+          other.addedAt == this.addedAt &&
+          other.sectionId == this.sectionId);
+}
+
+class BillListItemsCompanion extends UpdateCompanion<BillListItem> {
+  final Value<String> listId;
+  final Value<String> billId;
+  final Value<int> addedAt;
+  final Value<String?> sectionId;
+  final Value<int> rowid;
+  const BillListItemsCompanion({
+    this.listId = const Value.absent(),
+    this.billId = const Value.absent(),
+    this.addedAt = const Value.absent(),
+    this.sectionId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  BillListItemsCompanion.insert({
+    required String listId,
+    required String billId,
+    required int addedAt,
+    this.sectionId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : listId = Value(listId),
+       billId = Value(billId),
+       addedAt = Value(addedAt);
+  static Insertable<BillListItem> custom({
+    Expression<String>? listId,
+    Expression<String>? billId,
+    Expression<int>? addedAt,
+    Expression<String>? sectionId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (listId != null) 'list_id': listId,
+      if (billId != null) 'bill_id': billId,
+      if (addedAt != null) 'added_at': addedAt,
+      if (sectionId != null) 'section_id': sectionId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  BillListItemsCompanion copyWith({
+    Value<String>? listId,
+    Value<String>? billId,
+    Value<int>? addedAt,
+    Value<String?>? sectionId,
+    Value<int>? rowid,
+  }) {
+    return BillListItemsCompanion(
+      listId: listId ?? this.listId,
+      billId: billId ?? this.billId,
+      addedAt: addedAt ?? this.addedAt,
+      sectionId: sectionId ?? this.sectionId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (listId.present) {
+      map['list_id'] = Variable<String>(listId.value);
+    }
+    if (billId.present) {
+      map['bill_id'] = Variable<String>(billId.value);
+    }
+    if (addedAt.present) {
+      map['added_at'] = Variable<int>(addedAt.value);
+    }
+    if (sectionId.present) {
+      map['section_id'] = Variable<String>(sectionId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BillListItemsCompanion(')
+          ..write('listId: $listId, ')
+          ..write('billId: $billId, ')
+          ..write('addedAt: $addedAt, ')
+          ..write('sectionId: $sectionId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $BillListSectionsTable extends BillListSections
+    with TableInfo<$BillListSectionsTable, BillListSection> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BillListSectionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _listIdMeta = const VerificationMeta('listId');
+  @override
+  late final GeneratedColumn<String> listId = GeneratedColumn<String>(
+    'list_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES bill_lists (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sortMeta = const VerificationMeta('sort');
+  @override
+  late final GeneratedColumn<int> sort = GeneratedColumn<int>(
+    'sort',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, listId, name, sort, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'bill_list_sections';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<BillListSection> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('list_id')) {
+      context.handle(
+        _listIdMeta,
+        listId.isAcceptableOrUnknown(data['list_id']!, _listIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_listIdMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('sort')) {
+      context.handle(
+        _sortMeta,
+        sort.isAcceptableOrUnknown(data['sort']!, _sortMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  BillListSection map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BillListSection(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      listId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}list_id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      sort: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sort'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $BillListSectionsTable createAlias(String alias) {
+    return $BillListSectionsTable(attachedDatabase, alias);
+  }
+}
+
+class BillListSection extends DataClass implements Insertable<BillListSection> {
+  final String id;
+  final String listId;
+  final String name;
+  final int sort;
+  final int createdAt;
+  const BillListSection({
+    required this.id,
+    required this.listId,
+    required this.name,
+    required this.sort,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['list_id'] = Variable<String>(listId);
+    map['name'] = Variable<String>(name);
+    map['sort'] = Variable<int>(sort);
+    map['created_at'] = Variable<int>(createdAt);
+    return map;
+  }
+
+  BillListSectionsCompanion toCompanion(bool nullToAbsent) {
+    return BillListSectionsCompanion(
+      id: Value(id),
+      listId: Value(listId),
+      name: Value(name),
+      sort: Value(sort),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory BillListSection.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BillListSection(
+      id: serializer.fromJson<String>(json['id']),
+      listId: serializer.fromJson<String>(json['listId']),
+      name: serializer.fromJson<String>(json['name']),
+      sort: serializer.fromJson<int>(json['sort']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'listId': serializer.toJson<String>(listId),
+      'name': serializer.toJson<String>(name),
+      'sort': serializer.toJson<int>(sort),
+      'createdAt': serializer.toJson<int>(createdAt),
+    };
+  }
+
+  BillListSection copyWith({
+    String? id,
+    String? listId,
+    String? name,
+    int? sort,
+    int? createdAt,
+  }) => BillListSection(
+    id: id ?? this.id,
+    listId: listId ?? this.listId,
+    name: name ?? this.name,
+    sort: sort ?? this.sort,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  BillListSection copyWithCompanion(BillListSectionsCompanion data) {
+    return BillListSection(
+      id: data.id.present ? data.id.value : this.id,
+      listId: data.listId.present ? data.listId.value : this.listId,
+      name: data.name.present ? data.name.value : this.name,
+      sort: data.sort.present ? data.sort.value : this.sort,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BillListSection(')
+          ..write('id: $id, ')
+          ..write('listId: $listId, ')
+          ..write('name: $name, ')
+          ..write('sort: $sort, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, listId, name, sort, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BillListSection &&
+          other.id == this.id &&
+          other.listId == this.listId &&
+          other.name == this.name &&
+          other.sort == this.sort &&
+          other.createdAt == this.createdAt);
+}
+
+class BillListSectionsCompanion extends UpdateCompanion<BillListSection> {
+  final Value<String> id;
+  final Value<String> listId;
+  final Value<String> name;
+  final Value<int> sort;
+  final Value<int> createdAt;
+  final Value<int> rowid;
+  const BillListSectionsCompanion({
+    this.id = const Value.absent(),
+    this.listId = const Value.absent(),
+    this.name = const Value.absent(),
+    this.sort = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  BillListSectionsCompanion.insert({
+    required String id,
+    required String listId,
+    required String name,
+    this.sort = const Value.absent(),
+    required int createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       listId = Value(listId),
+       name = Value(name),
+       createdAt = Value(createdAt);
+  static Insertable<BillListSection> custom({
+    Expression<String>? id,
+    Expression<String>? listId,
+    Expression<String>? name,
+    Expression<int>? sort,
+    Expression<int>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (listId != null) 'list_id': listId,
+      if (name != null) 'name': name,
+      if (sort != null) 'sort': sort,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  BillListSectionsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? listId,
+    Value<String>? name,
+    Value<int>? sort,
+    Value<int>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return BillListSectionsCompanion(
+      id: id ?? this.id,
+      listId: listId ?? this.listId,
+      name: name ?? this.name,
+      sort: sort ?? this.sort,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (listId.present) {
+      map['list_id'] = Variable<String>(listId.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (sort.present) {
+      map['sort'] = Variable<int>(sort.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BillListSectionsCompanion(')
+          ..write('id: $id, ')
+          ..write('listId: $listId, ')
+          ..write('name: $name, ')
+          ..write('sort: $sort, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $BalanceSnapshotsTable extends BalanceSnapshots
     with TableInfo<$BalanceSnapshotsTable, BalanceSnapshot> {
   @override
@@ -10527,6 +11646,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $BillsTable bills = $BillsTable(this);
   late final $BillTagsTable billTags = $BillTagsTable(this);
   late final $BillLocationsTable billLocations = $BillLocationsTable(this);
+  late final $BillListsTable billLists = $BillListsTable(this);
+  late final $BillListItemsTable billListItems = $BillListItemsTable(this);
+  late final $BillListSectionsTable billListSections = $BillListSectionsTable(
+    this,
+  );
   late final $BalanceSnapshotsTable balanceSnapshots = $BalanceSnapshotsTable(
     this,
   );
@@ -10570,6 +11694,18 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'idx_bill_locations_district',
     'CREATE INDEX idx_bill_locations_district ON bill_locations (district)',
   );
+  late final Index idxBillListsUpdated = Index(
+    'idx_bill_lists_updated',
+    'CREATE INDEX idx_bill_lists_updated ON bill_lists (updated_at)',
+  );
+  late final Index idxBillListItemsBill = Index(
+    'idx_bill_list_items_bill',
+    'CREATE INDEX idx_bill_list_items_bill ON bill_list_items (bill_id)',
+  );
+  late final Index idxBillListSectionsList = Index(
+    'idx_bill_list_sections_list',
+    'CREATE INDEX idx_bill_list_sections_list ON bill_list_sections (list_id)',
+  );
   late final Index idxSnapshotsAccount = Index(
     'idx_snapshots_account',
     'CREATE INDEX idx_snapshots_account ON balance_snapshots (account_id, timestamp)',
@@ -10594,6 +11730,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     bills,
     billTags,
     billLocations,
+    billLists,
+    billListItems,
+    billListSections,
     balanceSnapshots,
     transfers,
     lends,
@@ -10611,6 +11750,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     idxBillTagsTag,
     idxBillLocationsCity,
     idxBillLocationsDistrict,
+    idxBillListsUpdated,
+    idxBillListItemsBill,
+    idxBillListSectionsList,
     idxSnapshotsAccount,
     idxTransfersBill,
     idxMappingsProvider,
@@ -10623,6 +11765,27 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('bill_locations', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'bill_lists',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('bill_list_items', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'bills',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('bill_list_items', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'bill_lists',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('bill_list_sections', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -11966,6 +13129,24 @@ final class $$BillsTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$BillListItemsTable, List<BillListItem>>
+  _billListItemsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.billListItems,
+    aliasName: $_aliasNameGenerator(db.bills.id, db.billListItems.billId),
+  );
+
+  $$BillListItemsTableProcessedTableManager get billListItemsRefs {
+    final manager = $$BillListItemsTableTableManager(
+      $_db,
+      $_db.billListItems,
+    ).filter((f) => f.billId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_billListItemsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$BillsTableFilterComposer extends Composer<_$AppDatabase, $BillsTable> {
@@ -12082,6 +13263,31 @@ class $$BillsTableFilterComposer extends Composer<_$AppDatabase, $BillsTable> {
           }) => $$BillLocationsTableFilterComposer(
             $db: $db,
             $table: $db.billLocations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> billListItemsRefs(
+    Expression<bool> Function($$BillListItemsTableFilterComposer f) f,
+  ) {
+    final $$BillListItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.billListItems,
+      getReferencedColumn: (t) => t.billId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BillListItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.billListItems,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -12293,6 +13499,31 @@ class $$BillsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> billListItemsRefs<T extends Object>(
+    Expression<T> Function($$BillListItemsTableAnnotationComposer a) f,
+  ) {
+    final $$BillListItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.billListItems,
+      getReferencedColumn: (t) => t.billId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BillListItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.billListItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$BillsTableTableManager
@@ -12308,7 +13539,10 @@ class $$BillsTableTableManager
           $$BillsTableUpdateCompanionBuilder,
           (Bill, $$BillsTableReferences),
           Bill,
-          PrefetchHooks Function({bool billLocationsRefs})
+          PrefetchHooks Function({
+            bool billLocationsRefs,
+            bool billListItemsRefs,
+          })
         > {
   $$BillsTableTableManager(_$AppDatabase db, $BillsTable table)
     : super(
@@ -12411,33 +13645,63 @@ class $$BillsTableTableManager
                     (e.readTable(table), $$BillsTableReferences(db, table, e)),
               )
               .toList(),
-          prefetchHooksCallback: ({billLocationsRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [
-                if (billLocationsRefs) db.billLocations,
-              ],
-              addJoins: null,
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (billLocationsRefs)
-                    await $_getPrefetchedData<Bill, $BillsTable, BillLocation>(
-                      currentTable: table,
-                      referencedTable: $$BillsTableReferences
-                          ._billLocationsRefsTable(db),
-                      managerFromTypedResult: (p0) => $$BillsTableReferences(
-                        db,
-                        table,
-                        p0,
-                      ).billLocationsRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.billId == item.id),
-                      typedResults: items,
-                    ),
-                ];
+          prefetchHooksCallback:
+              ({billLocationsRefs = false, billListItemsRefs = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (billLocationsRefs) db.billLocations,
+                    if (billListItemsRefs) db.billListItems,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (billLocationsRefs)
+                        await $_getPrefetchedData<
+                          Bill,
+                          $BillsTable,
+                          BillLocation
+                        >(
+                          currentTable: table,
+                          referencedTable: $$BillsTableReferences
+                              ._billLocationsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$BillsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).billLocationsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.billId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (billListItemsRefs)
+                        await $_getPrefetchedData<
+                          Bill,
+                          $BillsTable,
+                          BillListItem
+                        >(
+                          currentTable: table,
+                          referencedTable: $$BillsTableReferences
+                              ._billListItemsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$BillsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).billListItemsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.billId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -12454,7 +13718,7 @@ typedef $$BillsTableProcessedTableManager =
       $$BillsTableUpdateCompanionBuilder,
       (Bill, $$BillsTableReferences),
       Bill,
-      PrefetchHooks Function({bool billLocationsRefs})
+      PrefetchHooks Function({bool billLocationsRefs, bool billListItemsRefs})
     >;
 typedef $$BillTagsTableCreateCompanionBuilder =
     BillTagsCompanion Function({
@@ -13086,6 +14350,1170 @@ typedef $$BillLocationsTableProcessedTableManager =
       (BillLocation, $$BillLocationsTableReferences),
       BillLocation,
       PrefetchHooks Function({bool billId})
+    >;
+typedef $$BillListsTableCreateCompanionBuilder =
+    BillListsCompanion Function({
+      required String id,
+      required String name,
+      Value<String?> icon,
+      Value<String?> color,
+      Value<String?> note,
+      required int createdAt,
+      required int updatedAt,
+      Value<int> rowid,
+    });
+typedef $$BillListsTableUpdateCompanionBuilder =
+    BillListsCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<String?> icon,
+      Value<String?> color,
+      Value<String?> note,
+      Value<int> createdAt,
+      Value<int> updatedAt,
+      Value<int> rowid,
+    });
+
+final class $$BillListsTableReferences
+    extends BaseReferences<_$AppDatabase, $BillListsTable, BillList> {
+  $$BillListsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$BillListItemsTable, List<BillListItem>>
+  _billListItemsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.billListItems,
+    aliasName: $_aliasNameGenerator(db.billLists.id, db.billListItems.listId),
+  );
+
+  $$BillListItemsTableProcessedTableManager get billListItemsRefs {
+    final manager = $$BillListItemsTableTableManager(
+      $_db,
+      $_db.billListItems,
+    ).filter((f) => f.listId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_billListItemsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$BillListSectionsTable, List<BillListSection>>
+  _billListSectionsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.billListSections,
+    aliasName: $_aliasNameGenerator(
+      db.billLists.id,
+      db.billListSections.listId,
+    ),
+  );
+
+  $$BillListSectionsTableProcessedTableManager get billListSectionsRefs {
+    final manager = $$BillListSectionsTableTableManager(
+      $_db,
+      $_db.billListSections,
+    ).filter((f) => f.listId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _billListSectionsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$BillListsTableFilterComposer
+    extends Composer<_$AppDatabase, $BillListsTable> {
+  $$BillListsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get icon => $composableBuilder(
+    column: $table.icon,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get color => $composableBuilder(
+    column: $table.color,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> billListItemsRefs(
+    Expression<bool> Function($$BillListItemsTableFilterComposer f) f,
+  ) {
+    final $$BillListItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.billListItems,
+      getReferencedColumn: (t) => t.listId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BillListItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.billListItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> billListSectionsRefs(
+    Expression<bool> Function($$BillListSectionsTableFilterComposer f) f,
+  ) {
+    final $$BillListSectionsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.billListSections,
+      getReferencedColumn: (t) => t.listId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BillListSectionsTableFilterComposer(
+            $db: $db,
+            $table: $db.billListSections,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$BillListsTableOrderingComposer
+    extends Composer<_$AppDatabase, $BillListsTable> {
+  $$BillListsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get icon => $composableBuilder(
+    column: $table.icon,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get color => $composableBuilder(
+    column: $table.color,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$BillListsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BillListsTable> {
+  $$BillListsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get icon =>
+      $composableBuilder(column: $table.icon, builder: (column) => column);
+
+  GeneratedColumn<String> get color =>
+      $composableBuilder(column: $table.color, builder: (column) => column);
+
+  GeneratedColumn<String> get note =>
+      $composableBuilder(column: $table.note, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  Expression<T> billListItemsRefs<T extends Object>(
+    Expression<T> Function($$BillListItemsTableAnnotationComposer a) f,
+  ) {
+    final $$BillListItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.billListItems,
+      getReferencedColumn: (t) => t.listId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BillListItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.billListItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> billListSectionsRefs<T extends Object>(
+    Expression<T> Function($$BillListSectionsTableAnnotationComposer a) f,
+  ) {
+    final $$BillListSectionsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.billListSections,
+      getReferencedColumn: (t) => t.listId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BillListSectionsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.billListSections,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$BillListsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $BillListsTable,
+          BillList,
+          $$BillListsTableFilterComposer,
+          $$BillListsTableOrderingComposer,
+          $$BillListsTableAnnotationComposer,
+          $$BillListsTableCreateCompanionBuilder,
+          $$BillListsTableUpdateCompanionBuilder,
+          (BillList, $$BillListsTableReferences),
+          BillList,
+          PrefetchHooks Function({
+            bool billListItemsRefs,
+            bool billListSectionsRefs,
+          })
+        > {
+  $$BillListsTableTableManager(_$AppDatabase db, $BillListsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BillListsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BillListsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BillListsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String?> icon = const Value.absent(),
+                Value<String?> color = const Value.absent(),
+                Value<String?> note = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BillListsCompanion(
+                id: id,
+                name: name,
+                icon: icon,
+                color: color,
+                note: note,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                Value<String?> icon = const Value.absent(),
+                Value<String?> color = const Value.absent(),
+                Value<String?> note = const Value.absent(),
+                required int createdAt,
+                required int updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => BillListsCompanion.insert(
+                id: id,
+                name: name,
+                icon: icon,
+                color: color,
+                note: note,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$BillListsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback:
+              ({billListItemsRefs = false, billListSectionsRefs = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (billListItemsRefs) db.billListItems,
+                    if (billListSectionsRefs) db.billListSections,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (billListItemsRefs)
+                        await $_getPrefetchedData<
+                          BillList,
+                          $BillListsTable,
+                          BillListItem
+                        >(
+                          currentTable: table,
+                          referencedTable: $$BillListsTableReferences
+                              ._billListItemsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$BillListsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).billListItemsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.listId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (billListSectionsRefs)
+                        await $_getPrefetchedData<
+                          BillList,
+                          $BillListsTable,
+                          BillListSection
+                        >(
+                          currentTable: table,
+                          referencedTable: $$BillListsTableReferences
+                              ._billListSectionsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$BillListsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).billListSectionsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.listId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
+              },
+        ),
+      );
+}
+
+typedef $$BillListsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $BillListsTable,
+      BillList,
+      $$BillListsTableFilterComposer,
+      $$BillListsTableOrderingComposer,
+      $$BillListsTableAnnotationComposer,
+      $$BillListsTableCreateCompanionBuilder,
+      $$BillListsTableUpdateCompanionBuilder,
+      (BillList, $$BillListsTableReferences),
+      BillList,
+      PrefetchHooks Function({
+        bool billListItemsRefs,
+        bool billListSectionsRefs,
+      })
+    >;
+typedef $$BillListItemsTableCreateCompanionBuilder =
+    BillListItemsCompanion Function({
+      required String listId,
+      required String billId,
+      required int addedAt,
+      Value<String?> sectionId,
+      Value<int> rowid,
+    });
+typedef $$BillListItemsTableUpdateCompanionBuilder =
+    BillListItemsCompanion Function({
+      Value<String> listId,
+      Value<String> billId,
+      Value<int> addedAt,
+      Value<String?> sectionId,
+      Value<int> rowid,
+    });
+
+final class $$BillListItemsTableReferences
+    extends BaseReferences<_$AppDatabase, $BillListItemsTable, BillListItem> {
+  $$BillListItemsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $BillListsTable _listIdTable(_$AppDatabase db) =>
+      db.billLists.createAlias(
+        $_aliasNameGenerator(db.billListItems.listId, db.billLists.id),
+      );
+
+  $$BillListsTableProcessedTableManager get listId {
+    final $_column = $_itemColumn<String>('list_id')!;
+
+    final manager = $$BillListsTableTableManager(
+      $_db,
+      $_db.billLists,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_listIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $BillsTable _billIdTable(_$AppDatabase db) => db.bills.createAlias(
+    $_aliasNameGenerator(db.billListItems.billId, db.bills.id),
+  );
+
+  $$BillsTableProcessedTableManager get billId {
+    final $_column = $_itemColumn<String>('bill_id')!;
+
+    final manager = $$BillsTableTableManager(
+      $_db,
+      $_db.bills,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_billIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$BillListItemsTableFilterComposer
+    extends Composer<_$AppDatabase, $BillListItemsTable> {
+  $$BillListItemsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get addedAt => $composableBuilder(
+    column: $table.addedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sectionId => $composableBuilder(
+    column: $table.sectionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$BillListsTableFilterComposer get listId {
+    final $$BillListsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.listId,
+      referencedTable: $db.billLists,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BillListsTableFilterComposer(
+            $db: $db,
+            $table: $db.billLists,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$BillsTableFilterComposer get billId {
+    final $$BillsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.billId,
+      referencedTable: $db.bills,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BillsTableFilterComposer(
+            $db: $db,
+            $table: $db.bills,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BillListItemsTableOrderingComposer
+    extends Composer<_$AppDatabase, $BillListItemsTable> {
+  $$BillListItemsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get addedAt => $composableBuilder(
+    column: $table.addedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sectionId => $composableBuilder(
+    column: $table.sectionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$BillListsTableOrderingComposer get listId {
+    final $$BillListsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.listId,
+      referencedTable: $db.billLists,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BillListsTableOrderingComposer(
+            $db: $db,
+            $table: $db.billLists,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$BillsTableOrderingComposer get billId {
+    final $$BillsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.billId,
+      referencedTable: $db.bills,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BillsTableOrderingComposer(
+            $db: $db,
+            $table: $db.bills,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BillListItemsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BillListItemsTable> {
+  $$BillListItemsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get addedAt =>
+      $composableBuilder(column: $table.addedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get sectionId =>
+      $composableBuilder(column: $table.sectionId, builder: (column) => column);
+
+  $$BillListsTableAnnotationComposer get listId {
+    final $$BillListsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.listId,
+      referencedTable: $db.billLists,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BillListsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.billLists,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$BillsTableAnnotationComposer get billId {
+    final $$BillsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.billId,
+      referencedTable: $db.bills,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BillsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.bills,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BillListItemsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $BillListItemsTable,
+          BillListItem,
+          $$BillListItemsTableFilterComposer,
+          $$BillListItemsTableOrderingComposer,
+          $$BillListItemsTableAnnotationComposer,
+          $$BillListItemsTableCreateCompanionBuilder,
+          $$BillListItemsTableUpdateCompanionBuilder,
+          (BillListItem, $$BillListItemsTableReferences),
+          BillListItem,
+          PrefetchHooks Function({bool listId, bool billId})
+        > {
+  $$BillListItemsTableTableManager(_$AppDatabase db, $BillListItemsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BillListItemsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BillListItemsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BillListItemsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> listId = const Value.absent(),
+                Value<String> billId = const Value.absent(),
+                Value<int> addedAt = const Value.absent(),
+                Value<String?> sectionId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BillListItemsCompanion(
+                listId: listId,
+                billId: billId,
+                addedAt: addedAt,
+                sectionId: sectionId,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String listId,
+                required String billId,
+                required int addedAt,
+                Value<String?> sectionId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BillListItemsCompanion.insert(
+                listId: listId,
+                billId: billId,
+                addedAt: addedAt,
+                sectionId: sectionId,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$BillListItemsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({listId = false, billId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (listId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.listId,
+                                referencedTable: $$BillListItemsTableReferences
+                                    ._listIdTable(db),
+                                referencedColumn: $$BillListItemsTableReferences
+                                    ._listIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+                    if (billId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.billId,
+                                referencedTable: $$BillListItemsTableReferences
+                                    ._billIdTable(db),
+                                referencedColumn: $$BillListItemsTableReferences
+                                    ._billIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$BillListItemsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $BillListItemsTable,
+      BillListItem,
+      $$BillListItemsTableFilterComposer,
+      $$BillListItemsTableOrderingComposer,
+      $$BillListItemsTableAnnotationComposer,
+      $$BillListItemsTableCreateCompanionBuilder,
+      $$BillListItemsTableUpdateCompanionBuilder,
+      (BillListItem, $$BillListItemsTableReferences),
+      BillListItem,
+      PrefetchHooks Function({bool listId, bool billId})
+    >;
+typedef $$BillListSectionsTableCreateCompanionBuilder =
+    BillListSectionsCompanion Function({
+      required String id,
+      required String listId,
+      required String name,
+      Value<int> sort,
+      required int createdAt,
+      Value<int> rowid,
+    });
+typedef $$BillListSectionsTableUpdateCompanionBuilder =
+    BillListSectionsCompanion Function({
+      Value<String> id,
+      Value<String> listId,
+      Value<String> name,
+      Value<int> sort,
+      Value<int> createdAt,
+      Value<int> rowid,
+    });
+
+final class $$BillListSectionsTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $BillListSectionsTable, BillListSection> {
+  $$BillListSectionsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $BillListsTable _listIdTable(_$AppDatabase db) =>
+      db.billLists.createAlias(
+        $_aliasNameGenerator(db.billListSections.listId, db.billLists.id),
+      );
+
+  $$BillListsTableProcessedTableManager get listId {
+    final $_column = $_itemColumn<String>('list_id')!;
+
+    final manager = $$BillListsTableTableManager(
+      $_db,
+      $_db.billLists,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_listIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$BillListSectionsTableFilterComposer
+    extends Composer<_$AppDatabase, $BillListSectionsTable> {
+  $$BillListSectionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sort => $composableBuilder(
+    column: $table.sort,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$BillListsTableFilterComposer get listId {
+    final $$BillListsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.listId,
+      referencedTable: $db.billLists,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BillListsTableFilterComposer(
+            $db: $db,
+            $table: $db.billLists,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BillListSectionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $BillListSectionsTable> {
+  $$BillListSectionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sort => $composableBuilder(
+    column: $table.sort,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$BillListsTableOrderingComposer get listId {
+    final $$BillListsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.listId,
+      referencedTable: $db.billLists,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BillListsTableOrderingComposer(
+            $db: $db,
+            $table: $db.billLists,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BillListSectionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BillListSectionsTable> {
+  $$BillListSectionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<int> get sort =>
+      $composableBuilder(column: $table.sort, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$BillListsTableAnnotationComposer get listId {
+    final $$BillListsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.listId,
+      referencedTable: $db.billLists,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BillListsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.billLists,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BillListSectionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $BillListSectionsTable,
+          BillListSection,
+          $$BillListSectionsTableFilterComposer,
+          $$BillListSectionsTableOrderingComposer,
+          $$BillListSectionsTableAnnotationComposer,
+          $$BillListSectionsTableCreateCompanionBuilder,
+          $$BillListSectionsTableUpdateCompanionBuilder,
+          (BillListSection, $$BillListSectionsTableReferences),
+          BillListSection,
+          PrefetchHooks Function({bool listId})
+        > {
+  $$BillListSectionsTableTableManager(
+    _$AppDatabase db,
+    $BillListSectionsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BillListSectionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BillListSectionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BillListSectionsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> listId = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<int> sort = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BillListSectionsCompanion(
+                id: id,
+                listId: listId,
+                name: name,
+                sort: sort,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String listId,
+                required String name,
+                Value<int> sort = const Value.absent(),
+                required int createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => BillListSectionsCompanion.insert(
+                id: id,
+                listId: listId,
+                name: name,
+                sort: sort,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$BillListSectionsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({listId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (listId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.listId,
+                                referencedTable:
+                                    $$BillListSectionsTableReferences
+                                        ._listIdTable(db),
+                                referencedColumn:
+                                    $$BillListSectionsTableReferences
+                                        ._listIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$BillListSectionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $BillListSectionsTable,
+      BillListSection,
+      $$BillListSectionsTableFilterComposer,
+      $$BillListSectionsTableOrderingComposer,
+      $$BillListSectionsTableAnnotationComposer,
+      $$BillListSectionsTableCreateCompanionBuilder,
+      $$BillListSectionsTableUpdateCompanionBuilder,
+      (BillListSection, $$BillListSectionsTableReferences),
+      BillListSection,
+      PrefetchHooks Function({bool listId})
     >;
 typedef $$BalanceSnapshotsTableCreateCompanionBuilder =
     BalanceSnapshotsCompanion Function({
@@ -15858,6 +18286,12 @@ class $AppDatabaseManager {
       $$BillTagsTableTableManager(_db, _db.billTags);
   $$BillLocationsTableTableManager get billLocations =>
       $$BillLocationsTableTableManager(_db, _db.billLocations);
+  $$BillListsTableTableManager get billLists =>
+      $$BillListsTableTableManager(_db, _db.billLists);
+  $$BillListItemsTableTableManager get billListItems =>
+      $$BillListItemsTableTableManager(_db, _db.billListItems);
+  $$BillListSectionsTableTableManager get billListSections =>
+      $$BillListSectionsTableTableManager(_db, _db.billListSections);
   $$BalanceSnapshotsTableTableManager get balanceSnapshots =>
       $$BalanceSnapshotsTableTableManager(_db, _db.balanceSnapshots);
   $$TransfersTableTableManager get transfers =>

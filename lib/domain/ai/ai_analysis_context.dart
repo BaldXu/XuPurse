@@ -144,8 +144,60 @@ class AiAnalysisContext {
     }
 
     final bills = await _repo.listByRange(start, end);
-    bills.sort((a, b) => a.time.compareTo(b.time));
+    return _assemble(
+      bills: bills,
+      start: start,
+      end: end,
+      includeNotes: includeNotes,
+      accounts: accounts,
+      categories: categories,
+    );
+  }
 
+  /// 用给定的账单列表生成 JSON（消费清单 AI 分析用）。
+  ///
+  /// 与按时间范围生成的区别：范围由账单本身推导，并可附带「清单内分类」。
+  AiAnalysisData buildFromBills({
+    required List<Bill> bills,
+    required bool includeNotes,
+    String? listName,
+    Map<String, String>? sectionByBillId,
+  }) {
+    final accounts = _read(accountsProvider).value ?? const <Account>[];
+    final categories = _read(categoriesProvider).value ?? const <Category>[];
+    var minT = 0;
+    var maxT = 0;
+    if (bills.isNotEmpty) {
+      minT = bills.first.time;
+      maxT = bills.first.time;
+      for (final b in bills) {
+        if (b.time < minT) minT = b.time;
+        if (b.time > maxT) maxT = b.time;
+      }
+    }
+    return _assemble(
+      bills: bills,
+      start: minT,
+      end: maxT + 1,
+      includeNotes: includeNotes,
+      accounts: accounts,
+      categories: categories,
+      listName: listName,
+      sectionByBillId: sectionByBillId,
+    );
+  }
+
+  AiAnalysisData _assemble({
+    required List<Bill> bills,
+    required int start,
+    required int end,
+    required bool includeNotes,
+    required List<Account> accounts,
+    required List<Category> categories,
+    String? listName,
+    Map<String, String>? sectionByBillId,
+  }) {
+    final sorted = [...bills]..sort((a, b) => a.time.compareTo(b.time));
     final accountName = {for (final a in accounts) a.id: a.name};
     final categoryById = {for (final c in categories) c.id: c};
 
@@ -162,7 +214,7 @@ class AiAnalysisContext {
     var expense = 0;
     var income = 0;
 
-    for (final b in bills) {
+    for (final b in sorted) {
       final toAccount = b.incomeAccountId;
       final isTransfer = toAccount != null;
       final type = isTransfer
@@ -182,6 +234,9 @@ class AiAnalysisContext {
             : fromName,
       };
 
+      final section = sectionByBillId?[b.id];
+      if (section != null && section.isNotEmpty) row['sec'] = section;
+
       final note = b.comment?.trim();
       if (includeNotes && note != null && note.isNotEmpty) {
         row['n'] = _sanitizeNote(note);
@@ -192,12 +247,13 @@ class AiAnalysisContext {
     final json = jsonEncode({
       'meta': {
         'v': 1,
+        if (listName != null && listName.isNotEmpty) 'list': listName,
         'from': _formatDate(start),
         'to': _formatDate(end - 1),
         'cnt': rows.length,
         'redacted': includeNotes,
         'sum': {'exp': _yuan(expense), 'inc': _yuan(income)},
-        'note': '金额单位为元；n 为备注（*** 表示已脱敏）',
+        'note': '金额单位为元；sec 为清单内分类；n 为备注（*** 表示已脱敏）',
       },
       'b': rows,
     });

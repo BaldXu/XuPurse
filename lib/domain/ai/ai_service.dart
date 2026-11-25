@@ -84,6 +84,12 @@ final aiChatProvider = NotifierProvider<AiChatNotifier, List<AiConversation>>(
   () => AiChatNotifier('ai_conversations'),
 );
 
+/// 消费清单 AI 分析的独立会话历史（与统计助手分开存）。
+final aiListChatProvider =
+    NotifierProvider<AiChatNotifier, List<AiConversation>>(
+      () => AiChatNotifier('ai_list_conversations'),
+    );
+
 class AiChatNotifier extends Notifier<List<AiConversation>> {
   AiChatNotifier(this._key);
 

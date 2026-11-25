@@ -179,6 +179,53 @@ class BillLocations extends Table {
   Set<Column> get primaryKey => {billId};
 }
 
+/// 消费清单（事件账本：一次旅游 / 一次装修的消费集合）
+@TableIndex(name: 'idx_bill_lists_updated', columns: {#updatedAt})
+class BillLists extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  TextColumn get icon => text().nullable()();
+  TextColumn get color => text().nullable()();
+  TextColumn get note => text().nullable()();
+  IntColumn get createdAt => integer()();
+  IntColumn get updatedAt => integer()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// 清单内分类（只属于某个消费清单，与全局记账分类无关）
+///
+/// 例如一次旅行的「前期准备 / 交通 / 住宿 / 餐饮」。
+@TableIndex(name: 'idx_bill_list_sections_list', columns: {#listId})
+class BillListSections extends Table {
+  TextColumn get id => text()();
+  TextColumn get listId =>
+      text().references(BillLists, #id, onDelete: KeyAction.cascade)();
+  TextColumn get name => text()();
+  IntColumn get sort => integer().withDefault(const Constant(0))();
+  IntColumn get createdAt => integer()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// 清单 ↔ 明细关联（多对多；删清单或删账单都级联清理关联行）
+@TableIndex(name: 'idx_bill_list_items_bill', columns: {#billId})
+class BillListItems extends Table {
+  TextColumn get listId =>
+      text().references(BillLists, #id, onDelete: KeyAction.cascade)();
+  TextColumn get billId =>
+      text().references(Bills, #id, onDelete: KeyAction.cascade)();
+  IntColumn get addedAt => integer()();
+
+  /// 清单内分类 id；null = 未分类。
+  TextColumn get sectionId => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {listId, billId};
+}
+
 /// 余额快照（趋势图数据源；isValid=false 表示关联账单已失效）
 @TableIndex(name: 'idx_snapshots_account', columns: {#accountId, #timestamp})
 class BalanceSnapshots extends Table {

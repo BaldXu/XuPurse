@@ -56,15 +56,24 @@ const double _cellBorderWidth = 1.5;
 /// 键盘「确认」与标题栏右上角「保存」等价：均提交整笔账单并关闭本页。
 /// [initialBill] 非空时为编辑模式（保存走 updateBill）。
 class BookkeepingPage extends ConsumerStatefulWidget {
-  const BookkeepingPage({super.key, this.initialBill});
+  const BookkeepingPage({super.key, this.initialBill, this.listId});
 
   final Bill? initialBill;
 
+  /// 非空时表示「在某个消费清单里记一笔」，保存后自动加入该清单。
+  final String? listId;
+
   /// 全库统一样式进入本页（[XpRoute] 转场）。
-  static Future<void> push(BuildContext context, {Bill? bill}) {
-    return Navigator.of(
-      context,
-    ).push(XpRoute<void>(builder: (_) => BookkeepingPage(initialBill: bill)));
+  static Future<void> push(
+    BuildContext context, {
+    Bill? bill,
+    String? listId,
+  }) {
+    return Navigator.of(context).push(
+      XpRoute<void>(
+        builder: (_) => BookkeepingPage(initialBill: bill, listId: listId),
+      ),
+    );
   }
 
   @override
@@ -751,6 +760,11 @@ class _BookkeepingPageState extends ConsumerState<BookkeepingPage>
             city: place?.city,
             source: place?.source ?? 'manual',
           );
+        }
+        // 从消费清单进入：保存后自动把这笔加入清单。
+        final listId = widget.listId;
+        if (listId != null) {
+          await ref.read(billListRepoProvider).addBills(listId, [savedBillId]);
         }
       }
       return true;

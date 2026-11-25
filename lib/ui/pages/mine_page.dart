@@ -11,6 +11,7 @@ import '../widgets/xp_card.dart';
 import '../widgets/xp_skeleton.dart';
 import 'about_page.dart';
 import 'ai_settings_page.dart';
+import 'bill_lists_page.dart';
 import 'book_manage_page.dart';
 import 'data_manage_page.dart';
 import 'report/report_list_page.dart';
@@ -93,6 +94,13 @@ class _MinePageState extends ConsumerState<MinePage>
                   title: '数据管理',
                   subtitle: '第三方数据导入、全量备份',
                   onTap: () => _push(context, const DataManagePage()),
+                ),
+                _EntryDivider(),
+                _Entry(
+                  icon: Icons.receipt_long_outlined,
+                  title: '消费清单',
+                  subtitle: '把一次旅行、一次装修的消费归到一起',
+                  onTap: () => _push(context, const BillListsPage()),
                 ),
                 // 报告汇总：达到展示门槛（≥10 条记账 且 跨度 > 1 周）才出现
                 if (showReport) ...[

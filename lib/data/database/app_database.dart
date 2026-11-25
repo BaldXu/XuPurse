@@ -19,6 +19,9 @@ part 'app_database.g.dart';
     Bills,
     BillTags,
     BillLocations,
+    BillLists,
+    BillListItems,
+    BillListSections,
     BalanceSnapshots,
     Transfers,
     Lends,
@@ -48,7 +51,7 @@ class AppDatabase extends _$AppDatabase {
   factory AppDatabase.memory() => AppDatabase(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 6;
 
   /// 清空数据库：删除全部用户表并重置 schema 版本，下次打开时自动重建。
   ///
@@ -92,6 +95,37 @@ class AppDatabase extends _$AppDatabase {
           "COALESCE(created_at, 0) FROM bills "
           "WHERE location_lat IS NOT NULL AND location_lng IS NOT NULL",
         );
+      }
+      if (from < 4) {
+        // v4：消费清单（事件账本）+ 清单与明细的多对多关联。
+        await m.createTable(billLists);
+        await m.createTable(billListItems);
+      }
+      if (from < 5) {
+        // v5：清单内分类（只属于清单），明细增加分类归属列。
+        await m.createTable(billListSections);
+        await m.addColumn(billListItems, billListItems.sectionId);
+      }
+      if (from < 6) {
+        // v6：给 v5 之前已存在的清单补一套默认分类
+        // （新建清单在仓库层会写入默认分类，这里只处理历史数据）。
+        await customStatement('''
+INSERT INTO bill_list_sections (id, list_id, name, sort, created_at)
+SELECT lower(hex(randomblob(16))), l.id, n.name, n.sort,
+       CAST(strftime('%s','now') AS INTEGER) * 1000
+FROM bill_lists l
+JOIN (
+  SELECT '前期准备' AS name, 0 AS sort
+  UNION ALL SELECT '交通', 1
+  UNION ALL SELECT '住宿', 2
+  UNION ALL SELECT '餐饮', 3
+  UNION ALL SELECT '购物', 4
+  UNION ALL SELECT '其他', 5
+) n
+WHERE NOT EXISTS (
+  SELECT 1 FROM bill_list_sections s WHERE s.list_id = l.id
+)
+''');
       }
     },
   );

@@ -204,6 +204,24 @@ class RestoreService {
       );
       _batchInsert(
         batch,
+        db.billLists,
+        (m) => BillList.fromJson(m).toCompanion(true),
+        data['bill_lists'],
+      );
+      _batchInsert(
+        batch,
+        db.billListSections,
+        (m) => BillListSection.fromJson(m).toCompanion(true),
+        data['bill_list_sections'],
+      );
+      _batchInsert(
+        batch,
+        db.billListItems,
+        (m) => BillListItem.fromJson(m).toCompanion(true),
+        data['bill_list_items'],
+      );
+      _batchInsert(
+        batch,
         db.billTags,
         (m) => BillTag.fromJson(m).toCompanion(true),
         data['bill_tags'],
