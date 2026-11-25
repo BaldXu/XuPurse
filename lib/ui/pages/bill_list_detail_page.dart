@@ -331,7 +331,7 @@ class _BillListDetailPageState extends ConsumerState<BillListDetailPage>
                   ref.watch(refundTotalsProvider).valueOrNull ??
                   const <String, int>{};
               final groups = _groupOf(sections, items);
-              final total = _totalOf(items, refunds);
+              final sums = _sumsOf(items, refunds);
               return Column(
                 children: [
                   Expanded(
@@ -343,7 +343,7 @@ class _BillListDetailPageState extends ConsumerState<BillListDetailPage>
                         XpSpacing.m,
                       ),
                       children: [
-                        _SummaryCard(total: total, items: items),
+                        _SummaryCard(sums: sums),
                         const SizedBox(height: XpSpacing.m),
                         if (items.isEmpty)
                           const Padding(
@@ -359,7 +359,7 @@ class _BillListDetailPageState extends ConsumerState<BillListDetailPage>
                             _SectionHeader(
                               title: group.section?.name ?? '未分类',
                               count: group.items.length,
-                              total: _totalOf(group.items, refunds),
+                              total: _sumsOf(group.items, refunds).net,
                             ),
                             const SizedBox(height: XpSpacing.s),
                             // 同一分类下的明细合并进一张卡片，行间用分隔线，
@@ -470,16 +470,53 @@ List<_Group> _groupOf(
   return groups;
 }
 
-/// 清单合计：支出按「原金额 − 退款」的净额计算，与列表展示口径一致。
-int _totalOf(List<BillListItemView> items, Map<String, int> refunds) {
-  var total = 0;
+/// 清单汇总口径：支出（扣退款）− 收入 = 实际花费。
+///
+/// 清单里的收入通常是 AA 收款、报销回款，应当抵扣这次事件的花费，
+/// 所以合计不是简单相加。
+class _Sums {
+  const _Sums({
+    required this.expense,
+    required this.income,
+    required this.count,
+    this.minTime,
+    this.maxTime,
+  });
+
+  final int expense;
+  final int income;
+  final int count;
+  final int? minTime;
+  final int? maxTime;
+
+  int get net => expense - income;
+}
+
+_Sums _sumsOf(List<BillListItemView> items, Map<String, int> refunds) {
+  var expense = 0;
+  var income = 0;
+  var count = 0;
+  int? minT;
+  int? maxT;
   for (final item in items) {
     final bill = item.bill;
     if (bill.type == 'transfer') continue;
-    final refund = bill.type == 'expense' ? (refunds[bill.id] ?? 0) : 0;
-    total += bill.amount - refund;
+    count++;
+    if (bill.type == 'expense') {
+      expense += bill.amount - (refunds[bill.id] ?? 0);
+    } else if (bill.type == 'income') {
+      income += bill.amount;
+    }
+    if (minT == null || bill.time < minT) minT = bill.time;
+    if (maxT == null || bill.time > maxT) maxT = bill.time;
   }
-  return total;
+  return _Sums(
+    expense: expense,
+    income: income,
+    count: count,
+    minTime: minT,
+    maxTime: maxT,
+  );
 }
 
 /// 分类分组标题：名称 + 笔数 + 小计。
@@ -530,32 +567,21 @@ class _SectionHeader extends StatelessWidget {
 }
 
 class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.total, required this.items});
+  const _SummaryCard({required this.sums});
 
-  final int total;
-  final List<BillListItemView> items;
+  final _Sums sums;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    var count = 0;
-    int? minT;
-    int? maxT;
-    for (final item in items) {
-      final bill = item.bill;
-      if (bill.type == 'transfer') continue;
-      count++;
-      if (minT == null || bill.time < minT) minT = bill.time;
-      if (maxT == null || bill.time > maxT) maxT = bill.time;
-    }
     return XpCard(
       padding: const EdgeInsets.all(XpSpacing.l),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '合计',
+            sums.income > 0 ? '实际花费' : '合计',
             style: theme.textTheme.labelMedium?.copyWith(
               color: scheme.onSurfaceVariant,
             ),
@@ -573,7 +599,7 @@ class _SummaryCard extends StatelessWidget {
               ),
               const SizedBox(width: 2),
               Text(
-                formatYuan(total),
+                formatYuan(sums.net),
                 style: theme.textTheme.displaySmall?.copyWith(
                   fontWeight: FontWeight.w700,
                   fontFeatures: const [FontFeature.tabularFigures()],
@@ -583,7 +609,7 @@ class _SummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: XpSpacing.s),
           Text(
-            _captionOf(count, minT, maxT),
+            _captionOf(sums),
             style: theme.textTheme.bodySmall?.copyWith(
               color: scheme.onSurfaceVariant,
             ),
@@ -594,9 +620,15 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
-String _captionOf(int count, int? minT, int? maxT) {
-  if (count == 0) return '还没有明细';
-  final parts = <String>['$count 笔'];
+String _captionOf(_Sums sums) {
+  if (sums.count == 0) return '还没有明细';
+  final parts = <String>['支出 ¥${formatYuan(sums.expense)}'];
+  if (sums.income > 0) {
+    parts.add('收入 ¥${formatYuan(sums.income)}（已抵扣）');
+  }
+  parts.add('${sums.count} 笔');
+  final minT = sums.minTime;
+  final maxT = sums.maxTime;
   if (minT != null && maxT != null) {
     final a = DateTime.fromMillisecondsSinceEpoch(minT);
     final b = DateTime.fromMillisecondsSinceEpoch(maxT);

@@ -79,15 +79,18 @@ class _AiListChatPageState extends ConsumerState<AiListChatPage>
     for (final item in widget.items) {
       if (item.bill.type == 'transfer') continue;
       final name = sectionName[item.sectionId] ?? '未分类';
-      final refund = item.bill.type == 'expense'
-          ? (refunds[item.bill.id] ?? 0)
-          : 0;
-      final net = item.bill.amount - refund;
-      total.update(name, (v) => v + net, ifAbsent: () => net);
+      // 支出扣退款；收入（AA 回款/报销）抵扣该分类的花费。
+      final int delta;
+      if (item.bill.type == 'income') {
+        delta = -item.bill.amount;
+      } else {
+        delta = item.bill.amount - (refunds[item.bill.id] ?? 0);
+      }
+      total.update(name, (v) => v + delta, ifAbsent: () => delta);
       count.update(name, (v) => v + 1, ifAbsent: () => 1);
     }
     if (total.isEmpty) return '';
-    final buf = StringBuffer('各分类小计（已扣减退款）：\n');
+    final buf = StringBuffer('各分类净花费（支出扣退款、收入已抵扣）：\n');
     total.forEach((name, amount) {
       buf.writeln('- $name：${count[name]} 笔，¥${formatYuan(amount)}');
     });
@@ -125,7 +128,11 @@ class _AiListChatPageState extends ConsumerState<AiListChatPage>
     return '$kDefaultSystemPrompt\n\n'
         '## 本机消费清单（用户已授权，逐笔）\n'
         '清单：「${widget.listName}」，共 ${_data.count} 笔，'
-        '合计支出 ¥${formatYuan(_data.expense)}。\n'
+        '支出 ¥${formatYuan(_data.expense)}，'
+        '收入 ¥${formatYuan(_data.income)}，'
+        '实际花费 ¥${formatYuan(_data.expense - _data.income)}。\n'
+        '注意：清单里的收入（如朋友 AA 回款、报销）应视为抵扣，'
+        '回答「这次花了多少」时用实际花费口径。\n'
         '$_sectionSummary\n'
         'JSON 字段：t 时间；ty 类型（exp 支出 / inc 收入 / trf 转账）；'
         'a 金额（元，支出已扣减退款）；c 记账分类；sec 清单内分类；ac 账户；'
@@ -225,7 +232,9 @@ class _AiListChatPageState extends ConsumerState<AiListChatPage>
             ),
             child: Text(
               '${widget.listName} · ${_data.count} 笔 · '
-              '¥${formatYuan(_data.expense)} · 含备注（脱敏）',
+              '实际 ¥${formatYuan(_data.expense - _data.income)}'
+              '${_data.income > 0 ? '（收入 ¥${formatYuan(_data.income)} 已抵扣）' : ''}'
+              ' · 含备注（脱敏）',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),

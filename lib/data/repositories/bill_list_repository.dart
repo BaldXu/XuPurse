@@ -62,10 +62,13 @@ SELECT l.id, l.name, l.icon, l.color, l.note,
        l.created_at, l.updated_at,
        COUNT(b.id) AS cnt,
        COALESCE(SUM(
-         CASE WHEN b.type <> 'transfer'
-           THEN b.amount - COALESCE(
-             (SELECT SUM(r.amount) FROM refunds r WHERE r.bill_id = b.id), 0)
-           ELSE 0 END
+         CASE
+           WHEN b.type = 'expense'
+             THEN b.amount - COALESCE(
+               (SELECT SUM(r.amount) FROM refunds r WHERE r.bill_id = b.id), 0)
+           WHEN b.type = 'income' THEN -b.amount
+           ELSE 0
+         END
        ), 0) AS total,
        MIN(b.time) AS min_time,
        MAX(b.time) AS max_time

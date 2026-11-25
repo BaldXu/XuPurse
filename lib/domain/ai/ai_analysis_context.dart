@@ -259,7 +259,11 @@ class AiAnalysisContext {
         'to': _formatDate(end - 1),
         'cnt': rows.length,
         'redacted': includeNotes,
-        'sum': {'exp': _yuan(expense), 'inc': _yuan(income)},
+        'sum': {
+          'exp': _yuan(expense),
+          'inc': _yuan(income),
+          'net': _yuan(expense - income),
+        },
         'note': '金额单位为元；sec 为清单内分类；n 为备注（*** 表示已脱敏）',
       },
       'b': rows,
